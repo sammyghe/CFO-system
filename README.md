@@ -25,8 +25,14 @@ knowledge-base/
     renew-cfo-embodiment.md   how to BE the Renew CFO: mantras, the morning routine,
                               LEAD, four rooms, bad news, the phrases that build trust
     operating-rhythm.md       daily/weekly/monthly/quarterly/annual + the Monday rule
+  05-finance-desk/            ← THE FINANCE DESK: intake, authority, answers
+    README.md                 what it is, the four request types, the SLA
+    AGENT-CONTRACT.md         the rules every AI agent follows before stating a figure
+    canonical-figures.yaml    machine-readable canon — agents read this first
+    answer-format.md          the LEAD answer template
+    requests/FD-*.md          the answered requests
   03-diagnostics/
-    maji-safi-drawbacks.md    ← 22 drawbacks, severity-ranked, every figure traceable
+    maji-safi-drawbacks.md    ← 24 drawbacks, severity-ranked, every figure traceable
     cfo100-course-pitfalls.md where the COURSE itself breaks for a pre-revenue,
                               founder-run, single-site business in Kampala
 models/
@@ -45,6 +51,12 @@ this business, and what to do instead.
 
 Then **`02-mentality/renew-cfo-embodiment.md`** — Renew's own definition of how a CFO
 thinks, talks and starts the day.
+
+## THE RULE THAT GOVERNS EVERY NUMBER
+
+**If a figure is not on the CANONICAL FIGURES tab with status APPROVED, it does not leave the
+building.** No agent, no person, no document. Requests go to `finance@maji-safi.com` and land
+in the REQUEST REGISTER. See `knowledge-base/05-finance-desk/`.
 
 ## THE STANDING RULE
 

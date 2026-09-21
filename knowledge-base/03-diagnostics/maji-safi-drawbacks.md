@@ -326,6 +326,40 @@ The **What would close it** column is the backlog. Nothing in it has been acted 
   not from the summary.
 - **Status:** OPEN — the point of the exercise · **Raised:** 2026-09-21
 
+### D-23 · Nobody keeps the books, and two years of statutory accounts appear unprepared
+- **Where it shows:** confirmed by the founder, 21 Sep 2026; Capital Brief 21 Sep
+- **The finding:** Safiflow Ventures Group Ltd was incorporated **October 2024** and has
+  never traded. **No bookkeeper, no accountant, no accounting software.** FY2025 and FY2026
+  statutory accounts appear never to have been prepared, and **the statutory year-end is not
+  known**, so we cannot currently say whether we are already late with URA.
+- **Why it matters:** this is a compliance exposure before it is a capital one, and it is
+  unsizeable until the year-end is established. It also blocks FD-001: a lender has been
+  told in December to expect statements that nobody is preparing. The Year-1 model's own
+  Bragg priority #15 has said "appoint an auditor" since it was written; D-14 recorded it;
+  neither moved.
+- **What would close it:** establish the year-end from the incorporation and URA documents ·
+  appoint an accountant this week · confirm filing status with URA · prepare FY2025 and
+  FY2026 to accountant-prepared standard with a commitment to audit FY2027.
+- **Status:** OPEN — **blocks 1 October and the December lender pack** · **Raised:** 2026-09-21
+
+### D-24 · Financial figures are asserted externally by agents that do not own them
+- **Where it shows:** Capital Brief, 21 Sep 2026; Gmail, 21 Sep 2026
+- **The finding:** the capital file states **USD 80,000** all-in per site; the operations
+  file states **about USD 20,000** and says that is the number to use with funders. A **4x
+  spread on the headline ask**, live in two files, neither owned. In the same afternoon,
+  outbound went to cewas, Mango Fund, UGEFA, Kiva, iungo, Shona and Aqua for All — and Kiva
+  replied within the hour. Separately, UNBS certification "still reads VERIFY" while impact
+  claims depend on it.
+- **Why it matters:** a company that gives two funders two different unit costs has not made
+  an arithmetic error, it has no finance function. The Capital Brief caught this one itself
+  and embargoed the figure — but that was a judgement call it has to remake every morning,
+  and agents draft outbound at 06:00 with no human reading first.
+- **What would close it:** **closed structurally on 21 Sep 2026** by the Finance Desk — the
+  `CANONICAL FIGURES` tab plus `AGENT-CONTRACT.md`. No figure leaves the building unless it
+  is APPROVED. The specific 80k/20k question remains open as FD-002 pending decomposition of
+  the 80,000.
+- **Status:** SYSTEM FIXED 2026-09-21; the underlying figure still DISPUTED · **Raised:** 2026-09-21
+
 ---
 
 ## Summary
@@ -336,7 +370,8 @@ The **What would close it** column is the backlog. Nothing in it has been acted 
 | 2 — structural | 7 | 7 | 0 | 0 |
 | 3 — organisational | 5 | 4 | 1 | 0 |
 | 4 — readiness | 5 | 4 | 0 | 1 |
-| **Total** | **22** | **20** | **1** | **1** |
+| 5 — system and compliance | 2 | 1 | 0 | 0 (1 system-fixed) |
+| **Total** | **24** | **21** | **1** | **1** |
 
 *(D-21 and D-22 added 21 Sep 2026 after the CFO100 syllabus and Session 1 job descriptions
 were supplied.)*

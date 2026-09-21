@@ -824,6 +824,79 @@ for tx in ["Renew's pre-send checklist, Session 4:",
            "  cash check, net income check, receivables, payables, inventory, non-cash expense, interest, unusual variance."]:
     ws.cell(r,1,tx).font=I if not tx.startswith("Renew") else B; r+=1
 
+
+# ============ REQUEST REGISTER ============
+ws=wb.create_sheet("REQUEST REGISTER")
+for col,w in zip("ABCDEFGHIJK",[9,13,26,11,52,13,13,14,44,24,13]): ws.column_dimensions[col].width=w
+ws.cell(1,1,"REQUEST REGISTER — the Finance Desk queue").font=H1
+ws.cell(2,1,"Every request to finance, from a human or an agent. Intake: finance@maji-safi.com. Answers use LEAD. Nothing is answered twice, two different ways.").font=I
+r=4
+for i,h in enumerate(["ID","Received","From","Type","Request","Needed by","Status","Answered","Answer — L line","Recorded in","SLA met"]):
+    c=ws.cell(r,1+i,h); c.font=WHITEB; c.fill=PatternFill("solid",fgColor=NAVY)
+r+=1
+REQ=[("FD-001","2026-09-21","Capital Brief (agent)","document",
+      "FY2025 and FY2026 statements prepared for a lender, not just URA","Dec 2026","BLOCKED","2026-09-21",
+      "The statements do not exist and nobody keeps the books. They are hygiene, not the capital asset — the October close on 10 Nov is. Appoint an accountant this week and establish the year-end.",
+      "requests/FD-001.md","YES"),
+     ("FD-002","2026-09-21","Capital Brief (agent)","decision",
+      "Per-site cost: USD 80,000 or USD 20,000? 4x spread, blocks Wednesday","2026-09-23","DISPUTED","2026-09-21",
+      "Cannot certify either until the 80,000 is decomposed. Embargoed from all outbound. Send me the build-up and I rule in a day.",
+      "requests/FD-002.md","YES"),
+     ("FD-003","2026-09-21","Capital Brief (agent)","approval",
+      "May impact claims built on UNBS certification be used?","2026-09-23","EMBARGOED","2026-09-21",
+      "No. Embargoed until the certificate is verified filed. The plant spec is still sayable; certification and anything derived from it is not.",
+      "requests/FD-003.md","YES")]
+for q in REQ:
+    for i,v in enumerate(q): ws.cell(r,1+i,v)
+    st=q[6]
+    fill = GREEN if st=="ANSWERED" else WARN
+    ws.cell(r,7).fill=PatternFill("solid",fgColor=fill); ws.cell(r,7).font=B
+    r+=1
+for rr in range(r,r+25):
+    for cc in range(1,12): ws.cell(rr,cc).fill=PatternFill("solid",fgColor=BLUE)
+r+=26
+for tx in ["SLA — figure: same day (it is a lookup against canon). approval: same day. document: 3 working days or a committed date. decision: next 08:30 Ema sync or Monday cash roll.",
+           "If a deadline will be missed: 'I don't know yet. I will have that by Thursday at noon.' Commit to a time and deliver. Never bluff.",
+           "Worked daily against the FINANCE-DESK label, and again every Monday after the cash roll."]:
+    ws.cell(r,1,tx).font=I; r+=1
+ws.freeze_panes="A5"
+
+# ============ CANONICAL FIGURES ============
+ws=wb.create_sheet("CANONICAL FIGURES")
+for col,w in zip("ABCDEFGH",[30,20,10,44,12,13,14,58]): ws.column_dimensions[col].width=w
+ws.cell(1,1,"CANONICAL FIGURES — the authority list").font=H1
+ws.cell(2,1,"IF A FIGURE IS NOT HERE WITH STATUS APPROVED, IT MAY NOT LEAVE THE BUILDING. No agent, no person, no document.").font=Font(bold=True,size=11,color="FFC00000")
+ws.cell(3,1,"Mirrored for agents as knowledge-base/05-finance-desk/canonical-figures.yaml. This tab is authoritative; if they disagree, the YAML is a bug.").font=I
+r=5
+for i,h in enumerate(["Figure","Value","Unit","Basis","As-of","Status","Owner","Note / why blocked"]):
+    c=ws.cell(r,1+i,h); c.font=WHITEB; c.fill=PatternFill("solid",fgColor=NAVY)
+r+=1
+import yaml
+Y=yaml.safe_load(open("/home/user/CFO-system/knowledge-base/05-finance-desk/canonical-figures.yaml"))
+STFILL={"APPROVED":GREEN,"DISPUTED":WARN,"EMBARGOED":WARN,"UNVERIFIED":YEL}
+for f in Y["figures"]:
+    ws.cell(r,1,f["label"])
+    v=f.get("value")
+    c=ws.cell(r,2,v if v is not None else "—")
+    if isinstance(v,(int,float)): c.number_format=NUM
+    ws.cell(r,3,f.get("unit") or "")
+    ws.cell(r,4,(f.get("basis") or "—"))
+    ws.cell(r,5,str(f.get("as_of")))
+    sc=ws.cell(r,6,f["status"]); sc.font=B; sc.fill=PatternFill("solid",fgColor=STFILL.get(f["status"],GREY))
+    ws.cell(r,7,f.get("owner") or "")
+    ws.cell(r,8,(f.get("reason") or f.get("note") or "").strip().replace("\n"," "))
+    r+=1
+r+=1
+for tx in ["APPROVED — use it, and quote the as-of date.",
+           "DISPUTED — two sources disagree and the Finance Desk has not ruled. Do not use it anywhere, internal or external.",
+           "UNVERIFIED — not usable externally. Internally, mark it [UNVERIFIED].",
+           "EMBARGOED — do not use it, and do not use anything derived from it. The reason is recorded.",
+           "",
+           "Authority granted by Sammy Ghedamu, founder, 21 September 2026, after a 4x spread on the headline ask sat live in two files during a week when eight funders were emailed."]:
+    c=ws.cell(r,1,tx); c.font=I if tx else I
+    r+=1
+ws.freeze_panes="A6"
+
 out="/home/user/CFO-system/models/MajiSafi_FINANCIAL_SOURCE_OF_TRUTH.xlsx"
 wb.save(out)
 print("SAVED",out)

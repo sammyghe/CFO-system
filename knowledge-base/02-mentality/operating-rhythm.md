@@ -43,6 +43,7 @@ The tool is `models/MajiSafi_OneSite_Model.xlsx`, tab **13-WEEK CASH**.
 
 | Task | Source |
 |---|---|
+| **Clear the FINANCE-DESK label** — figures and approvals answered same day | Finance Desk |
 | Cash position | Session 2 checklist calendar |
 | Bank balance — **reconcile daily, not monthly** | Session 2; Bragg #2 |
 | Record and categorise payments, expenses, sales and receipts | Renew checklist (Senior Accountant) |
@@ -56,6 +57,7 @@ The tool is `models/MajiSafi_OneSite_Model.xlsx`, tab **13-WEEK CASH**.
 | Task | Source |
 |---|---|
 | **MONDAY: roll the 13-week cash forecast** and hold the cash meeting | the standing rule |
+| **Then work the open REQUEST REGISTER** — anything past SLA gets a committed date | Finance Desk |
 | AP / AR ageing | Session 2 |
 | Payroll prep | Session 2 |
 | Weekly departmental plan, approved by the GM | Renew checklist |
@@ -74,6 +76,7 @@ The tool is `models/MajiSafi_OneSite_Model.xlsx`, tab **13-WEEK CASH**.
 | Bank reconciliation, all accounts | Renew checklist |
 | Payroll; tax and regulatory filings (fix a monthly date) | Renew checklist |
 | Monthly finance meeting: TvA + ratios + **ask "why" seven times** + make decisions | Session 4 |
+| **Review CANONICAL FIGURES** — re-date every figure, clear anything stale | Finance Desk |
 | Physical inventory count | Bragg #28 |
 
 ## Quarterly

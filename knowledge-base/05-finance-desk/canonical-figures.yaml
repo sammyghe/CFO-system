@@ -1,0 +1,189 @@
+# CANONICAL FIGURES — the authority list
+#
+# If a figure is not here with status APPROVED, it may not leave the building.
+# Mirrors the CANONICAL FIGURES tab of models/MajiSafi_FINANCIAL_SOURCE_OF_TRUTH.xlsx.
+# The workbook tab is authoritative. If these disagree, the workbook wins.
+#
+# status: APPROVED | DISPUTED | UNVERIFIED | EMBARGOED
+# Read AGENT-CONTRACT.md before using anything here.
+
+meta:
+  owner: Finance Desk
+  contact: finance@maji-safi.com
+  last_reviewed: 2026-09-21
+  entity: Safiflow Ventures Group Limited, t/a Maji Safi
+  fy1: 2026-10-01 to 2027-09-30
+  authority_granted: 2026-09-21 by Sammy Ghedamu, founder
+
+figures:
+
+  - key: capital_ask_2026_usd
+    label: The 2026 capital ask
+    value: 400000
+    unit: USD
+    basis: Five locations by 31 December 2026
+    as_of: 2026-09-21
+    status: APPROVED
+    owner: Sammy
+    usable_externally: true
+    note: >
+      The headline ask is approved. The PER-SITE figure underneath it is not —
+      see cost_per_site_usd. You may say "USD 400,000 for five locations".
+      You may NOT break that into a per-site number.
+
+  - key: cost_per_site_usd
+    label: All-in cost per site
+    value: null
+    unit: USD
+    basis: null
+    as_of: 2026-09-21
+    status: DISPUTED
+    owner: Finance Desk
+    usable_externally: false
+    reason: >
+      Two sources disagree by 4x. The capital file states USD 80,000 all-in per site;
+      the operations file states about USD 20,000 all-in and says that is the number to
+      use with funders. Neither can be certified until the 80,000 is decomposed into
+      plant-and-install versus fully-loaded site. Tracked as FD-002.
+      Blocked by GAP-13 and GAP-16 (cost of sales and overheads are blended figures).
+    until: Finance Desk rules on FD-002
+
+  - key: unbs_certification
+    label: UNBS certification status
+    value: null
+    unit: status
+    basis: null
+    as_of: 2026-09-21
+    status: EMBARGOED
+    owner: Sammy
+    usable_externally: false
+    reason: >
+      Reads VERIFY in the capital tracker and is not confirmed filed. It gates every
+      impact and quality claim we could make. Do not state or imply certification,
+      and do not use any impact number derived from it. Tracked as FD-003 and GAP-06.
+    until: certificate verified as filed
+
+  - key: statutory_year_end
+    label: Statutory financial year-end
+    value: null
+    unit: date
+    basis: null
+    as_of: 2026-09-21
+    status: UNVERIFIED
+    owner: Sammy
+    usable_externally: false
+    reason: >
+      Not established. Company incorporated October 2024. Until this is known we cannot
+      say which periods FY2025 and FY2026 cover, whether statutory accounts are overdue
+      with URA, or whether FY2026 statements can exist before the December lender
+      deadline. Top blocking item. Tracked as FD-001.
+
+  - key: full_breakeven_jars_per_day
+    label: Full break-even, including the jar programme (month 1)
+    value: 577
+    unit: jars/day
+    basis: >
+      (fixed opex 8,163,542 + salaries 2,575,000 + depreciation 5,250,000
+      + jar programme 8,250,000) / contribution 1,616.82 per unit / 26 days
+    as_of: 2026-09-08
+    status: APPROVED
+    owner: Finance Desk
+    usable_externally: true
+    note: Planned month-1 output is 500/day, so the plan opens 77/day BELOW break-even.
+
+  - key: cash_breakeven_jars_per_day
+    label: Cash break-even, including the jar programme (month 1)
+    value: 452
+    unit: jars/day
+    basis: Excludes depreciation
+    as_of: 2026-09-08
+    status: APPROVED
+    owner: Finance Desk
+    usable_externally: true
+
+  - key: fy1_net_revenue_plan_ugx
+    label: FY1 net revenue — PLAN
+    value: 1807859712
+    unit: UGX
+    basis: Year-1 model, net of VAT and excise per IFRS 15
+    as_of: 2026-09-08
+    status: APPROVED
+    owner: Finance Desk
+    usable_externally: true
+    note: >
+      This is a FORECAST for a company that has not traded. It must always be stated as
+      a plan, never as a result. Nothing may be described as revenue before 1 Oct 2026.
+
+  - key: fy1_lowest_cash_point_ugx
+    label: FY1 lowest cash point — PLAN
+    value: 17548449
+    unit: UGX
+    basis: Month 1 of the Year-1 model
+    as_of: 2026-09-08
+    status: APPROVED
+    owner: Finance Desk
+    usable_externally: true
+    note: No facility, overdraft or committed tranche sits behind this.
+
+  - key: fy1_deposit_liability_ugx
+    label: Customer deposits owed at month 12 — PLAN
+    value: 157038750
+    unit: UGX
+    basis: Cumulative jar deposits received, no returns modelled
+    as_of: 2026-09-08
+    status: APPROVED
+    owner: Finance Desk
+    usable_externally: true
+    note: >
+      Customers' money, repayable on jar return. Never present it as equity, headroom,
+      distributable profit, or available as security to a lender.
+
+  - key: minimum_cash_floor_ugx
+    label: Minimum cash floor — policy
+    value: 20000000
+    unit: UGX
+    basis: Finance Desk policy
+    as_of: 2026-09-21
+    status: APPROVED
+    owner: Finance Desk
+    usable_externally: false
+    note: Internal policy. Below this the alarm fires and something gets cut.
+
+  - key: plant_at_cost_ugx
+    label: Plant and equipment at cost
+    value: 315000000
+    unit: UGX
+    basis: Year-1 model opening balance sheet
+    as_of: 2026-09-08
+    status: APPROVED
+    owner: Finance Desk
+    usable_externally: true
+    note: Already paid for. No Year-1 capex is modelled — see GAP-11.
+
+  - key: trading_status
+    label: Trading status
+    value: pre-trading until 2026-10-01
+    unit: status
+    basis: Confirmed by founder
+    as_of: 2026-09-21
+    status: APPROVED
+    owner: Sammy
+    usable_externally: true
+    note: >
+      Say this plainly and early. Every financial figure before 1 Oct 2026 is a forecast.
+      A funder who discovers it themselves has found a surprise; a funder told up front
+      has been given a fact.
+
+  - key: fy2025_fy2026_statements
+    label: FY2025 and FY2026 statutory financial statements
+    value: null
+    unit: status
+    basis: null
+    as_of: 2026-09-21
+    status: UNVERIFIED
+    owner: Sammy
+    usable_externally: false
+    reason: >
+      Nobody currently keeps the books. These statements appear never to have been
+      prepared. Do not promise them to any lender or funder with a date until an
+      accountant is appointed and the year-end is established. Tracked as FD-001.
