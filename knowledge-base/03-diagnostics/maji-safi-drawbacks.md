@@ -257,15 +257,60 @@ The **What would close it** column is the backlog. Nothing in it has been acted 
   distribution: gross margin, net margin, asset turnover, typical credit terms.
 - **Status:** OPEN · **Raised:** 2026-09-21
 
-### D-19 · Session 4 homework not done properly
-- **Where it shows:** self-reported, 21 Sep 2026
-- **The finding:** A known hole mid-course. The Session 4 topic and assignment are not in
-  any email — they sit on the Renew training platform.
-- **Why it matters:** CFO100 is cumulative; Session 5 (cash management) builds on what came
-  before it.
-- **What would close it:** Export the Session 4 material into the Drive folder
-  `CFO 100 renew capital`, then redo it properly against Maji Safi's own numbers.
-- **Status:** PARKED by decision, 2026-09-21 · **Raised:** 2026-09-21
+### D-19 · Session 4 homework not done properly — and now it is clear why
+- **Where it shows:** self-reported 21 Sep 2026; syllabus supplied same day
+- **The finding:** Session 4 (14 Sep) was **Financial Reporting and Variance Analysis**, not
+  more ratio work. The homework was: financial ratios, **graphs**, **financial commentary
+  with a recommendation**, and **a summary report prepared for your CEO** — plus a **case
+  study** evaluated on *"your ability to identify the problem, craft a solution and present
+  it."*
+- **Why it matters:** Session 3 was the arithmetic. Session 4 was the **communication half
+  of the job** — turning numbers into a report with a named reader, a recommendation and a
+  visual. Maji Safi produces a *model*, not a *report*: no graphs, no written commentary, no
+  recommendation, no addressee. Renew lists "review and approve financial reports" as core
+  CFO work in the Session 1 job description. This is the widest gap in the role map.
+- **The deeper reason it was thin:** Sammy is the CEO. "Prepare a summary report for your
+  CEO" has no external reader to force the discipline — the report would be addressed to
+  himself. That makes the exercise easy to skip and *more* important to do, because it is
+  exactly the muscle needed for an investor, a lender or a board.
+- **What would close it:** Write the Session 4 report properly for a real reader — the
+  obvious candidate is Renew itself, or a prospective funder. Ratios + graphs + commentary +
+  one recommendation, one page.
+- **Status:** PARKED by decision, 2026-09-21 — *reason now understood* · **Raised:** 2026-09-21
+
+### D-21 · Variance analysis has nothing to run against
+- **Where it shows:** Syllabus Sessions 4 and 8; Assignment 1 (GL Accountant job
+  description); Cover tab of the Year-1 model
+- **The finding:** Variance analysis appears **three times** in the course material — the
+  Session 4 title, the Session 8 objectives ("why variance analysis and its structure… the
+  various steps"), and as routine recurring duty in the **GL Accountant** job description
+  ("provide monthly expense variance analysis"). Renew treats budget-vs-actual as the basic
+  metabolism of a finance function. **Maji Safi has no actuals.** There is nothing to vary
+  against.
+- **Why it matters:** This is not a scheduling problem, it is a sequencing one. Roughly a
+  third of what CFO100 teaches — variance analysis, financial reporting, budget review,
+  costing compliance — assumes a company that is *trading and recording*. Maji Safi will get
+  the full value of Sessions 4, 7 and 8 only once Month 1 actuals exist. Until then the
+  exercises can be rehearsed against plan, but the loop does not close.
+- **What would close it:** One month of recorded actuals against the Year-1 budget. The day
+  Month 1 closes, the entire back half of this course becomes real work rather than
+  rehearsal — and the Renew homework pattern (*review → identify → propose → submit*) has
+  something to bite on.
+- **Status:** OPEN — structural, resolves itself at first close · **Raised:** 2026-09-21
+
+### D-22 · Session 2's homework verb was "begin implementing", and it hasn't been
+- **Where it shows:** Syllabus Session 2; CFO 90-Day Plan tab
+- **The finding:** The Session 2 assignment (31 Aug) was not to *read* the finance department
+  checklists but to **prepare daily, weekly and monthly checklists for the accounting
+  process and begin implementing the daily and weekly ones**. Three weeks on, Bragg
+  priorities #1, #2, #3, #8, #9 and #10 are all still OPEN.
+- **Why it matters:** It is the same finding as D-05 seen from the course's side, and it
+  shows the pattern: the analysis gets done to a high standard, the **recurring obligation**
+  does not get started. Renew's syllabus is built to install habits; the habits are the part
+  being deferred.
+- **What would close it:** Pick the smallest possible daily checklist and run it for a week
+  before adding a second thing to it.
+- **Status:** OPEN · **Raised:** 2026-09-21
 
 ### D-20 · The model is being read for good news, not for what breaks it
 - **Where it shows:** Session 3 homework, compared against this register
@@ -290,8 +335,11 @@ The **What would close it** column is the backlog. Nothing in it has been acted 
 | 1 — asked in the room | 5 | 5 | 0 | 0 |
 | 2 — structural | 7 | 7 | 0 | 0 |
 | 3 — organisational | 5 | 4 | 1 | 0 |
-| 4 — readiness | 3 | 2 | 0 | 1 |
-| **Total** | **20** | **18** | **1** | **1** |
+| 4 — readiness | 5 | 4 | 0 | 1 |
+| **Total** | **22** | **20** | **1** | **1** |
+
+*(D-21 and D-22 added 21 Sep 2026 after the CFO100 syllabus and Session 1 job descriptions
+were supplied.)*
 
 **The one-sentence version:** Maji Safi is a well-built forecast of a business that has not
 yet traded, whose entire first year rests on an untested volume ramp, whose thinnest cash

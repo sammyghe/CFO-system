@@ -17,9 +17,11 @@ knowledge-base/
                               the Year-1 headline numbers, how Sammy works
     decisions-log.md          dated founder decisions — and what is explicitly NOT decided
   01-cfo100/
-    curriculum-map.md         the 10 sessions: dates, topics, what's confirmed vs unknown
+    curriculum-map.md         all 10 sessions from the official syllabus: objectives,
+                              homework, grading weights
     materials/                (empty) where platform exports land
-  02-mentality/               (empty) Renew lens, operating rhythm, Bragg's 29 priorities
+  02-mentality/
+    cfo-role.md               Renew's six-domain CFO definition, mapped to Maji Safi
   03-diagnostics/
     maji-safi-drawbacks.md    ← 20 drawbacks, severity-ranked, every figure traceable
   04-tools/                   (empty) 13-week cash forecast, scenario model
@@ -34,15 +36,21 @@ built from it.
 ## What is real and what is pending
 
 **Real, written from source:** the drawback register, the company context, the decisions log,
-the curriculum map. Every figure traces to a named tab of `majisafiyearone.xlsx` in Drive or
-to a Renew email in Gmail.
+the curriculum map and the CFO role map. Every figure traces to a named tab of
+`majisafiyearone.xlsx` in Drive, to a Renew email in Gmail, or to the CFO100 syllabus and
+Session 1 assignment supplied on 21 Sep 2026.
 
 **Pending, with placeholder READMEs saying so:** `01-cfo100/materials/`, `02-mentality/`,
 `04-tools/`. Empty folders mean not built — never assume a file exists because a folder does.
 
-**Not accessible from here:** the Renew CFO100 training platform (HubSpot, password-
-protected). Session decks, recordings, assignments and the final exam live there and cannot
-be downloaded by this system. `01-cfo100/curriculum-map.md` documents how to get them across.
+**Not accessible from here:** the Renew CFO100 training platform
+(`training.renewcapital.com`, password-protected). Session decks, recordings, the cash
+checklists and forecast templates, and the final exam live there and cannot be downloaded by
+this system. `01-cfo100/curriculum-map.md` lists exactly what is still missing and how to get
+it across.
+
+**Renew material marked proprietary** is summarised into this knowledge base for study; raw
+Renew files are not committed here.
 
 ## Working rules
 
