@@ -22,16 +22,35 @@ knowledge-base/
     materials/                (empty) where platform exports land
   02-mentality/
     cfo-role.md               Renew's six-domain CFO definition, mapped to Maji Safi
+    renew-cfo-embodiment.md   how to BE the Renew CFO: mantras, the morning routine,
+                              LEAD, four rooms, bad news, the phrases that build trust
+    operating-rhythm.md       daily/weekly/monthly/quarterly/annual + the Monday rule
   03-diagnostics/
-    maji-safi-drawbacks.md    ← 20 drawbacks, severity-ranked, every figure traceable
-  04-tools/                   (empty) 13-week cash forecast, scenario model
+    maji-safi-drawbacks.md    ← 22 drawbacks, severity-ranked, every figure traceable
+    cfo100-course-pitfalls.md where the COURSE itself breaks for a pre-revenue,
+                              founder-run, single-site business in Kampala
+models/
+  MajiSafi_OneSite_Model.xlsx  the live model — 10 tabs, all formulas, scenario switch
+  MajiSafi_OneSite_BLANK.xlsx  the same workbook, empty, every line item ready to fill
+  build_model.py               regenerates both; edit here, not in the workbook
 ```
 
 ## Start here
 
 **`knowledge-base/03-diagnostics/maji-safi-drawbacks.md`** — the honest read on Maji Safi as
-it stands, written the way CFO100 teaches a CFO to read a business. Everything else gets
-built from it.
+it stands, written the way CFO100 teaches a CFO to read a business.
+
+Then **`03-diagnostics/cfo100-course-pitfalls.md`** — where the course itself does not fit
+this business, and what to do instead.
+
+Then **`02-mentality/renew-cfo-embodiment.md`** — Renew's own definition of how a CFO
+thinks, talks and starts the day.
+
+## THE STANDING RULE
+
+**Every Monday morning: roll the 13-week cash forecast forward and read the ALARM row.**
+Tab `13-WEEK CASH` in `models/MajiSafi_OneSite_Model.xlsx`. Nothing else in this system
+matters if that one does not happen.
 
 ## What is real and what is pending
 
@@ -40,8 +59,12 @@ the curriculum map and the CFO role map. Every figure traces to a named tab of
 `majisafiyearone.xlsx` in Drive, to a Renew email in Gmail, or to the CFO100 syllabus and
 Session 1 assignment supplied on 21 Sep 2026.
 
-**Pending, with placeholder READMEs saying so:** `01-cfo100/materials/`, `02-mentality/`,
-`04-tools/`. Empty folders mean not built — never assume a file exists because a folder does.
+**Pending, with placeholder READMEs saying so:** `01-cfo100/materials/` and `04-tools/`.
+Empty folders mean not built — never assume a file exists because a folder does.
+
+**The model is verified, not assumed.** Every line reconciles to the published Year-1 figures
+within 0.003%, and the balance sheet checks to zero in M1 and M12. Verified by evaluating
+the workbook's formulas, not by eye.
 
 **Not accessible from here:** the Renew CFO100 training platform
 (`training.renewcapital.com`, password-protected). Session decks, recordings, the cash

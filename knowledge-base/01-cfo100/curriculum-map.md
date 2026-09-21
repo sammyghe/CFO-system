@@ -33,9 +33,14 @@ Zoom: `https://us02web.zoom.us/webinar/register/WN_55-Cog75TtKfz5opRYsJFg`
 - Attendance credit for a session requires attending **at least half** of it.
 - **Session 9 (Sustainable Finance / Review) counts for bonus credit and makes up for a
   missed class.**
-- The Welcome email separately states you must attend **at least 8 of 10** sessions to
-  graduate. Both statements are from Renew; treat 8-of-10 as the hard floor and the
-  percentages as the grade.
+
+**Attendance floor — Renew states it two ways, and the decks are the later word:**
+- Welcome email (21 Aug) and syllabus: *"attend at least 8 of 10"*.
+- **Session 3 and Session 4 decks (7 and 14 Sep): "You must attend at least 7 of the 9 live
+  sessions (the 10th session is the Final Exam)."**
+
+The decks are more recent and more specific. Treat **7 of 9** as the operative floor, with
+Session 9 able to cover a miss. Confirm with Emily if it ever gets close.
 
 **What this means in practice:** the exam and showing up are 90% of the grade. A weak
 homework is worth a fraction of one-tenth. That is not an argument for skipping the work —
@@ -44,20 +49,27 @@ does mean a thin Session 4 submission is not the thing to worry about. The exam 
 
 ## Session map
 
-| # | Date | Topic | Attended | Homework status |
-|---|---|---|---|---|
-| 1a | 24 Aug | **Introduction: What to expect from the CFO100** | yes | submitted |
-| 1b | 24 Aug | **The CFO: Roles, Responsibilities and Skills of a CFO** | yes | submitted |
-| 2 | 31 Aug | **Overseeing the Controller and Accounting Functions** | yes | submitted |
-| 3 | 7 Sep | **Financial Statement Analysis** | yes | done — see note |
-| 4 | 14 Sep | **Financial Reporting and Variance Analysis** + **Case Study** | — | **thin — see D-19** |
-| 5a | 21 Sep | **Managing Cash** | today | — |
-| 5b | 21 Sep | **Cash Forecasting** | today | — |
-| 6 | 28 Sep | **Establish and evaluate internal controls** | — | — |
-| 7 | 5 Oct | **Costing** | — | — |
-| 8 | 12 Oct | **Building and using a budget** | — | — |
-| 9 | 19 Oct | **Sustainable Finance / Review Session** (bonus credit) | — | — |
-| 10 | 26 Oct | **CFO100 Exam** | — | — |
+**The delivered decks differ from the syllabus.** The syllabus warned that *"dates and
+topics are subject to change"*, and they did. Where a deck exists, the deck's own title is
+authoritative. Renew's one-line framing of each session (from the Session 4 divider slide)
+is in the last column.
+
+| # | Date | Topic — as DELIVERED | Renew's framing | Attended | Homework |
+|---|---|---|---|---|---|
+| 1a | 24 Aug | Introduction: What to expect from the CFO100 | — | yes | submitted |
+| 1b | 24 Aug | The CFO: Roles, Responsibilities and Skills | **"Who a CFO is"** | yes | submitted |
+| 2 | 31 Aug | **Speaking as the CFO: Turning Numbers into Decisions** *(syllabus said "Overseeing the Controller and Accounting Functions" — the deck covers both, LEAD first and the accounting system in Part 6)* | **"How a CFO talks"** | yes | submitted |
+| 3 | 7 Sep | **Financial Statement Analysis** | **"What a CFO analyses"** | yes | done — see note |
+| 4 | 14 Sep | **Financial Reporting** *(syllabus said "…and Variance Analysis"; the deck is titled Financial Reporting and treats variance inside it)* + **Case Study** | **"How a CFO says it"** | — | **thin — see D-19** |
+| 5a | 21 Sep | **Managing Cash** | — | today | — |
+| 5b | 21 Sep | **Cash Forecasting** | — | today | — |
+| 6 | 28 Sep | Establish and evaluate internal controls | — | — | — |
+| 7 | 5 Oct | Costing | — | — | — |
+| 8 | 12 Oct | Building and using a budget | — | — | — |
+| 9 | 19 Oct | Sustainable Finance / Review Session (bonus credit) | — | — | — |
+| 10 | 26 Oct | **CFO100 Exam** | — | — | — |
+
+Sessions 6–10 are from the syllabus and have no deck yet, so their titles may shift too.
 
 ---
 
@@ -207,13 +219,18 @@ Supplied 21 Sep 2026 and read in full:
 | `CFO-100 Syllabus 2026 (7).pdf` | this map |
 | `4-Assignment 1 - Job Descriptions (1).pdf` | Session 1 · CFO / Accounting Manager / AP / AR / GL job descriptions → `02-mentality/cfo-role.md` |
 | `Accounting and Finance Team Checklist (1) (2).xlsx` | Session 2 · identical to the copy already in Drive `CFO 100 renew capital/` |
+| `CFO100 - Session 2 - 8.31.26.pdf` | LEAD, four rooms, bad news, saying no, checklists, the accounting system → `02-mentality/renew-cfo-embodiment.md`, `operating-rhythm.md` |
+| `CFO100 SESSION 3 - FINAL - 9.7.26.pdf` | the three buckets, all four ratio families with Renew's own rules of thumb, the mindset slide |
+| `CFO100 - Session 4 - Presentation.pdf` | financial reporting, the D→A++ grading ladder, report anatomy, the morning routine |
+| `CFO100 Session 5 - 13-Month Cash Flow Model.xlsx` | Renew's own "Kanzu Foods Ltd" model → the 13-MONTH CASH tab in our workbook |
 
 The two PDFs are marked **"Proprietary and Confidential to Renew Capital."** Their content is
 summarised into this knowledge base for study; the raw files are **not committed** to this
 repository. Say the word if you want that changed.
 
-**Still not held:** session decks, recordings, the "Managing Cash Well Checklist", "What good
-cash forecasting looks like", the 13-Week Cash Flow and Dynamic Financial Model templates,
-the CFO Checklist and Exec disciplines from Session 1, and the Session 4 case study. Those
-are on the training platform. Route in: drop them in the Drive folder
-`CFO 100 renew capital` (`1S7ZvPR2_9g37-PI3ZLkZc6XeCBAOq6Kw`) and I read them from there.
+**Still not held:** the Session 1 deck, all recordings, the "Managing Cash Well Checklist",
+"What good cash forecasting looks like", the **13-Week Cash Flow template** and **Dynamic
+Financial Model template**, the CFO Checklist and Exec disciplines from Session 1, and the
+**case study workbook** referenced in Session 4's homework (*"the grey (Homework) tabs in the
+case study workbook"* — a separate file, not inside the deck). Route in: drop them in the
+Drive folder `CFO 100 renew capital` (`1S7ZvPR2_9g37-PI3ZLkZc6XeCBAOq6Kw`).
