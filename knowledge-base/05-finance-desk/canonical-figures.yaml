@@ -10,7 +10,7 @@
 meta:
   owner: Finance Desk
   contact: finance@maji-safi.com
-  last_reviewed: 2026-09-21
+  last_reviewed: 2026-10-05
   entity: Safiflow Ventures Group Limited, t/a Maji Safi
   fy1: 2026-10-01 to 2027-09-30
   authority_granted: 2026-09-21 by Sammy Ghedamu, founder
@@ -19,17 +19,21 @@ figures:
 
   - key: capital_ask_2026_usd
     label: The 2026 capital ask
-    value: 400000
+    value: null
     unit: USD
-    basis: Five locations by 31 December 2026
-    as_of: 2026-09-21
-    status: APPROVED
-    owner: Sammy
-    usable_externally: true
-    note: >
-      The headline ask is approved. The PER-SITE figure underneath it is not —
-      see cost_per_site_usd. You may say "USD 400,000 for five locations".
-      You may NOT break that into a per-site number.
+    basis: null
+    as_of: 2026-10-05
+    status: DISPUTED
+    owner: Finance Desk
+    usable_externally: false
+    reason: >
+      Was APPROVED at USD 400,000 (five locations) on 21 Sep 2026. On ~1 Oct 2026 an agent
+      desk re-based it to USD 100,000 and it went into outbound documents without founder
+      or partner confirmation. The founder's own 2 Oct note (site 2 by March 2027, site 3 by
+      May 2027) contradicts the five-sites-by-Q1-2027 basis of both figures. Per-site cost
+      is itself DISPUTED (FD-002). Neither number may go outbound until the partners confirm
+      one. Raised in "Maji Safi: Cash and Controls, October 2026" as decision 3.
+    until: partners confirm the ask
 
   - key: cost_per_site_usd
     label: All-in cost per site
@@ -50,18 +54,16 @@ figures:
 
   - key: unbs_certification
     label: UNBS certification status
-    value: null
+    value: certified
     unit: status
-    basis: null
-    as_of: 2026-09-21
-    status: EMBARGOED
+    basis: Confirmed by the founder, 5 Oct 2026
+    as_of: 2026-10-05
+    status: APPROVED
     owner: Sammy
-    usable_externally: false
-    reason: >
-      Reads VERIFY in the capital tracker and is not confirmed filed. It gates every
-      impact and quality claim we could make. Do not state or imply certification,
-      and do not use any impact number derived from it. Tracked as FD-003 and GAP-06.
-    until: certificate verified as filed
+    usable_externally: true
+    note: >
+      Founder confirmed certification on 5 Oct 2026. Add the certificate number and
+      issue date here when filed, so any funder who checks gets the reference.
 
   - key: statutory_year_end
     label: Statutory financial year-end

@@ -61,9 +61,9 @@ is in the last column.
 | 2 | 31 Aug | **Speaking as the CFO: Turning Numbers into Decisions** *(syllabus said "Overseeing the Controller and Accounting Functions" — the deck covers both, LEAD first and the accounting system in Part 6)* | **"How a CFO talks"** | yes | submitted |
 | 3 | 7 Sep | **Financial Statement Analysis** | **"What a CFO analyses"** | yes | done — see note |
 | 4 | 14 Sep | **Financial Reporting** *(syllabus said "…and Variance Analysis"; the deck is titled Financial Reporting and treats variance inside it)* + **Case Study** | **"How a CFO says it"** | — | **thin — see D-19** |
-| 5a | 21 Sep | **Managing Cash** | — | today | — |
+| 5a | 21 Sep | **Managing Cash** | — | yes | drafted 5 Oct — `homework/session-05.md` |
 | 5b | 21 Sep | **Cash Forecasting** | — | today | — |
-| 6 | 28 Sep | Establish and evaluate internal controls | — | — | — |
+| 6 | 28 Sep | Establish and evaluate internal controls | — | — | drafted 5 Oct — `homework/session-06.md` + filled template, score 6/30 |
 | 7 | 5 Oct | Costing | — | — | — |
 | 8 | 12 Oct | Building and using a budget | — | — | — |
 | 9 | 19 Oct | Sustainable Finance / Review Session (bonus credit) | — | — | — |
