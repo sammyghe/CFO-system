@@ -39,7 +39,7 @@ Last updated: 24 Oct 2026.
 - **US$1M Desk**: daily 14:37 EAT (lands in US mornings). Sheet `1koGj-ZJPzxv3sPjLLTOotPEPQrtdwmVapw35WfGH3oc` with tabs Dashboard, Targets, Touches, Money Ladder, Experiments, Story Bank, Proof Ladder, Do Not Contact, Lessons, Money Projects, Run Log. Sends 3 asks/day for 10 business days, then 5. Reports by one push notification, no email.
 - **Money Desk**: 06:00 EAT, sends knocks, Tracker `1ulIrKmanSSgf5-ApC7eO2yyTKzIlXYsTqgJKLNW3e9M`. Money Threads Watcher at 08:00 and 18:00.
 - Other desks: Water Desk, Uganda Desk, Content, Porchlight (USA, separate), Sammy HQ evening, Systems Builder (Thu), Sammy's Week (Sun).
-- **Usage limit:** on 23–24 Oct nearly every desk failed with USAGE_LIMIT_REACHED. Too many desks for the plan is now the biggest risk to the money work.
+- **Usage limit:** on 23–24 Oct nearly every desk failed with USAGE_LIMIT_REACHED. **Sammy's decision (24 Oct, option C): leave every desk as it is and accept skipped days.** So every desk must be built to catch up: due dates come from the sheet, check Gmail Sent before any send (a half-finished run may have sent without logging), save after each step, inbox first. The Money Threads Watcher is the backup that catches replies.
 - Sends go from sammy@maji-safi.com, cc sammygedamua@gmail.com.
 
 ## Projects (money hub = "Money Projects" tab)

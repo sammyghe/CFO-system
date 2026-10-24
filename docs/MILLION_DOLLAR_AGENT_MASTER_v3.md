@@ -338,6 +338,18 @@ The briefing follows the Money Desk lesson: **converting a warm reply beats find
 
 ---
 
+## 11b. Skipped days (Sammy's decision, 24 Oct 2026)
+
+Sammy's plan has one usage limit shared by about 11 desks, so some runs won't happen. That's accepted. The desk loses time, never a person:
+
+- **Start and finish markers.** Each run writes `STARTED` in Run Log and finishes the row at the end. A leftover `STARTED` means a run died half-way.
+- **The catch-up window** is the number of days since the last finished run. The inbox is read for that whole window plus 2 days.
+- **Check Sent before every send.** A half-finished run may have sent an email without logging it. If anything went to that person in the last 5 business days, don't send.
+- **Priority order, saved after each step:** inbox and escalations → overdue follow-ups → new asks → research → learning.
+- **Catch-up is capped:** at most +2 asks in one run (7 max), and one message per person per run. Missed days are never all made up at once.
+- **A queue of 10 or more ASK-ready targets** is kept, so a good run can send even after a skipped one.
+- **Backup:** the Money Threads Watcher sweeps every human money reply twice a day.
+
 ## 12. Build order
 
 1. ✅ **Done in this repo:** policy, claims, schema, scoring, the send gate, cadence, reply classification, the ledger, learning and the briefing, all with tests. Live send is **off**.
