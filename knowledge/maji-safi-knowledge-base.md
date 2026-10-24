@@ -102,6 +102,8 @@ Drive photo IDs used: plant 11AgvUIuiWOa42fbHovvN0CfQDlNwN4ca (13 Oct), operator
 **The aim, as Sammy framed it:** the document exists to get ONE decision — start a joint test of the spring (site visit, wet and dry season lab panels, flow log Feb–May). What each side gets: the Belize partner gets a certified branded business on his land and a stake (to agree); Mike gets a clear, sourced case to bring to his partners and investors, plus a first step he leads; Maji Safi gets its first project outside East Africa and Safi Treatment proven in the Americas, with an operating role and stake (to agree); investors get proof before money goes in.
 How Sammy works: start every plan with the aim and what each party gets. He wants top-level, consultancy-grade output (PDF), and HD real imagery or none at all.
 
+**v1.1 PDF, 24 Oct 2026:** added an "Our position" page: Safiflow (parent, treatment technology, the technology partner and operator in Belize) → Maji Safi (brand and proof, jar and delivery model, one brand option) → Safi Treatment (the treatment line at the spring). It has a "what we are / what we are not" list and a positioning map (purified ↔ named spring × product only ↔ tested + delivered), with the Belize spring alone top right; placement is our qualitative reading. The market and trust pages were merged. Rule: **no HD photos → no photos at all**, in the PDF and the deck alike.
+
 **Still open:** spring location and title, water test, dry-season flow, landowner terms, who owns BrandCo, brand lead.
 
 ## 5. How Sammy thinks (working style)
