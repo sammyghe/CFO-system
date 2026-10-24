@@ -72,6 +72,10 @@ Rule: add to this file every session. Do not delete agreed facts unless Sammy sa
 - Safiflow's role = still open. Sammy is weighing stake + operator fee, fee + licence, and stake. Proposal v0.1 compares all three and leans to stake + operator fee + small royalty.
 - Draft: `knowledge/belize-spring-proposal-v0.1.md`.
 
+**Re-focus, 24 Oct 2026 (later the same day):** Sammy sees Belize as a small market. The focus moves to a **Belize local business for Maji Safi**: **jars first, cans second, PET kept as an option**. Both brand options are shown. The US holding company is kept light, as one paragraph. The deliverable is a consultancy-style market study of **no more than 10 pages**, and Sammy approves the storyline before anything is built. Storyline: `knowledge/belize-market-study-outline-v0.2.md`.
+New facts: Returnable Containers Act (Cap. 328:01) puts a deposit on cans and bottles up to 1 gallon. Fiscal Incentives Act No. 4 of 2023 gives duty relief on machinery. Water Industry Act Cap. 222 Part V s.61 requires an abstraction licence. Crystal has 4 plants (incl. Ladyville and Esperanza).
+How Sammy works: he wants to approve ideas and flow before any build, and wants documents short (10 pages maximum).
+
 **Still open:** spring location and title, water test, dry-season flow, landowner terms, who owns BrandCo, brand lead.
 
 ## 5. How Sammy thinks (working style)
