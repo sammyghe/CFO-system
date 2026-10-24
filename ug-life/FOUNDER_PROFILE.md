@@ -13,3 +13,9 @@ Living notes on how Sammy works, so any future session starts aligned. Update as
   web link (PWA) first.
 - Prefers being asked focused questions before big plans; agrees quickly when the reasoning is clear.
 - Based in Kampala; can photograph real streets for reference (an edge to use).
+- Doesn't want manual setup steps (keys, dashboards, settings). Expects Claude to find a way and
+  finish end to end with the accounts already connected, then report. Ask only for real decisions.
+- Approves broad requests up front ("do all, I'll approve"); merging to make things live is OK
+  when he asks for it to be live.
+- Live Ug Life: https://ug-life.netlify.app (Netlify team sammygedamua, site ug-life). Control Room
+  password is the ADMIN_TOKEN env var on that Netlify site.
