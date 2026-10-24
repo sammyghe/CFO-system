@@ -1,0 +1,15 @@
+{
+  "name": "Ug Life",
+  "short_name": "Ug Life",
+  "description": "A Kampala street you can live on.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1f4fd1",
+  "theme_color": "#1f4fd1",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

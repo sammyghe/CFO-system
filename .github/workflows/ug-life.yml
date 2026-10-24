@@ -1,0 +1,29 @@
+name: Ug Life game
+
+on:
+  push:
+    paths: ["ug-life/game/**", ".github/workflows/ug-life.yml"]
+  pull_request:
+    paths: ["ug-life/game/**", ".github/workflows/ug-life.yml"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ug-life/game
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ug-life/game/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: First load stays small
+        run: |
+          size=$(du -sk dist | cut -f1)
+          echo "dist is ${size} KB"
+          test "$size" -lt 5000

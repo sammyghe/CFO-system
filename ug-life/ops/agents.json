@@ -1,0 +1,17 @@
+{
+  "_readme": "Kill switches and limits for every Ug Life agent. Set enabled to false to stop an agent on its next run. maintenance_mode pauses sign-ups and every money change. Only Sammy edits this file.",
+  "maintenance_mode": false,
+  "on_call": "Sammy",
+  "agents": {
+    "support": { "enabled": true, "schedule": "every 2 hours", "runbook": "runbooks/support.md", "may": ["answer from FAQ", "label tickets", "draft replies", "propose new FAQ entries"], "never": ["change balances", "refund", "ban", "promise dates"] },
+    "moderation": { "enabled": true, "schedule": "hourly", "runbook": "runbooks/moderation.md", "may": ["hide clearly abusive or scam content", "queue unclear cases"], "never": ["ban", "delete accounts"] },
+    "economy_watchdog": { "enabled": true, "schedule": "hourly", "runbook": "runbooks/economy.md", "may": ["flag anomalies", "freeze one account's money changes pending review"], "never": ["remove money", "change prices"], "limits": { "max_daily_earn_ugx": 70000, "max_job_pay_ugx": 5400, "max_jobs_per_day": 10 } },
+    "dev_qa": { "enabled": true, "schedule": "on bug ticket", "runbook": "runbooks/dev-qa.md", "may": ["reproduce bugs", "write tests and fixes", "open pull requests", "deploy previews"], "never": ["deploy production", "merge without Sammy"] },
+    "comms": { "enabled": true, "schedule": "per release and weekly", "runbook": "runbooks/comms.md", "may": ["draft patch notes and broadcasts in English, Luganda and Swahili"], "never": ["send anything"] },
+    "growth": { "enabled": true, "schedule": "daily", "runbook": "runbooks/growth.md", "may": ["track trends", "list creators", "draft challenges"], "never": ["message creators", "post publicly", "offer payment"] },
+    "live_ops": { "enabled": true, "schedule": "weekly", "runbook": "runbooks/live-ops.md", "may": ["propose the next week's street events and rewards"], "never": ["change rewards outside the limits above"] },
+    "data": { "enabled": true, "schedule": "daily, digest on Monday", "runbook": "runbooks/data.md", "may": ["compute metrics", "write the Monday digest"], "never": ["read private notes or reports content beyond counts"] },
+    "competitor_watch": { "enabled": true, "schedule": "weekly", "runbook": "runbooks/growth.md", "may": ["summarise public news about Lagos Life and similar games"], "never": [] },
+    "finance": { "enabled": true, "schedule": "monthly", "runbook": "runbooks/finance.md", "may": ["track free-tier usage, costs and revenue"], "never": ["pay", "sign", "open accounts"] }
+  }
+}

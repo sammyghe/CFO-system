@@ -1,0 +1,209 @@
+import { MAP_H, MAP_W, isWalkable } from "./map";
+import { findPath, type Pt } from "./path";
+import type { Look } from "../game/state";
+import { RESIDENTS, type Resident } from "../content/residents";
+
+export interface Walker {
+  id: string;
+  x: number;
+  y: number;
+  path: Pt[];
+  speed: number;
+  phase: number;
+  flip: boolean;
+  moving: boolean;
+  idleUntil: number;
+  look: Look;
+  carrying: boolean;
+  resident?: Resident;
+  onArrive?: () => void;
+}
+
+export interface Vehicle {
+  kind: "matatu" | "car" | "boda";
+  x: number;
+  lane: 0 | 1;
+  speed: number;
+  maxSpeed: number;
+  color: string;
+  passenger: boolean;
+  waitUntil: number;
+  braking: boolean;
+  stoppedAtStage: boolean;
+}
+
+export interface Floater {
+  text: string;
+  x: number;
+  y: number;
+  t0: number;
+  color: string;
+}
+
+export const LANE_Y = [7.0, 9.0] as const;
+export const LANE_DIR = [-1, 1] as const;
+
+const VEHICLE_LEN: Record<Vehicle["kind"], number> = { matatu: 2.2, car: 1.6, boda: 0.9 };
+
+/** Tiles where residents like to hang out. */
+const HANGOUTS: Pt[] = [];
+for (let y = 0; y < MAP_H; y++)
+  for (let x = 0; x < MAP_W; x++)
+    if (isWalkable(x, y) && (y === 4 || y === 11 || y >= 12)) HANGOUTS.push({ x, y });
+
+export class Sim {
+  player: Walker;
+  residents: Walker[];
+  vehicles: Vehicle[];
+  floaters: Floater[] = [];
+  private timers: { at: number; fn: () => void }[] = [];
+  private rand = Math.random;
+
+  constructor(playerLook: Look, start: { x: number; y: number }) {
+    this.player = makeWalker("player", start.x, start.y, playerLook, 3.2);
+    this.residents = RESIDENTS.map((r) => {
+      const w = makeWalker(r.id, r.start.x + 0.5, r.start.y + 0.5, r.look, 1.3 + Math.random() * 0.5);
+      w.resident = r;
+      w.idleUntil = performance.now() + Math.random() * 4000;
+      return w;
+    });
+    this.vehicles = [
+      vehicle("matatu", 2, 1, "#f4f4ef"),
+      vehicle("boda", 12, 1, ""),
+      vehicle("car", 22, 1, "#c8332b"),
+      vehicle("matatu", 28, 0, "#f4f4ef"),
+      vehicle("boda", 17, 0, ""),
+      vehicle("car", 6, 0, "#2c5f8a"),
+      vehicle("boda", 33, 0, ""),
+    ];
+  }
+
+  schedule(delayMs: number, fn: () => void) {
+    this.timers.push({ at: performance.now() + delayMs, fn });
+  }
+
+  walkPlayerTo(tile: Pt, onArrive?: () => void): boolean {
+    const p = this.player;
+    const path = findPath({ x: Math.floor(p.x), y: Math.floor(p.y) }, tile);
+    if (!path) return false;
+    p.path = path.map((q) => ({ x: q.x + 0.5, y: q.y + 0.5 }));
+    p.onArrive = onArrive;
+    if (!p.path.length) {
+      p.onArrive = undefined;
+      onArrive?.();
+    }
+    return true;
+  }
+
+  /** Send a resident who is standing around to a tile, then call back. */
+  sendResident(tile: Pt, onArrive: () => void): boolean {
+    const idle = this.residents.filter((r) => !r.path.length && r.resident?.id !== "r-ssali");
+    if (!idle.length) return false;
+    const w = idle[Math.floor(this.rand() * idle.length)];
+    const path = findPath({ x: Math.floor(w.x), y: Math.floor(w.y) }, tile);
+    if (!path) return false;
+    w.path = path.map((q) => ({ x: q.x + 0.5, y: q.y + 0.5 }));
+    w.onArrive = onArrive;
+    return true;
+  }
+
+  float(text: string, x: number, y: number, color = "#2f7a4b") {
+    this.floaters.push({ text, x, y, t0: performance.now(), color });
+  }
+
+  update(dt: number, now: number) {
+    for (let i = this.timers.length - 1; i >= 0; i--) {
+      if (now >= this.timers[i].at) {
+        const t = this.timers.splice(i, 1)[0];
+        t.fn();
+      }
+    }
+    stepWalker(this.player, dt);
+    for (const r of this.residents) {
+      if (!r.path.length && now > r.idleUntil && !r.onArrive) {
+        const target = HANGOUTS[Math.floor(this.rand() * HANGOUTS.length)];
+        const path = findPath({ x: Math.floor(r.x), y: Math.floor(r.y) }, target);
+        if (path && path.length < 18) r.path = path.map((q) => ({ x: q.x + 0.5, y: q.y + 0.5 }));
+        r.idleUntil = now + 3000 + this.rand() * 7000;
+      }
+      stepWalker(r, dt);
+    }
+    this.updateTraffic(dt, now);
+    this.floaters = this.floaters.filter((f) => now - f.t0 < 1600);
+  }
+
+  private updateTraffic(dt: number, now: number) {
+    const p = this.player;
+    for (const v of this.vehicles) {
+      const dir = LANE_DIR[v.lane];
+      const half = VEHICLE_LEN[v.kind] / 2;
+      let target = v.maxSpeed;
+      // keep distance from the vehicle ahead
+      for (const o of this.vehicles) {
+        if (o === v || o.lane !== v.lane) continue;
+        const gap = (o.x - v.x) * dir - half - VEHICLE_LEN[o.kind] / 2;
+        if (gap > -0.2 && gap < 1.2) target = Math.min(target, Math.max(0, o.speed * 0.8 - (1.2 - gap)));
+      }
+      // stop for the player crossing
+      if (Math.abs(p.y - LANE_Y[v.lane]) < 0.9) {
+        const ahead = (p.x - v.x) * dir - half;
+        if (ahead > -0.3 && ahead < 2.2) target = 0;
+      }
+      // eastbound matatus stop at the taxi stage
+      if (v.kind === "matatu" && v.lane === 1 && !v.stoppedAtStage && v.x > 3 && v.x < 3.4) {
+        v.waitUntil = now + 3500;
+        v.stoppedAtStage = true;
+      }
+      if (now < v.waitUntil) target = 0;
+      v.braking = target < v.speed - 0.1;
+      v.speed += Math.sign(target - v.speed) * Math.min(Math.abs(target - v.speed), dt * (v.braking ? 5 : 1.6));
+      v.x += dir * v.speed * dt;
+      if (dir > 0 && v.x > MAP_W + 4) wrap(v, -4);
+      if (dir < 0 && v.x < -4) wrap(v, MAP_W + 4);
+    }
+  }
+}
+
+function wrap(v: Vehicle, x: number) {
+  v.x = x;
+  v.stoppedAtStage = false;
+  if (v.kind === "boda") v.passenger = Math.random() < 0.5;
+}
+
+function makeWalker(id: string, x: number, y: number, look: Look, speed: number): Walker {
+  return { id, x, y, path: [], speed, phase: 0, flip: false, moving: false, idleUntil: 0, look, carrying: false };
+}
+
+function vehicle(kind: Vehicle["kind"], x: number, lane: 0 | 1, color: string): Vehicle {
+  const maxSpeed = kind === "boda" ? 3.4 : kind === "car" ? 2.6 : 2.1;
+  return { kind, x, lane, speed: maxSpeed, maxSpeed, color, passenger: Math.random() < 0.5, waitUntil: 0, braking: false, stoppedAtStage: false };
+}
+
+function stepWalker(w: Walker, dt: number) {
+  if (!w.path.length) {
+    w.moving = false;
+    return;
+  }
+  const next = w.path[0];
+  const dx = next.x - w.x, dy = next.y - w.y;
+  const dist = Math.hypot(dx, dy);
+  const step = w.speed * dt;
+  w.moving = true;
+  w.phase += dt * w.speed * 5;
+  const sdx = dx - dy; // screen-space x direction
+  if (Math.abs(sdx) > 0.01) w.flip = sdx < 0;
+  if (dist <= step) {
+    w.x = next.x;
+    w.y = next.y;
+    w.path.shift();
+    if (!w.path.length) {
+      w.moving = false;
+      const cb = w.onArrive;
+      w.onArrive = undefined;
+      cb?.();
+    }
+  } else {
+    w.x += (dx / dist) * step;
+    w.y += (dy / dist) * step;
+  }
+}

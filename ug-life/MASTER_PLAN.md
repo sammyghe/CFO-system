@@ -42,9 +42,10 @@ and the founder constraints set on 2026-10-24. Where they conflict, this file wi
 
 ## 3. Tech stack ($0)
 
-- Client: Phaser 3 + TypeScript, Vite, PWA (service worker, offline shell, install prompt).
-- Art: Kenney.nl CC0 isometric packs restyled + Sammy's own Kampala street photos as reference
-  + AI-assisted signs and textures. Every asset logged with its source and licence.
+- Client: own lightweight canvas engine in TypeScript (no Phaser), Vite, PWA (service worker,
+  offline shell, install prompt). Whole game ~40 KB gzipped, far under the 5 MB budget.
+- Art: drawn in code for now (no downloads). Next: Sammy's own Kampala street photos as reference,
+  then CC0 packs or a freelance artist once there's revenue. Every asset logged with its source and licence.
 - Hosting: Cloudflare Pages (static) + Cloudflare Workers (API).
 - Data/auth: Supabase free tier (Postgres + Auth). All money/ownership changes go through
   server functions; the client is never trusted. Ledger is append-only and idempotent.
@@ -123,6 +124,15 @@ new sign-ups and economy writes.
 Unverified claims in earlier drafts (Lagos Life numbers, platform API rules) must be checked
 against current sources before anyone relies on them.
 
-## 10. Open decisions for Sammy
+## 10. Build status (2026-10-24)
+
+Phase 1 preview built in `game/` (see `game/README.md`): one Wandegeya-style street, Ug Tag,
+delivery → kiosk loop with a tested ledger, fictional pothole fix, daily street events,
+day/night on Kampala time, share card, help/FAQ, 18+ gate, scam filters. Saves on the phone.
+Operations system in `ops/`: kill switches, runbooks, approval and P0 queues.
+Not done yet: online accounts (Supabase schema written, not deployed), real multiplayer,
+social sign-in verification, PostHog, scheduled agents switched on, public hosting.
+
+## 11. Open decisions for Sammy
 
 See the "Your calls" section of the published plan.

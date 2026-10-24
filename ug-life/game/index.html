@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#1f4fd1" />
+    <meta name="description" content="Ug Life: a Kampala street you can live on. Make your Ug Tag, run deliveries, lease a kiosk and fix the street with your neighbours." />
+    <meta property="og:title" content="Ug Life" />
+    <meta property="og:description" content="A Kampala street you can live on." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon.svg" />
+    <title>Ug Life</title>
+  </head>
+  <body>
+    <div id="boot">
+      <div>
+        <div class="logo">Ug Life</div>
+        <p>Loading the street…</p>
+      </div>
+    </div>
+    <canvas id="world" aria-label="The street. Tap to walk."></canvas>
+    <div id="hud" hidden></div>
+    <div id="sheet-root"></div>
+    <div id="toast-root" aria-live="polite"></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
