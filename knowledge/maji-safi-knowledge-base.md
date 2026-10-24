@@ -91,6 +91,13 @@ How Sammy works: keep it short and visual. One message per slide. Shareable deck
 Verified facts in the deck: 397,483 people and 110,719 households (2022 Census); 83.8% of homes have public piped water, yet 74.3% drink bottled or purified water; MICS7 found E. coli in 29.8% of samples at collection and 33.7% at the point of drinking, including dispenser water (SIB/MoHW/BWS, Nov 2025); 551,698 overnight and 967,214 cruise visitors in 2025 (BTB, preliminary); the US is 69% of overnight arrivals (year to date, Nov 2025); San Pedro gets ~28% of overnight visitors; Primo Brands 2025 net sales US$6,664.0M, the largest US branded bottled water company (Poland Spring, Arrowhead, Deer Park, Ozarka, Zephyrhills); US bottled water was 16.4B gallons in 2024, No. 1 by volume for the 9th year (IBWA citing BMC); FDA 21 CFR 165.110 spring water definition.
 Logos: npm (simple-icons, flag-icons, world-atlas) is reachable for icons, flags and maps. Company websites are blocked from this container. Only the Coca-Cola logo is available so far. The others are name tiles until Sammy sends logo files.
 
+**v0.6 deck, 24 Oct 2026:** Sammy said the drawn graphics looked fake and cheap. Rules he set:
+- Use REAL material: our plant photos (Drive, Aug and Oct 2026 shoots), the real 20L label (cropped to leave out the UNBS mark), the Maji Safi logo and the Belize flag. No hand-drawn icons, no made-up wordmark "logos".
+- Competitor logos only as real files. Coca-Cola via simple-icons; the others must come from Sammy. Until then the brands sit in a clean table.
+- Tone: never "we need X from you". Frame it as **what each partner brings**. Maji Safi lists what it provides. For the Belize partner (landowner), the spring and the land are known and anything else is "to agree together". **To set up together:** a site to work from, investment for the plant and lines, and a cost estimate prepared with Mike.
+- Simpler, clearer and easier beats more.
+Drive photo IDs used: plant 11AgvUIuiWOa42fbHovvN0CfQDlNwN4ca (13 Oct), operator 1ZbLHns2wKNL9dYs6nSe17YbTcDOWIi0B, lab 1VKo4p1oTTGvvDWCInw7VBONWM3lPriFS, 20L label 1k8tPHJ4oB4BRHY54P9k8QSx30xj2kClD.
+
 **Still open:** spring location and title, water test, dry-season flow, landowner terms, who owns BrandCo, brand lead.
 
 ## 5. How Sammy thinks (working style)
