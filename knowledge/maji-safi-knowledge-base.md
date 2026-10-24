@@ -107,6 +107,10 @@ How Sammy works: start every plan with the aim and what each party gets. He want
 **Product mockups, 24 Oct 2026:** `knowledge/belize-report/mockups/` (rendered from mockups.html with Playwright at 3x). Four concepts: a 5-gal jar and a 500 ml tall can (Liquid Death-style bold vertical type) in two brand options. **Option A Maji Safi:** navy to blue, white Maji Safi logo, "SPRING WATER". **Option B Belize Spring, operated by Maji Safi:** jungle/reef teal-green, flag red and blue bands, gold accents, a big vertical "BELIZE". They are on deck slide 10 and PDF page 10 (13 pages now).
 Logos: company websites, Wikimedia and Clearbit are all blocked from this workspace; only npm and raw.githubusercontent.com are reachable. Competitor logos still need files from Sammy.
 
+**v2 deck, 24 Oct 2026, 7 slides, colourful:** cover · idea (Market / Gap / Offer / First step) · market (4 big numbers) · brands (8 sellers + "Belize Spring · us" tile) · economics · product (jar + 4 cans) · plan (3 steps + partners). Sammy wants it very easy and half the length: cut "what we are not" and the like, keep clear numbers that make economic sense, colourful tiles, Bebas Neue display type.
+Economics shown (market sales, NOT our costs): home jar market ≈ BZ$51M a year (82,264 homes × 2 jars a week × 52 × BZ$6); 5% share ≈ 428k jars ≈ BZ$2.6M; cans: 5% of 4.97M visitor-days at ~BZ$4 ≈ 248k cans ≈ BZ$1.0M; together ≈ BZ$3.6M ≈ US$1.8M a year at shelf prices, before costs. Set-up cost estimate comes from Mike.
+Mockups: no Maji Safi logo on the products (Sammy's comment). One Belize spring jar and 4 cans: Jungle, Flag blue, Reef white, Night black (`mockups/mockups2.html`).
+
 **Still open:** spring location and title, water test, dry-season flow, landowner terms, who owns BrandCo, brand lead.
 
 ## 5. How Sammy thinks (working style)
