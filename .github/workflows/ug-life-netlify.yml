@@ -29,6 +29,7 @@ jobs:
         working-directory: ug-life/game
     steps:
       - name: Hide the deploy link
+        working-directory: .
         run: |
           link=$(jq -r '.inputs.deploy_link' "$GITHUB_EVENT_PATH")
           echo "::add-mask::$link"
