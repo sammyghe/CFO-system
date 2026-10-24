@@ -1,6 +1,7 @@
-name: Ug Life deploy
+name: Ug Life deploy (Cloudflare, standby)
 
-# Every push that touches the game builds, tests and deploys it to Cloudflare Pages.
+# Standby route: the live site runs on Netlify (ug-life-netlify.yml). If Ug Life moves
+# to Cloudflare for scale, this builds, tests and deploys it to Cloudflare Pages.
 # main = the live site; any other branch = a preview link.
 # Needs two repository secrets (Settings > Secrets and variables > Actions):
 #   CLOUDFLARE_API_TOKEN  - Cloudflare token with "Cloudflare Pages: Edit" and "D1: Edit"

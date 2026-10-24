@@ -15,10 +15,18 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250924.0",
+    "@netlify/database-dev": "^1.0.1",
+    "@netlify/functions": "^6.0.3",
+    "@types/pg": "^8.23.1",
     "typescript": "5.8.3",
     "vite": "6.3.5",
     "vite-plugin-singlefile": "2.2.0",
     "vitest": "3.2.4",
     "wrangler": "^4.40.0"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^11.1.6",
+    "@netlify/database": "^2.0.1",
+    "pg": "^8.23.1"
   }
 }

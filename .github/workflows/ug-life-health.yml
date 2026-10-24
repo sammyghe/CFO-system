@@ -21,6 +21,7 @@ jobs:
         id: url
         run: |
           url="${{ vars.UGLIFE_URL }}"
+          [ -z "$url" ] && url="https://ug-life.netlify.app"
           if [ -z "$url" ] && [ -n "$CLOUDFLARE_API_TOKEN" ]; then
             acct=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/accounts | jq -r '.result[0].id')
             sub=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$acct/pages/projects/ug-life" | jq -r '.result.subdomain // empty')

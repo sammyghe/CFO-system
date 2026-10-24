@@ -35,7 +35,13 @@ npm run build:single # one self-contained HTML file in dist-single/ (for preview
 
 Add `?debug=1` to the URL to expose `window.ug` for automated play tests.
 
-## Hosting (Cloudflare, free tier)
+## Hosting
+
+**Live: https://ug-life.netlify.app** (Netlify: CDN + Functions + Netlify Database (Postgres) + Blobs
+for snap images). Deployed by `.github/workflows/ug-life-netlify.yml`, started by Claude through
+the Netlify connection; Netlify applies `netlify/database/migrations` on each deploy.
+
+The same API also runs on Cloudflare (standby, for when traffic outgrows Netlify's free plan):
 
 | Piece | Service | Free allowance | When it grows |
 |---|---|---|---|

@@ -1,6 +1,6 @@
 # Control Room and the ops API
 
-Live site: `https://<project>.pages.dev` (the deploy run prints the exact address).
+Live site: https://ug-life.netlify.app
 Control Room for Sammy: `/admin.html`. Sign in with the `UGLIFE_ADMIN_TOKEN` password.
 
 Agents use the same endpoints with `Authorization: Bearer $UGLIFE_ADMIN_TOKEN`

@@ -46,9 +46,11 @@ and the founder constraints set on 2026-10-24. Where they conflict, this file wi
   offline shell, install prompt). Whole game ~40 KB gzipped, far under the 5 MB budget.
 - Art: drawn in code for now (no downloads). Next: Sammy's own Kampala street photos as reference,
   then CC0 packs or a freelance artist once there's revenue. Every asset logged with its source and licence.
-- Hosting: Cloudflare Pages (static, unlimited free bandwidth) + Pages Functions (API) +
-  D1 database `ug-life-db` (also holds snap images until R2 is enabled). Same Cloudflare
-  account as Maji Safi, kept separate by name (Sammy's choice, 2026-10-24).
+- Hosting (live): Netlify `ug-life` (https://ug-life.netlify.app): CDN, Functions for the API,
+  Netlify Database (Postgres) and Blobs for snap images. Chosen because it could be deployed
+  without Sammy creating keys. Standby: the same API on Cloudflare Pages + D1 `ug-life-db`
+  (created, in the Maji Safi Cloudflare account, named separately) for when traffic outgrows
+  Netlify's free plan.
 - Accounts: anonymous, with a recovery code. No phone number or email collected.
 - Money safety: the game runs on the phone; every save is checked on the server against the
   rules (append-only ledger, price and pay limits, daily caps). Breaking saves are refused and flagged.
@@ -136,7 +138,7 @@ Operations system in `ops/`: kill switches, runbooks, approval and P0 queues.
 Phase 1.5 (same day): Street Snaps (photo to street art on the phone, privacy blur,
 community board, billboard, neighbourhood race), online accounts and save checks, real players
 on the street, support tickets with replies, Control Room, deploy pipeline, health check.
-Database created on Cloudflare. Waiting on Sammy: two GitHub secrets to go live.
+Live on Netlify (2026-10-24). Cloudflare standby ready.
 Not done yet: real-time multiplayer, social sign-in verification, Luganda/Swahili UI.
 
 ## 11. Open decisions for Sammy

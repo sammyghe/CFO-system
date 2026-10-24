@@ -1,6 +1,6 @@
-/// <reference types="@cloudflare/workers-types" />
-// Where photo bytes live. D1 now (free, no card needed). When R2 is enabled on the
-// account, add an R2PhotoStore with the same three methods and switch in api.ts.
+// Where photo bytes live: Netlify Blobs on Netlify, D1 on Cloudflare (until R2 is
+// enabled there). Each store has the same three methods.
+import type { Db } from "./db";
 
 export interface PhotoStore {
   put(id: string, mime: string, data: ArrayBuffer): Promise<void>;
@@ -9,7 +9,7 @@ export interface PhotoStore {
 }
 
 export class D1PhotoStore implements PhotoStore {
-  constructor(private db: D1Database) {}
+  constructor(private db: Db) {}
 
   async put(id: string, mime: string, data: ArrayBuffer) {
     await this.db.prepare("INSERT INTO photo_blobs (id, mime, data) VALUES (?, ?, ?)").bind(id, mime, data).run();
@@ -24,5 +24,29 @@ export class D1PhotoStore implements PhotoStore {
 
   async delete(id: string) {
     await this.db.prepare("DELETE FROM photo_blobs WHERE id = ?").bind(id).run();
+  }
+}
+
+/** Netlify Blobs, structurally typed so this file doesn't import the Netlify SDK. */
+interface BlobStore {
+  set(key: string, data: ArrayBuffer, opts?: { metadata?: Record<string, unknown> }): Promise<unknown>;
+  getWithMetadata(key: string, opts: { type: "arrayBuffer" }): Promise<{ data: ArrayBuffer; metadata: Record<string, unknown> } | null>;
+  delete(key: string): Promise<void>;
+}
+
+export class BlobsPhotoStore implements PhotoStore {
+  constructor(private store: BlobStore) {}
+
+  async put(id: string, mime: string, data: ArrayBuffer) {
+    await this.store.set(id, data, { metadata: { mime } });
+  }
+
+  async get(id: string) {
+    const r = await this.store.getWithMetadata(id, { type: "arrayBuffer" });
+    return r ? { mime: String(r.metadata.mime ?? "image/jpeg"), data: r.data } : null;
+  }
+
+  async delete(id: string) {
+    await this.store.delete(id);
   }
 }
