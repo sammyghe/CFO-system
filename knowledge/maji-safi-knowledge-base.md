@@ -81,6 +81,11 @@ Rules Sammy set for Belize documents: **no Maji Safi money in it** (no capex, re
 Price facts: Crystal 5-gal BZ$6 (Aug 2024); sales-centre BZ$3.60 / retail cap BZ$5.50 (Mar 2020). Coca-Cola 12 oz glass BZ$1 (unchanged since 2010), 500 ml glass BZ$1.50, 1.5 L BZ$4.85, 600 ml PET SRP BZ$2.25, 2 L ~BZ$5.68 (Apr 2025). La Croix can ~US$2 on Ambergris (2022).
 Other players: Filter Pure Solutions (home RO systems; a possible partner or rival for Safi Treatment), Zeta (Belmopan, Corozal), Aquatic (Orange Walk), Aquazul, BEL AquA (Bluefield Belize Foods, 2006), Agua Dulce (San Pedro), Best Choice (Belmopan, listed closed).
 
+**v0.4 deck, 24 Oct 2026:** Sammy found the interactive study too much to take in. He wants a short deck he can share, designed like a top consultancy's: 10 slides, written for Mike and then the landowner, with 1–2 slides on Maji Safi as a treatment company. Deck: https://claude.ai/artifact/4LfHzewNSqMEY2yaJ1qqko (source `knowledge/belize-deck/`). No money in it.
+**Certification wording rule:** don't name UNBS in Belize documents. Say "Built to East African Standards: US EAS 153:2014 (packaged drinking water), EAS 39 (hygiene), EAS 38 (labelling)". These are the standards the UNBS standards office sent Amanuel on 27 Jul 2026 (order #15182).
+Logos: Sammy will send logo files for Crystal, Coca-Cola and the others. The Maji Safi logo is in Drive (file 14m6IwsHrJyN2lBZ3118b1KriQCXbk4SA) and is uploaded to the deck.
+How Sammy works: keep it short and visual. One message per slide. Shareable decks beat dense interactive pages.
+
 **Still open:** spring location and title, water test, dry-season flow, landowner terms, who owns BrandCo, brand lead.
 
 ## 5. How Sammy thinks (working style)
