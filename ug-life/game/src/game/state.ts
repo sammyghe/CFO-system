@@ -49,7 +49,19 @@ export interface Ticket {
   status: "saved" | "sent";
 }
 
-export type GoalId = "walk" | "delivery" | "earn25" | "kiosk" | "paint" | "share" | "pothole" | "profile" | "snap";
+export type GoalId = "walk" | "delivery" | "earn25" | "kiosk" | "paint" | "share" | "pothole" | "profile" | "snap" | "boda" | "rider" | "rolex" | "build" | "landmarks";
+
+/** A passenger you're carrying as a boda rider. */
+export interface Ride {
+  id: string;
+  passengerId: string;
+  passenger: string;
+  fromId: string;
+  toId: string;
+  pay: number;
+  stage: "pickup" | "dropoff";
+  acceptedAt: number;
+}
 
 export interface PlayerState {
   version: number;
@@ -73,6 +85,16 @@ export interface PlayerState {
   goals: GoalId[];
   lastVisitDate: string | null;
   settings: { liveTime: boolean; reducedMotion: boolean };
+  /** Kampala date the player rented a boda for, or null. */
+  bodaRent: string | null;
+  ride: Ride | null;
+  ridesOffers: { date: string; seq: number };
+  /** Pay boost from street food. */
+  boost: { until: number; pct: number; label: string } | null;
+  /** Items built in the kiosk yard, one per slot. */
+  yard: (string | null)[];
+  /** Landmarks the player has discovered. */
+  landmarks: string[];
 }
 
 export function newPlayer(now: number, id: string): PlayerState {
@@ -98,6 +120,12 @@ export function newPlayer(now: number, id: string): PlayerState {
     goals: [],
     lastVisitDate: null,
     settings: { liveTime: true, reducedMotion: false },
+    bodaRent: null,
+    ride: null,
+    ridesOffers: { date: "", seq: 0 },
+    boost: null,
+    yard: [null, null, null, null, null],
+    landmarks: [],
   };
 }
 
@@ -109,6 +137,11 @@ export const GOALS: { id: GoalId; label: string }[] = [
   { id: "kiosk", label: "Lease a kiosk" },
   { id: "paint", label: "Paint your kiosk sign" },
   { id: "profile", label: "Add a social to your Ug Tag" },
+  { id: "boda", label: "Take a boda somewhere" },
+  { id: "rolex", label: "Buy a rolex from Musa" },
+  { id: "rider", label: "Carry a passenger on a boda" },
+  { id: "build", label: "Build something in your kiosk yard" },
+  { id: "landmarks", label: "Discover 5 Kampala landmarks" },
   { id: "snap", label: "Snap a real Kampala street" },
   { id: "share", label: "Share your card" },
 ];

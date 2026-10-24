@@ -3,7 +3,8 @@
 // the Monday digest from these counts.
 export type EventName =
   | "age_confirmed" | "onboarded" | "session_start" | "job_accepted" | "job_completed" | "kiosk_leased"
-  | "kiosk_painted" | "upgrade_bought" | "pothole_reported" | "card_shared" | "ticket_saved" | "snap_made" | "snap_uploaded" | "visitor_viewed";
+  | "kiosk_painted" | "upgrade_bought" | "pothole_reported" | "card_shared" | "ticket_saved" | "snap_made" | "snap_uploaded" | "visitor_viewed"
+  | "boda_taken" | "ride_done" | "rolex_bought" | "food_bought" | "yard_built" | "goal_claimed" | "landmark_found";
 
 const buffer: { name: string; props?: Record<string, unknown>; at: number }[] = [];
 

@@ -16,12 +16,26 @@ everything drawn in code so the whole game is about 40 KB gzipped.
 - Street Snaps: photograph a real street, blur faces and plates, the phone turns it into
   street art (`src/snaps/toon.ts`, no AI service, no cost), share it for review, approved snaps
   go on the community board and the rooftop billboard; areas race to be built next
+- Street life: 16 bodas on the road; take one anywhere for a fare, or rent one for the day
+  and carry passengers who wave you down (up to 15 paid rides a day). Musa's rolex, roasted
+  maize and fruit carts give a pay boost. Build chairs, lights, crates and more in your kiosk
+  yard; everyone sees it and some items bring extra customers
+- Kampala landmarks on the hills (Makerere, the National Mosque, Namirembe, Rubaga, the Bahá'í
+  temple, the city centre, Mulago) plus the Makerere gate: tap to discover, each pays once
+- Shared street: one owner per kiosk plot, held by the server; everyone sees each other's
+  kiosks and yards. Invite links pay UGX 3,000 to the inviter once the friend does a real job,
+  and UGX 2,000 to the friend. Goals pay out when claimed
 - Online: anonymous accounts with a recovery code, saves checked against the money rules on
   the server (`src/game/validate.ts`), real players visible on the street, support tickets with
   replies, reports, daily event counts, and the Control Room (`/admin.html`)
 
 The game is local-first: it plays fully offline, and syncs when there's signal. If the
 server is down or over its free limit, nobody loses progress.
+
+## Adding content
+
+New carts, yard items, landmarks, residents, events and buildings are one entry each. See
+[CONTENT.md](CONTENT.md).
 
 ## Commands
 
@@ -70,7 +84,7 @@ npm run serve:local                    # game + API + Control Room on http://loc
 | `src/game/` | Rules with no drawing: ledger, economy, actions, civic, moderation, daily events |
 | `src/world/` | Map, isometric projection, art, simulation (people, traffic), renderer |
 | `src/ui/` | HUD, panels, share card |
-| `src/content/` | Residents and FAQ (the support agent uses the FAQ too) |
+| `src/content/` | Catalog (bodas, food, yard items), landmarks, residents, FAQ (the support agent uses the FAQ too) |
 | `src/backend/` | Saves on the phone |
 | `src/net/` | Talking to the server; everything works offline if it fails |
 | `src/snaps/` | Photo to street art, privacy blur, the snaps panels, on-phone album |

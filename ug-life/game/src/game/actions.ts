@@ -14,6 +14,7 @@ import { checkDisplayName, checkFreeText, checkHandle, type Platform } from "./m
 import type { GoalId, Job, PlayerState } from "./state";
 import { PLACES, PLOTS, placeById } from "../world/map";
 import { tileDistance } from "../world/path";
+import { boostMultiplier, rideArrive, yardIncome } from "./street";
 
 export type Result = { ok: true; message: string } | { ok: false; message: string };
 
@@ -93,7 +94,7 @@ export function jobOffers(state: PlayerState, now: number): Offer[] {
   const today = kampalaDateKey(now);
   if (state.offers.date !== today) state.offers = { date: today, seq: 0 };
   const rand = seededRandom(hashString(`${state.id}:${today}:${state.offers.seq}`));
-  const bonus = eventForTime(now).jobBonus;
+  const bonus = eventForTime(now).jobBonus * boostMultiplier(state, now);
   const out: Offer[] = [];
   while (out.length < 3) {
     const a = PLACES[Math.floor(rand() * PLACES.length)];
@@ -119,6 +120,7 @@ export function jobsLeftToday(state: PlayerState, now: number): number {
 
 export function acceptJob(state: PlayerState, offerId: string, now: number): Result {
   if (state.job) return fail("Finish or drop your current delivery first.");
+  if (state.ride) return fail("Drop off your boda passenger first.");
   if (jobsLeftToday(state, now) <= 0) return fail(`That's ${JOBS_PER_DAY} deliveries today. Come back tomorrow.`);
   const offer = jobOffers(state, now).find((o) => o.id === offerId);
   if (!offer) return fail("That delivery isn't available any more.");
@@ -139,6 +141,8 @@ export function jobTarget(job: Job) {
 
 /** Called when the player stands on a place tile. */
 export function arriveAt(state: PlayerState, placeId: string, now: number): Result | null {
+  const ride = rideArrive(state, placeId, now);
+  if (ride) return ride;
   const job = state.job;
   if (!job) return null;
   if (job.stage === "pickup" && placeId === job.fromId) {
@@ -232,7 +236,7 @@ export function kioskSalesToday(state: PlayerState, now: number): { count: numbe
   const today = kampalaDateKey(now);
   const prefix = `sale:${k.plotId}:${today}:`;
   const count = state.ledger.entries.filter((e) => e.key.startsWith(prefix)).length;
-  const max = Math.floor(kioskDailyIncome(k.upgrades, eventForTime(now).kioskBonus) / SALE_AMOUNT);
+  const max = Math.floor((kioskDailyIncome(k.upgrades, eventForTime(now).kioskBonus) + yardIncome(state)) / SALE_AMOUNT);
   return { count, max };
 }
 

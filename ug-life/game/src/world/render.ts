@@ -5,6 +5,9 @@ import {
   drawProp, drawTile, kioskBox, propBox, type KioskLook,
 } from "./art";
 import { LANE_Y, LANE_DIR, type Sim, type Walker } from "./sim";
+import { drawYardItem, type SkylineHit } from "./streetart";
+import { yardTiles } from "../content/catalog";
+import { LANDMARKS } from "../content/landmarks";
 import type { CivicIssue } from "../game/civic";
 import type { Pt } from "./path";
 
@@ -23,6 +26,8 @@ export interface SceneState {
   billboard: string;
   billboardImage: CanvasImageSource | null;
   billboardKey: string;
+  /** Yard items per plot (yours from your save, others' from the server). */
+  yards: Record<string, (string | null)[]>;
 }
 
 export interface TagInfo {
@@ -40,6 +45,9 @@ export type Pick =
   | { type: "resident"; id: string }
   | { type: "visitor"; id: string }
   | { type: "board" }
+  | { type: "vendor"; id: string }
+  | { type: "bodaStage" }
+  | { type: "landmark"; id: string }
   | { type: "building"; building: Building }
   | { type: "plot"; plotId: string }
   | { type: "pothole" }
@@ -82,6 +90,7 @@ export class Renderer {
   private sprites = new Map<string, Sprite>();
   private rainDrops: { x: number; y: number; s: number }[] = [];
   private tagRects: { id: string; x0: number; y0: number; x1: number; y1: number }[] = [];
+  private skyline: SkylineHit[] = [];
   private ripple: { x: number; y: number; t0: number } | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -182,7 +191,7 @@ export class Renderer {
     this.ensureGround(scale);
 
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    drawBackdrop(ctx, this.w, this.h, this.cam.x * 0.3, -this.cam.y * 0.15 * zoom, scene.night, scene.rain, scene.dusk);
+    this.skyline = drawBackdrop(ctx, this.w, this.h, this.cam.x * 0.3, -this.cam.y * 0.15 * zoom, scene.night, scene.rain, scene.dusk);
 
     ctx.setTransform(this.dpr * zoom, 0, 0, this.dpr * zoom, this.dpr * (this.w / 2 - this.cam.x * zoom), this.dpr * (this.h / 2 - this.cam.y * zoom));
     const gc = this.groundCache!;
@@ -212,6 +221,14 @@ export class Renderer {
       const bounds = { x0: bb.x0 - 30, x1: bb.x1 + 40, y0: bb.y0 - 16, y1: bb.y1 + 30 };
       const key = `k:${plot.id}:${nightKey}:${k ? `${k.name}|${k.color}|${k.upgrades.join(",")}|${k.mine}` : "free"}`;
       items.push(this.spriteItem(key, box, bounds, scale, (g) => drawPlot(g, plot.x, plot.y, k, scene.night, 0)));
+      const yard = k ? scene.yards[plot.id] : null;
+      if (yard) yardTiles(plot).forEach((t, i) => {
+        const id = yard[i];
+        if (!id) return;
+        const ybox: Box = { x: t.x + 0.2, y: t.y + 0.2, w: 0.6, d: 0.6, h: 40 };
+        const yb = boxBounds(ybox, 10);
+        items.push(this.spriteItem(`y:${t.x}:${t.y}:${id}:${nightKey}`, ybox, { x0: yb.x0 - 20, x1: yb.x1 + 20, y0: yb.y0 - 10, y1: yb.y1 + 10 }, scale, (g) => drawYardItem(g, t.x, t.y, id, scene.night)));
+      });
     }
     for (const v of sim.vehicles) {
       const cy = LANE_Y[v.lane];
@@ -230,12 +247,26 @@ export class Renderer {
     }
     const walkers: Walker[] = [...sim.residents, ...sim.visitors, sim.player];
     for (const w of walkers) {
+      if (w.hidden) continue;
       const box: Box = { x: w.x - 0.2, y: w.y - 0.2, w: 0.4, d: 0.4, h: 46 };
       const p = toScreen(w.x, w.y);
       const carrying = w === sim.player ? scene.playerCarrying : w.carrying;
+      if (w.vehicle === "boda") {
+        // passenger: a stage rider drives you; rider: you drive, maybe with a passenger behind
+        const rider = w.riderLook ?? w.look;
+        const back = w.riderLook ? w.look : w.pillion ?? null;
+        items.push({
+          box, x0: p.sx - 24, x1: p.sx + 24, y0: p.sy - 50, y1: p.sy + 8,
+          draw: (g) => drawBoda(g, w.x, w.y, w.flip ? -1 : 1, false, now, scene.night, { rider, passenger: back, vest: w.riderLook ? "07" : undefined }),
+        });
+        continue;
+      }
       items.push({
         box, x0: p.sx - 12, x1: p.sx + 12, y0: p.sy - 50, y1: p.sy + 4,
-        draw: (g) => drawPerson(g, p.sx, p.sy, w.look, w.phase, w.moving, w.flip, 1, carrying),
+        draw: (g) => {
+          drawPerson(g, p.sx, p.sy, w.look, w.phase, w.moving, w.flip, 1, carrying);
+          if (w.waving) waveBubble(g, p.sx, p.sy - 50, now);
+        },
       });
     }
     for (const d of depthSort(items)) d.draw(ctx);
@@ -391,7 +422,7 @@ export class Renderer {
     this.tagRects = [];
     const list: { w: Walker; tag: TagInfo }[] = [];
     for (const r of sim.residents) {
-      if (!r.resident || scene.hiddenTags.includes(r.resident.id)) continue;
+      if (!r.resident || r.hidden || scene.hiddenTags.includes(r.resident.id)) continue;
       const d = Math.hypot(r.x - sim.player.x, r.y - sim.player.y);
       if (d > 7 && this.cam.zoom < 1.1) continue;
       if (d < 0.9 && scene.playerTag) continue; // don't stack on top of your own tag
@@ -544,16 +575,43 @@ export class Renderer {
       const sil = boxSilhouette(kioskBox(plot.x, plot.y), 14);
       if (pointInPoly(wp.sx, wp.sy, sil) || (tx >= plot.x && tx <= plot.x + 1 && ty >= plot.y && ty <= plot.y + 1)) return { type: "plot", plotId: plot.id };
     }
-    const board = PROPS.find((p) => p.kind === "board");
-    if (board && (pointInPoly(wp.sx, wp.sy, boxSilhouette(propBox(board), 0)) || (tx === board.x && ty === board.y))) return { type: "board" };
+    const hitProp = (p: (typeof PROPS)[number]) => pointInPoly(wp.sx, wp.sy, boxSilhouette(propBox(p), 0)) || (tx === p.x && ty === p.y);
+    for (const p of PROPS) {
+      if (p.kind === "board" && hitProp(p)) return { type: "board" };
+      if (p.kind === "cart" && p.vendor && hitProp(p)) return { type: "vendor", id: p.vendor };
+      if (p.kind === "bodaPark" && hitProp(p)) return { type: "bodaStage" };
+      if (p.kind === "gate" && (hitProp(p) || (ty <= 0 && tx >= p.x && tx <= p.x + 1))) return { type: "landmark", id: "makerere-gate" };
+    }
     if (Math.abs(t.x - (POTHOLE.x + 0.5)) < 0.8 && Math.abs(t.y - (POTHOLE.y + 0.5)) < 0.8) return { type: "pothole" };
     // front-most building first
     const sorted = [...BUILDINGS].sort((a, b) => b.x + b.w + b.y + b.d - (a.x + a.w + a.y + a.d));
     for (const b of sorted) {
       if (pointInPoly(wp.sx, wp.sy, boxSilhouette(buildingBox(b), BUILDING_EXTRA_TOP[b.id] ?? 0))) return { type: "building", building: b };
     }
+    // landmarks on the hills behind the street
+    if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) {
+      for (const h of this.skyline) if (px >= h.x0 && px <= h.x1 && py >= h.y0 && py <= h.y1) return { type: "landmark", id: h.id };
+    }
     return { type: "ground", x: tx, y: ty };
   }
+
+  /** Screen position of a skyline landmark, for tests and hints. */
+  landmarkAt(id: string): SkylineHit | undefined {
+    return this.skyline.find((h) => h.id === id) ?? (LANDMARKS.some((l) => l.id === id) ? undefined : undefined);
+  }
+}
+
+function waveBubble(ctx: CanvasRenderingContext2D, x: number, y: number, now: number) {
+  const bob = Math.sin(now / 200) * 2;
+  ctx.fillStyle = "#f2d23c";
+  rounded(ctx, x - 17, y - 16 + bob, 34, 15, 7);
+  ctx.fill();
+  ctx.fillStyle = "#13202b";
+  ctx.font = "800 9px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("BODA!", x, y - 8.5 + bob);
+  ctx.textAlign = "left";
 }
 
 const SOCIAL_COLORS: Record<string, string> = { tiktok: "#111111", instagram: "#c13584", x: "#000000", youtube: "#e62117", facebook: "#1877f2" };

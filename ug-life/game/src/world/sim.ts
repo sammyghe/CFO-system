@@ -1,5 +1,5 @@
 import { MAP_H, MAP_W, isWalkable } from "./map";
-import { findPath, type Pt } from "./path";
+import { findPath, nearestWalkable, type Pt } from "./path";
 import type { Look } from "../game/state";
 import { RESIDENTS, type Resident } from "../content/residents";
 import type { Visitor } from "../net/api";
@@ -21,6 +21,14 @@ export interface Walker {
   visitor?: Visitor;
   home?: Pt;
   onArrive?: () => void;
+  /** On a boda: ridden by riderLook (when a passenger) and/or carrying pillion. */
+  vehicle?: "boda";
+  riderLook?: Look;
+  pillion?: Look;
+  /** Off the street for now (e.g. riding pillion on your boda). */
+  hidden?: boolean;
+  /** Waiting for a boda: stays put and waves. */
+  waving?: boolean;
 }
 
 export interface Vehicle {
@@ -67,19 +75,29 @@ export class Sim {
   constructor(playerLook: Look, start: { x: number; y: number }) {
     this.player = makeWalker("player", start.x, start.y, playerLook, 3.2);
     this.residents = RESIDENTS.map((r) => {
-      const w = makeWalker(r.id, r.start.x + 0.5, r.start.y + 0.5, r.look, 1.3 + Math.random() * 0.5);
+      const start = isWalkable(r.start.x, r.start.y) ? r.start : nearestWalkable(r.start) ?? { x: 3, y: 11 };
+      const w = makeWalker(r.id, start.x + 0.5, start.y + 0.5, r.look, 1.3 + Math.random() * 0.5);
       w.resident = r;
       w.idleUntil = performance.now() + Math.random() * 4000;
       return w;
     });
     this.vehicles = [
       vehicle("matatu", 2, 1, "#f4f4ef"),
+      vehicle("boda", 7, 1, ""),
       vehicle("boda", 12, 1, ""),
-      vehicle("car", 22, 1, "#c8332b"),
-      vehicle("matatu", 28, 0, "#f4f4ef"),
-      vehicle("boda", 17, 0, ""),
-      vehicle("car", 6, 0, "#2c5f8a"),
-      vehicle("boda", 33, 0, ""),
+      vehicle("car", 17, 1, "#c8332b"),
+      vehicle("boda", 22, 1, ""),
+      vehicle("matatu", 27, 1, "#f4f4ef"),
+      vehicle("boda", 33, 1, ""),
+      vehicle("boda", 38, 1, ""),
+      vehicle("matatu", 40, 0, "#f4f4ef"),
+      vehicle("boda", 35, 0, ""),
+      vehicle("car", 30, 0, "#2c5f8a"),
+      vehicle("boda", 25, 0, ""),
+      vehicle("boda", 19, 0, ""),
+      vehicle("car", 13, 0, "#e8e8e2"),
+      vehicle("boda", 8, 0, ""),
+      vehicle("boda", 1, 0, ""),
     ];
   }
 
@@ -100,9 +118,64 @@ export class Sim {
     return true;
   }
 
+  resident(id: string): Walker | undefined {
+    return this.residents.find((r) => r.id === id);
+  }
+
+  /** A named resident walks to a tile and waits there, waving for a boda. */
+  callResidentTo(id: string, tile: Pt) {
+    const w = this.resident(id);
+    if (!w) return;
+    w.hidden = false;
+    const target = isWalkable(tile.x, tile.y) ? tile : nearestWalkable(tile);
+    if (!target) return;
+    const near = nearestWalkable({ x: target.x + 1, y: target.y }) ?? target;
+    w.x = near.x + 0.5;
+    w.y = near.y + 0.5;
+    w.path = [];
+    w.waving = true;
+    w.onArrive = () => {};
+    w.idleUntil = Infinity;
+  }
+
+  /** The resident hops on (disappears from the street) or gets off at a tile. */
+  setPillion(id: string, on: boolean, at?: Pt) {
+    const w = this.resident(id);
+    if (!w) return;
+    w.waving = false;
+    w.hidden = on;
+    this.player.pillion = on ? w.look : undefined;
+    if (!on) {
+      if (at) {
+        w.x = at.x + 0.5;
+        w.y = at.y + 0.5;
+      }
+      w.onArrive = undefined;
+      w.idleUntil = performance.now() + 4000;
+    }
+  }
+
+  /** Release any resident left waiting (ride cancelled). */
+  releaseWaiting() {
+    for (const r of this.residents) if (r.waving) {
+      r.waving = false;
+      r.onArrive = undefined;
+      r.idleUntil = performance.now() + 1000;
+    }
+  }
+
+  /** Puts the player on a boda (as rider or passenger) or back on foot. */
+  setPlayerBoda(mode: "rider" | "passenger" | null, speeds: { boda: number; walk: number }, riderLook?: Look) {
+    const p = this.player;
+    p.vehicle = mode ? "boda" : undefined;
+    p.riderLook = mode === "passenger" ? riderLook : undefined;
+    if (!mode) p.pillion = undefined;
+    p.speed = mode ? speeds.boda : speeds.walk;
+  }
+
   /** Send a resident who is standing around to a tile, then call back. */
   sendResident(tile: Pt, onArrive: () => void): boolean {
-    const idle = this.residents.filter((r) => !r.path.length && r.resident?.id !== "r-ssali");
+    const idle = this.residents.filter((r) => !r.path.length && !r.hidden && !r.waving && r.resident?.id !== "r-ssali");
     if (!idle.length) return false;
     const w = idle[Math.floor(this.rand() * idle.length)];
     const path = findPath({ x: Math.floor(w.x), y: Math.floor(w.y) }, tile);
@@ -148,6 +221,7 @@ export class Sim {
     }
     stepWalker(this.player, dt);
     for (const r of this.residents) {
+      if (r.hidden || r.waving) continue;
       if (!r.path.length && now > r.idleUntil && !r.onArrive) {
         const target = HANGOUTS[Math.floor(this.rand() * HANGOUTS.length)];
         const path = findPath({ x: Math.floor(r.x), y: Math.floor(r.y) }, target);

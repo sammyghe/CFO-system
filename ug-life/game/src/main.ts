@@ -20,6 +20,14 @@ function showError(message: string) {
   boot.append(wrap);
 }
 
+// Remember who invited this player (from ?ref=...), so they're credited when the account is made.
+try {
+  const ref = new URLSearchParams(location.search).get("ref");
+  if (ref && /^p_[a-z0-9]{6,40}$/.test(ref) && !localStorage.getItem("uglife.token")) localStorage.setItem("uglife.ref", ref);
+} catch {
+  /* storage blocked */
+}
+
 function boot() {
   const canvas = document.getElementById("world") as HTMLCanvasElement | null;
   if (!canvas || !canvas.getContext) {

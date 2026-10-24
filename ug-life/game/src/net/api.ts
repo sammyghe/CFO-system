@@ -24,6 +24,14 @@ export interface Visitor {
   kiosk: { name: string; color: string } | null;
 }
 
+export interface SharedPlot {
+  plotId: string;
+  playerId: string;
+  owner: string;
+  kiosk: { name: string; color: string; product: string; upgrades: string[]; yard: (string | null)[] } | null;
+  leasedUntil: number;
+}
+
 export interface CommunityPhoto {
   id: string;
   author: string;
@@ -106,7 +114,13 @@ export class Api {
 
   async ensureSession(): Promise<boolean> {
     if (this.token) return true;
-    const r = await this.call<{ playerId: string; token: string }>("POST", "session", {});
+    let ref: string | null = null;
+    try {
+      ref = localStorage.getItem("uglife.ref");
+    } catch {
+      /* storage blocked */
+    }
+    const r = await this.call<{ playerId: string; token: string }>("POST", "session", ref ? { ref } : {});
     if (!r?.ok) return false;
     this.token = r.data.token;
     this.playerId = r.data.playerId;
@@ -148,6 +162,29 @@ export class Api {
     store(PLAYER_KEY, this.playerId);
     this.serverVersion = r.data.version;
     return { save: r.data.save, version: r.data.version };
+  }
+
+  async plots(): Promise<SharedPlot[] | null> {
+    const r = await this.call<{ plots: SharedPlot[] }>("GET", "plots");
+    return r?.ok ? r.data.plots : null;
+  }
+
+  /** Asks the server for a kiosk plot. Only one player can hold a plot at a time. */
+  async claimPlot(plotId: string): Promise<{ ok: true; day: string; renewed: boolean } | { ok: false; message: string }> {
+    const r = await this.call<{ day: string; renewed: boolean }>("POST", `plots/${plotId}/claim`, {}, { auth: true });
+    if (!r) return { ok: false, message: "Leasing needs a connection, so two players can't take the same plot. Try again when you have signal." };
+    if (!r.ok) return { ok: false, message: r.data.error ?? "Couldn't lease that plot." };
+    return { ok: true, day: r.data.day, renewed: r.data.renewed };
+  }
+
+  async rewards(): Promise<{ referrals: { id: string; name: string }[]; referred: boolean } | null> {
+    const r = await this.call<{ referrals: { id: string; name: string }[]; referred: boolean }>("GET", "rewards", undefined, { auth: true });
+    return r?.ok ? r.data : null;
+  }
+
+  /** Link that credits this player when a friend joins and works. */
+  inviteUrl(base: string): string {
+    return this.playerId ? `${base}${base.includes("?") ? "&" : "?"}ref=${this.playerId}` : base;
   }
 
   async street(): Promise<Visitor[]> {

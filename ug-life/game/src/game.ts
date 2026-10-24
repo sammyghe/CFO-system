@@ -18,6 +18,12 @@ import { drainEventNames, track } from "./track";
 import { Api, type Visitor } from "./net/api";
 import { listSnaps, saveSnap, type SnapRecord } from "./snaps/store";
 import { albumSheet } from "./snaps/ui";
+import * as St from "./game/street";
+import { bodaSheet, landmarkSheet, vendorSheet } from "./ui/streetsheets";
+import { BODA, VENDORS } from "./content/catalog";
+import { RIDER } from "./world/art";
+import type { SharedPlot } from "./net/api";
+import { placeById } from "./world/map";
 
 const BILLBOARD = "UG LIFE · YOUR STREET, YOUR STORY";
 
@@ -49,6 +55,8 @@ export class Game implements S.GameApi {
   private visitors: Visitor[] = [];
   private billboard: { img: CanvasImageSource | null; key: string } = { img: null, key: "" };
   private online = false;
+  private plots: SharedPlot[] = [];
+  private ridingOn = false;
 
   constructor(private canvas: HTMLCanvasElement) {
     const now = Date.now();
@@ -152,9 +160,139 @@ export class Game implements S.GameApi {
 
   joinUrl() {
     const env = import.meta.env.VITE_PUBLIC_URL as string | undefined;
-    if (env) return env;
-    if (location.protocol.startsWith("http") && !location.hostname.includes("claude")) return location.origin + location.pathname.replace(/index\.html$/, "");
-    return "Ug Life (link coming at launch)";
+    const base = env || (location.protocol.startsWith("http") && !location.hostname.includes("claude") ? location.origin + location.pathname.replace(/index\.html$/, "") : "https://ug-life.netlify.app/");
+    return this.api.inviteUrl(base);
+  }
+
+  // ---------- street life ----------
+
+  sharedPlot(plotId: string) {
+    return this.plots.find((p) => p.plotId === plotId && p.leasedUntil > Date.now()) ?? null;
+  }
+
+  async leasePlot(plotId: string, renew = false): Promise<boolean> {
+    const s = this.state;
+    if (!this.api.available) {
+      // preview build without a server: the street is just yours
+      const ok = this.result(renew ? A.renewKiosk(s, Date.now()) : A.leaseKiosk(s, plotId, Date.now()));
+      if (ok) this.changed();
+      return ok;
+    }
+    if (!this.online) {
+      this.toast("Leasing needs a connection, so two players can't take the same plot.", "bad");
+      return false;
+    }
+    if (balanceOf(s.ledger) < 25_000) {
+      this.toast("You need UGX 25,000 to lease a kiosk.", "bad");
+      return false;
+    }
+    this.unsynced = true;
+    await this.syncNow(); // the server checks your saved balance
+    const r = await this.api.claimPlot(plotId);
+    if (!r.ok) {
+      this.toast(r.message, "bad");
+      await this.refreshPlots();
+      return false;
+    }
+    const ok = this.result(r.renewed || renew ? A.renewKiosk(s, Date.now()) : A.leaseKiosk(s, plotId, Date.now()));
+    if (ok) {
+      track("kiosk_leased");
+      this.changed();
+      this.unsynced = true;
+      await this.syncNow();
+      await this.refreshPlots();
+    }
+    return ok;
+  }
+
+  takeBoda(placeId: string) {
+    const s = this.state;
+    if (s.ride) {
+      this.toast("You're carrying a passenger. Drop them off first.", "bad");
+      return;
+    }
+    const place = placeById(placeId);
+    if (!place) return;
+    if (!this.result(St.payFare(s, placeId, { x: Math.floor(s.pos.x), y: Math.floor(s.pos.y) }, Date.now()))) return;
+    track("boda_taken");
+    this.closeSheet();
+    this.ridingOn = false;
+    this.sim.setPlayerBoda("passenger", { boda: BODA.speed, walk: BODA.walkSpeed }, { ...RIDER, shirt: "#e07a1f" });
+    this.walkTo(place, () => {
+      this.sim.setPlayerBoda(null, { boda: BODA.speed, walk: BODA.walkSpeed });
+      this.toast(`You're at ${place.name}.`, "info");
+    });
+    this.changed();
+  }
+
+  setRiding(on: boolean) {
+    if (on && !St.hasBoda(this.state, Date.now())) {
+      this.toast("Rent a boda first.", "bad");
+      return;
+    }
+    if (!on && this.state.ride?.stage === "dropoff") {
+      this.toast("Your passenger is still on the back.", "bad");
+      return;
+    }
+    this.ridingOn = on;
+    this.sim.setPlayerBoda(on ? "rider" : null, { boda: BODA.speed, walk: BODA.walkSpeed });
+  }
+
+  riding() {
+    return this.ridingOn;
+  }
+
+  startRide(offerId: string) {
+    const s = this.state;
+    if (!this.result(St.acceptRide(s, offerId, Date.now()))) return;
+    const ride = s.ride!;
+    const from = placeById(ride.fromId)!;
+    this.setRiding(true);
+    this.sim.callResidentTo(ride.passengerId, from);
+    this.closeSheet();
+    this.walkTo(from);
+    this.changed();
+  }
+
+  cancelRide() {
+    const s = this.state;
+    if (s.ride?.stage === "dropoff") this.sim.setPillion(s.ride.passengerId, false, { x: Math.floor(s.pos.x), y: Math.floor(s.pos.y) });
+    this.result(St.dropRide(s));
+    this.sim.releaseWaiting();
+    this.changed();
+  }
+
+  showLandmark(id: string) {
+    const r = St.discoverLandmark(this.state, id, Date.now());
+    if (r) {
+      this.result(r);
+      track("landmark_found");
+      if (this.state.goals.includes("landmarks") && this.state.landmarks.length === 5) this.toast("Goal done: 5 Kampala landmarks. Claim it in Goals.", "ok");
+      this.changed();
+    }
+    this.openSheet(landmarkSheet(this, id));
+  }
+
+  private async refreshPlots() {
+    if (!this.online) return;
+    const list = await this.api.plots();
+    if (list) this.plots = list;
+  }
+
+  private async claimServerRewards() {
+    if (!this.online) return;
+    const r = await this.api.rewards();
+    if (!r) return;
+    const now = Date.now();
+    for (const f of r.referrals) {
+      const got = St.claimReferral(this.state, f.id, f.name, now);
+      if (got) this.toast(got.message, "ok");
+    }
+    if (r.referred) {
+      const got = St.claimReferredBonus(this.state, now);
+      if (got) this.toast(got.message, "ok");
+    }
+    this.changed();
   }
 
   finishOnboarding() {
@@ -252,6 +390,16 @@ export class Game implements S.GameApi {
     const ev = eventForTime(Date.now());
     setTimeout(() => this.toast(`Today: ${ev.title}`, "info"), 400 + notes.length * 900);
     this.nextCustomerAt = performance.now() + 12000;
+    // pick up a boda ride where it was left
+    const ride = this.state.ride;
+    if (ride && St.hasBoda(this.state, Date.now())) {
+      this.setRiding(true);
+      if (ride.stage === "dropoff") this.sim.setPillion(ride.passengerId, true);
+      else this.sim.callResidentTo(ride.passengerId, placeById(ride.fromId)!);
+    } else if (ride) {
+      St.dropRide(this.state);
+      this.toast("Your boda rent ended at midnight, so the passenger found another boda.", "info");
+    }
     track("session_start", { days: this.state.stats.daysVisited });
     this.changed();
     void this.goOnline();
@@ -273,7 +421,9 @@ export class Game implements S.GameApi {
     this.online = true;
     await this.syncNow();
     void this.refreshVisitors();
+    void this.refreshPlots();
     void this.uploadQueued();
+    void this.claimServerRewards();
   }
 
   private async syncNow() {
@@ -379,6 +529,7 @@ export class Game implements S.GameApi {
     if (t > this.net.street) {
       this.net.street = t + 30_000;
       void this.refreshVisitors();
+      void this.refreshPlots();
     }
     if (t > this.net.track) {
       this.net.track = t + 60_000;
@@ -388,6 +539,7 @@ export class Game implements S.GameApi {
       this.net.uploads = t + 120_000;
       void this.uploadQueued();
       void this.refreshBillboard();
+      void this.claimServerRewards();
     }
   }
 
@@ -397,10 +549,22 @@ export class Game implements S.GameApi {
     if (this.walkedTiles >= 5 && A.complete(this.state, "walk")) this.toast("Goal done: walk down the street", "ok");
     for (const place of PLACES) {
       if (Math.abs(place.x - tx) <= 1 && Math.abs(place.y - ty) <= 1) {
+        const ride = this.state.ride ? { ...this.state.ride } : null;
+        const hadJob = !!this.state.job;
         const r = A.arriveAt(this.state, place.id, Date.now());
         if (r) {
           this.result(r);
-          if (r.ok && !this.state.job) {
+          if (ride && r.ok) {
+            if (ride.stage === "pickup") {
+              this.sim.setPillion(ride.passengerId, true);
+              const to = placeById(ride.toId);
+              if (to) this.walkTo(to);
+            } else {
+              this.sim.setPillion(ride.passengerId, false, { x: tx, y: ty });
+              this.sim.float(`+UGX ${ride.pay.toLocaleString()}`, p.x, p.y);
+              track("ride_done");
+            }
+          } else if (hadJob && r.ok && !this.state.job) {
             this.sim.float(r.message.replace("Delivered. ", ""), p.x, p.y);
             track("job_completed");
           }
@@ -484,6 +648,13 @@ export class Game implements S.GameApi {
     this.dirty = false;
   }
 
+  private yards(): Record<string, (string | null)[]> {
+    const out: Record<string, (string | null)[]> = {};
+    for (const p of this.plots) if (p.leasedUntil > Date.now() && p.kiosk?.yard && p.playerId !== this.api.playerId) out[p.plotId] = p.kiosk.yard;
+    if (this.state.kiosk) out[this.state.kiosk.plotId] = this.state.yard;
+    return out;
+  }
+
   private scene(now: number): SceneState {
     const s = this.state;
     const hour = s.settings.liveTime ? kampalaHour(now) : 12;
@@ -494,9 +665,13 @@ export class Game implements S.GameApi {
     for (const p of PLOTS) {
       if (p.npcOwner) kiosks[p.id] = { name: p.npcOwner.sign, color: p.npcOwner.color, upgrades: ["shade"], mine: false };
       else if (s.kiosk?.plotId === p.id) kiosks[p.id] = { name: s.kiosk.name, color: s.kiosk.color, upgrades: s.kiosk.upgrades, mine: true };
+      else if (this.sharedPlot(p.id)?.kiosk) {
+        const k = this.sharedPlot(p.id)!.kiosk!;
+        kiosks[p.id] = { name: k.name, color: k.color, upgrades: k.upgrades ?? [], mine: false };
+      } else if (this.sharedPlot(p.id)) kiosks[p.id] = { name: `${this.sharedPlot(p.id)!.owner.toUpperCase()}'S`, color: "#5b6873", upgrades: [], mine: false };
       else kiosks[p.id] = null;
     }
-    const target = s.job ? A.jobTarget(s.job) : null;
+    const target = s.ride ? St.rideTarget(s.ride) : s.job ? A.jobTarget(s.job) : null;
     return {
       night,
       dusk,
@@ -505,7 +680,7 @@ export class Game implements S.GameApi {
       kiosks,
       civic: s.civic,
       marker: target ? { x: target.x, y: target.y } : null,
-      markerLabel: s.job ? (s.job.stage === "pickup" ? "Pick up" : "Drop off") : "",
+      markerLabel: s.ride ? (s.ride.stage === "pickup" ? `Pick up ${s.ride.passenger}` : "Drop off") : s.job ? (s.job.stage === "pickup" ? "Pick up" : "Drop off") : "",
       playerTag: s.tag.ghost ? null : { name: s.tag.name || "You", level: levelForXp(s.xp), status: s.tag.status, socials: s.tag.socials.map((x) => x.platform), mine: true },
       playerCarrying: s.job?.stage === "dropoff",
       hiddenTags: s.blocked,
@@ -513,6 +688,7 @@ export class Game implements S.GameApi {
       billboard: BILLBOARD,
       billboardImage: this.billboard.img,
       billboardKey: this.billboard.key,
+      yards: this.yards(),
     };
   }
 
@@ -530,7 +706,8 @@ export class Game implements S.GameApi {
     const xp = h("i", {});
     const eventChip = h("button", { class: "event-chip", type: "button" });
     eventChip.addEventListener("click", () => this.openSheet(S.eventSheet(this)));
-    const wallet = h("div", { class: "wallet" }, bal, h("div", { class: "lv" }, lvl, h("span", { class: "xpbar" }, xp)), h("div", { class: "sim" }, "Simulated UGX · no real value"));
+    const boost = h("div", { class: "boost", hidden: true });
+    const wallet = h("div", { class: "wallet" }, bal, h("div", { class: "lv" }, lvl, h("span", { class: "xpbar" }, xp)), boost, h("div", { class: "sim" }, "Game shillings · not real money"));
     const goalsBtn = btn(ICONS.goals, "Street goals", () => this.openSheet(S.goalsSheet(this)));
     const side = h("div", { class: "hud-side" },
       btn(ICONS.tag, "Your Ug Tag", () => this.openSheet(S.tagSheet(this, false))),
@@ -539,11 +716,13 @@ export class Game implements S.GameApi {
       btn(ICONS.share, "Share your card", () => this.openSheet(S.shareSheet(this))),
       btn(ICONS.help, "Help", () => this.openSheet(S.helpSheet(this))),
       btn(ICONS.locate, "Find me", () => { this.follow = true; }));
+    const boda = h("button", { class: "big-btn boda", type: "button", html: ICONS.boda + "<span>Boda</span>" });
+    boda.addEventListener("click", () => this.openSheet(bodaSheet(this, St.hasBoda(this.state, Date.now()) ? "work" : "ride")));
     const jobs = h("button", { class: "big-btn", type: "button", html: ICONS.jobs + "<span>Jobs</span>" });
     jobs.addEventListener("click", () => this.openSheet(S.jobsSheet(this)));
     const bottomInfo = h("div", { style: "flex:1;min-width:0;display:flex" });
-    hud.append(h("div", { class: "hud-top" }, wallet, eventChip), side, h("div", { class: "hud-bottom" }, bottomInfo, jobs));
-    this.hud = { bal, lvl, xp, eventChip, bottomInfo, goalsBtn };
+    hud.append(h("div", { class: "hud-top" }, wallet, eventChip), side, h("div", { class: "hud-bottom" }, bottomInfo, h("div", { class: "big-btns" }, boda, jobs)));
+    this.hud = { bal, lvl, xp, eventChip, bottomInfo, goalsBtn, boost };
   }
 
   private updateHud() {
@@ -551,6 +730,9 @@ export class Game implements S.GameApi {
     const s = this.state;
     const now = Date.now();
     this.hud.bal.textContent = formatUGX(balanceOf(s.ledger));
+    const b = s.boost && now < s.boost.until ? s.boost : null;
+    this.hud.boost.hidden = !b;
+    if (b) this.hud.boost.textContent = `${b.label}: +${b.pct}% pay · ${Math.ceil((b.until - now) / 60_000)} min`;
     const lv = levelForXp(s.xp);
     this.hud.lvl.textContent = `Lv ${lv}`;
     const span = xpForLevel(lv + 1) - xpForLevel(lv);
@@ -566,11 +748,21 @@ export class Game implements S.GameApi {
     if (!pending && hasDot) hasDot.remove();
 
     const info = this.hud.bottomInfo;
-    const key = s.job ? `job:${s.job.id}:${s.job.stage}` : `hint:${this.hint()}`;
+    const key = s.ride ? `ride:${s.ride.id}:${s.ride.stage}` : s.job ? `job:${s.job.id}:${s.job.stage}` : `hint:${this.hint()}`;
     if (info.dataset.key === key) return;
     info.dataset.key = key;
     info.replaceChildren();
-    if (s.job) {
+    if (s.ride) {
+      const target = St.rideTarget(s.ride);
+      const go = h("button", { class: "btn small", type: "button" }, "Ride there");
+      go.addEventListener("click", () => target && this.walkTo(target));
+      const drop = h("button", { class: "btn ghost small", type: "button" }, "Cancel");
+      drop.addEventListener("click", () => this.cancelRide());
+      info.append(h("div", { class: "job-card" },
+        h("div", { class: "what" }, s.ride.stage === "pickup" ? `Pick up ${s.ride.passenger}` : `Take ${s.ride.passenger} to ${target?.name}`),
+        h("div", { class: "meta" }, h("span", {}, s.ride.stage === "pickup" ? `at ${target?.name}` : "on your boda"), h("span", { class: "pay" }, formatUGX(s.ride.pay))),
+        h("div", { class: "row" }, go, drop)));
+    } else if (s.job) {
       const target = A.jobTarget(s.job);
       const go = h("button", { class: "btn small", type: "button" }, "Walk there");
       go.addEventListener("click", () => target && this.walkTo(target));
@@ -591,11 +783,15 @@ export class Game implements S.GameApi {
     const g = (id: Parameters<typeof A.complete>[1]) => s.goals.includes(id);
     if (!g("walk")) return "Tap the street to walk. Drag to look around, pinch to zoom.";
     if (!g("delivery")) return "Tap Jobs to take your first delivery.";
+    if (!g("rolex")) return "Hungry? Musa's rolex cart is by the taxi stage. A rolex pays you 20% more for 30 minutes.";
     if (!g("pothole")) return "See the pothole outside the pharmacy? Tap it to report it.";
     if (!g("kiosk")) return balanceOf(s.ledger) < 25_000 ? "Save UGX 25,000 to lease the kiosk across the road. Deliveries pay." : "You can afford a kiosk. Tap the TO LET board across the road.";
     if (!g("paint")) return "Tap your kiosk to paint your sign.";
     if (!g("profile")) return "Tap your Ug Tag to add your TikTok or Instagram.";
+    if (!g("boda")) return "Tap Boda to ride anywhere on the street, or rent one and earn carrying passengers.";
     if (!g("snap")) return "Snap a real Kampala street with the camera button. It becomes art on the street.";
+    if (!g("landmarks")) return "Tap the buildings on the hills behind the street to discover Kampala landmarks.";
+    if (!g("build")) return "Build in your kiosk yard: chairs, string lights, a flag. Everyone sees it.";
     if (!g("share")) return "Share your Ug Tag card to WhatsApp Status.";
     return "";
   }
@@ -683,6 +879,20 @@ export class Game implements S.GameApi {
         if (v) this.openSheet(S.visitorSheet(this, v));
         return;
       }
+      case "vendor": {
+        const v = VENDORS.find((x) => x.id === pick.id);
+        if (v) {
+          this.walkTo(v.stand);
+          this.openSheet(vendorSheet(this, v.id));
+        }
+        return;
+      }
+      case "bodaStage":
+        this.openSheet(bodaSheet(this, St.hasBoda(this.state, Date.now()) ? "work" : "ride"));
+        return;
+      case "landmark":
+        this.showLandmark(pick.id);
+        return;
       case "board":
         this.walkTo({ x: 25, y: 11 });
         this.openSheet(albumSheet(this));

@@ -139,6 +139,11 @@ Phase 1.5 (same day): Street Snaps (photo to street art on the phone, privacy bl
 community board, billboard, neighbourhood race), online accounts and save checks, real players
 on the street, support tickets with replies, Control Room, deploy pipeline, health check.
 Live on Netlify (2026-10-24). Cloudflare standby ready.
+Phase 1.6 (same day): street is 40 tiles with 3 more shops and 3 more kiosk plots; 16 bodas,
+take a boda (fares) or rent one and carry passengers (paid rides); rolex, maize and fruit carts
+with pay boosts; build in your kiosk yard; Kampala landmarks on the hills; one owner per plot
+held by the server; invite links with server-confirmed rewards; goal rewards; content guide
+(`game/CONTENT.md`); WhatsApp link preview image.
 Not done yet: real-time multiplayer, social sign-in verification, Luganda/Swahili UI.
 
 ## 11. Open decisions for Sammy

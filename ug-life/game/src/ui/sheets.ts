@@ -15,7 +15,9 @@ import { FAQ } from "../content/faq";
 import { drawPerson } from "../world/art";
 import { renderShareCard } from "./sharecard";
 import { DAY_MS } from "../game/time";
-import type { Api, Visitor } from "../net/api";
+import type { Api, SharedPlot, Visitor } from "../net/api";
+import { yardSheet } from "./streetsheets";
+import * as St from "../game/street";
 import type { SnapRecord } from "../snaps/store";
 
 export interface GameApi {
@@ -38,6 +40,20 @@ export interface GameApi {
   onSnap(rec: SnapRecord | null): void;
   /** Replace the whole save (restore on a new phone). */
   adoptSave(save: PlayerState, message: string): void;
+  /** Who holds a kiosk plot on the shared street (server), if known. */
+  sharedPlot(plotId: string): SharedPlot | null;
+  /** Claims the plot on the server, then pays the lease. renew = extend your own. */
+  leasePlot(plotId: string, renew?: boolean): Promise<boolean>;
+  /** Pays the fare and rides a boda to a place. */
+  takeBoda(placeId: string): void;
+  /** Get on or off your own rented boda. */
+  setRiding(on: boolean): void;
+  riding(): boolean;
+  /** Accepts a passenger and heads to them. */
+  startRide(offerId: string): void;
+  cancelRide(): void;
+  /** Shows a landmark, paying the first-visit reward. */
+  showLandmark(id: string): void;
 }
 
 export interface SheetSpec {
@@ -287,10 +303,10 @@ export function buildingSheet(G: GameApi, b: Building): SheetSpec {
       const relevant = job && (job.fromId === b.id || job.toId === b.id);
       const owner = RESIDENTS.find((r) => r.start.x === b.door.x && r.start.y === b.door.y);
       return h("div", { class: "sheet-body" },
-        b.id === "pharmacy" ? h("div", { class: "notice" }, "The billboard on this roof is a demo ad for Ug Life. Later, real shops can book billboards and sponsored events.") : null,
+        b.id === "pharmacy" ? h("div", { class: "notice" }, "The billboard on this roof shows the featured Street Snap. Snap your street and it could be next.") : null,
         relevant ? h("div", { class: "notice ok" }, job!.stage === "pickup" && job!.fromId === b.id ? "Your pickup is here. Walk to the door." : "Your drop-off is here. Walk to the door.") : null,
         owner ? h("p", {}, `${owner.name} works here. ${owner.role}.`) : null,
-        h("p", { class: "muted small" }, "In later builds you'll be able to go inside shops, work shifts here and see who owns each business."),
+        h("p", { class: "muted small" }, "Deliveries start and end at this door. Tap Jobs to see who needs something carried here."),
       );
     },
   };
@@ -313,6 +329,13 @@ export function kioskSheet(G: GameApi, plotId: string): SheetSpec {
         return body;
       }
       const mine = s.kiosk && s.kiosk.plotId === plotId ? s.kiosk : null;
+      const shared = G.sharedPlot(plotId);
+      if (!mine && shared && shared.playerId !== G.api.playerId) {
+        body.append(
+          h("p", {}, `${shared.owner || "Another player"} runs this kiosk${shared.kiosk ? `: ${shared.kiosk.name}, selling ${shared.kiosk.product.toLowerCase()}` : ""}.`),
+          h("p", { class: "muted small" }, `Their lease runs until ${new Date(shared.leasedUntil).toLocaleDateString([], { weekday: "long", day: "numeric", month: "short" })}. If they don't renew, the plot goes back on the market.`));
+        return body;
+      }
       if (!mine) {
         const bal = balanceOf(s.ledger);
         body.append(
@@ -323,12 +346,11 @@ export function kioskSheet(G: GameApi, plotId: string): SheetSpec {
         if (s.kiosk) body.append(h("div", { class: "notice" }, "You already lease a kiosk. One per player for now."));
         else {
           const lease = h("button", { class: "btn block", type: "button", disabled: bal < KIOSK_LEASE_PRICE }, bal < KIOSK_LEASE_PRICE ? `Need ${formatUGX(KIOSK_LEASE_PRICE - bal)} more` : "Lease this kiosk");
-          lease.addEventListener("click", () => {
-            if (G.result(A.leaseKiosk(s, plotId, G.now()))) {
-              G.track("kiosk_leased");
-              G.changed();
-              G.openSheet(kioskSheet(G, plotId));
-            }
+          lease.addEventListener("click", async () => {
+            lease.disabled = true;
+            lease.textContent = "Checking the plot…";
+            if (await G.leasePlot(plotId)) G.openSheet(kioskSheet(G, plotId));
+            else G.openSheet(kioskSheet(G, plotId));
           });
           body.append(lease, h("p", { class: "muted small" }, "Customers visit while you play. While you're away, you get 60% of a day's sales, for up to 3 days."));
         }
@@ -375,9 +397,16 @@ export function kioskSheet(G: GameApi, plotId: string): SheetSpec {
         ups.append(h("div", { class: "offer" }, h("div", { class: "bottom" }, h("b", {}, u.name), buy), h("div", { class: "muted small" }, `${u.blurb} +${formatUGX(u.incomeBonus)} a day.`)));
       }
       body.append(h("div", { class: "field" }, h("label", {}, "Upgrades"), ups));
+      const build = h("button", { class: "btn ghost block", type: "button" }, "Build in your yard");
+      build.addEventListener("click", () => G.openSheet(yardSheet(G)));
+      body.append(build);
       if (daysLeft <= 2) {
         const renew = h("button", { class: "btn ghost block", type: "button" }, `Renew 7 days for ${formatUGX(KIOSK_LEASE_PRICE)}`);
-        renew.addEventListener("click", () => { if (G.result(A.renewKiosk(s, G.now()))) { G.changed(); G.openSheet(kioskSheet(G, plotId)); } });
+        renew.addEventListener("click", async () => {
+          renew.disabled = true;
+          await G.leasePlot(plotId, true);
+          G.openSheet(kioskSheet(G, plotId));
+        });
         body.append(renew);
       }
       return body;
@@ -448,10 +477,23 @@ export function goalsSheet(G: GameApi): SheetSpec {
       const s = G.state;
       const done = GOALS.filter((g) => s.goals.includes(g.id)).length;
       return h("div", { class: "sheet-body" },
-        h("p", { class: "muted small" }, `${done} of ${GOALS.length} done`),
+        h("p", { class: "muted small" }, `${done} of ${GOALS.length} done. Finish a goal, then claim its reward.`),
         h("div", { class: "list" }, GOALS.map((g) => {
           const ok = s.goals.includes(g.id);
-          return h("div", { class: ok ? "goal done" : "goal" }, h("span", { class: "box" }, ok ? "✓" : ""), h("span", {}, g.label));
+          const claimed = St.goalClaimed(s, g.id);
+          const reward = St.GOAL_REWARDS[g.id];
+          let action: HTMLElement;
+          if (ok && !claimed) {
+            action = h("button", { class: "btn small", type: "button" }, `Claim ${formatUGX(reward)}`);
+            action.addEventListener("click", () => {
+              if (G.result(St.claimGoal(s, g.id, G.now()))) {
+                G.track("goal_claimed", { goal: g.id });
+                G.changed();
+                G.openSheet(goalsSheet(G));
+              }
+            });
+          } else action = h("span", { class: "muted small" }, claimed ? "Claimed" : formatUGX(reward));
+          return h("div", { class: ok ? "goal done" : "goal" }, h("span", { class: "box" }, ok ? "✓" : ""), h("span", { style: "flex:1" }, g.label), action);
         })));
     },
   };

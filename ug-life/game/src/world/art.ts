@@ -4,6 +4,9 @@
 import { FLOOR_H, HW, toScreen, type Box, type SPt, boxCorners } from "./iso";
 import type { Building, Ground, Prop } from "./map";
 import type { Look } from "../game/state";
+import { VENDORS } from "../content/catalog";
+import { LANDMARKS } from "../content/landmarks";
+import { drawCart, drawGate, drawSkylineLandmark, type SkylineHit } from "./streetart";
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -20,7 +23,7 @@ export function shade(hex: string, amt: number): string {
   return `rgb(${r | 0},${g | 0},${b | 0})`;
 }
 
-function rng(seed: number) {
+export function rng(seed: number) {
   let s = ((Math.floor(seed) % 233280) + 233280) % 233280;
   return () => {
     s = (s * 9301 + 49297) % 233280;
@@ -28,7 +31,7 @@ function rng(seed: number) {
   };
 }
 
-function poly(ctx: Ctx, pts: SPt[], fill: string | CanvasGradient, stroke?: string, lw = 1) {
+export function poly(ctx: Ctx, pts: SPt[], fill: string | CanvasGradient, stroke?: string, lw = 1) {
   ctx.beginPath();
   ctx.moveTo(pts[0].sx, pts[0].sy);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].sx, pts[i].sy);
@@ -53,7 +56,7 @@ function fx(b: Box, u: number, v: number): SPt {
   return up(toScreen(b.x + b.w, b.y + b.d - u), v);
 }
 
-function quadY(ctx: Ctx, b: Box, u0: number, u1: number, v0: number, v1: number, fill: string | CanvasGradient, stroke?: string) {
+export function quadY(ctx: Ctx, b: Box, u0: number, u1: number, v0: number, v1: number, fill: string | CanvasGradient, stroke?: string) {
   poly(ctx, [fy(b, u0, v0), fy(b, u1, v0), fy(b, u1, v1), fy(b, u0, v1)], fill, stroke);
 }
 function quadX(ctx: Ctx, b: Box, u0: number, u1: number, v0: number, v1: number, fill: string | CanvasGradient, stroke?: string) {
@@ -68,7 +71,7 @@ export function isoBox(ctx: Ctx, b: Box, top: string, left: string, right: strin
 }
 
 /** Text painted flat on the +y face. */
-function signTextY(ctx: Ctx, b: Box, u0: number, u1: number, v0: number, v1: number, text: string, color: string, weight = 800) {
+export function signTextY(ctx: Ctx, b: Box, u0: number, u1: number, v0: number, v1: number, text: string, color: string, weight = 800) {
   const o = fy(b, u0, v0);
   const widthPx = (u1 - u0) * HW;
   const heightPx = v1 - v0;
@@ -379,6 +382,9 @@ export function propBox(p: Prop): Box {
     case "parked": return { x: p.x, y: p.y + 0.05, w: 2.2, d: 0.9, h: 28 };
     case "bush": return { x: p.x + 0.2, y: p.y + 0.2, w: 0.6, d: 0.6, h: 16 };
     case "board": return { x: p.x + 0.1, y: p.y + 0.6, w: 0.9, d: 0.15, h: 52 };
+    case "cart": return { x: p.x + 0.15, y: p.y + 0.3, w: 0.75, d: 0.5, h: 48 };
+    case "bodaPark": return { x: p.x + 0.2, y: p.y + 0.3, w: 0.6, d: 0.4, h: 40 };
+    case "gate": return { x: p.x, y: p.y + 0.35, w: 2, d: 0.3, h: 62 };
     case "wall": return { x: p.x, y: p.y + 0.3, w: 30, d: 0.4, h: 12 };
     default: return { x: p.x, y: p.y, w: 1, d: 1, h: 20 };
   }
@@ -467,6 +473,17 @@ export function drawProp(ctx: Ctx, p: Prop, night: boolean, t: number) {
       for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(base.sx - 8 + i * 5, base.sy - 10 - (i % 2) * 3, 1.8, 0, Math.PI * 2); ctx.fill(); }
       break;
     }
+    case "cart": {
+      const v = VENDORS.find((x) => x.id === p.vendor);
+      if (v) drawCart(ctx, p.x, p.y, v);
+      break;
+    }
+    case "bodaPark":
+      parkedBoda(ctx, p.x, p.y, p.variant ?? 0, night);
+      break;
+    case "gate":
+      drawGate(ctx, p.x, p.y, night);
+      break;
     case "board": {
       // Street Snaps community board: two posts, a painted header, pinned snaps
       shadow(ctx, base, 26, 9);
@@ -493,7 +510,7 @@ export function drawProp(ctx: Ctx, p: Prop, night: boolean, t: number) {
   }
 }
 
-function shadow(ctx: Ctx, p: SPt, rx: number, ry: number) {
+export function shadow(ctx: Ctx, p: SPt, rx: number, ry: number) {
   ctx.fillStyle = "rgba(0,0,0,0.2)";
   ctx.beginPath(); ctx.ellipse(p.sx, p.sy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
 }
@@ -695,6 +712,9 @@ export function drawMatatu(ctx: Ctx, cx: number, cy: number, dir: number, body: 
     quadX(ctx, b, 0.06, 0.18, 6, 10, tail);
     quadX(ctx, b, 0.72, 0.84, 6, 10, tail);
   }
+  // destination board, the way matatus show their route
+  quadY(ctx, b, 0.25, 1.15, 23, 27.5, "#f2d23c");
+  signTextY(ctx, b, 0.25, 1.15, 23, 27.5, dir > 0 ? "WANDEGEYA - CITY" : "CITY - KIKONI", "#13202b", 900);
   // roof rack
   const rack: Box = { x: b.x + 0.4, y: b.y + 0.15, w: 1.4, d: 0.6, h: 29 };
   const rc = boxCorners(rack);
@@ -721,10 +741,22 @@ export function drawCar(ctx: Ctx, cx: number, cy: number, dir: number, body: str
   wheels(ctx, b, [0.35, 1.25]);
 }
 
-const RIDER: Look = { skin: "#6b4228", shirt: "#e07a1f", hair: "cap", pants: "#2b2f38" };
+export const RIDER: Look = { skin: "#6b4228", shirt: "#e07a1f", hair: "cap", pants: "#2b2f38" };
 const PASSENGER: Look = { skin: "#8d5a3b", shirt: "#7a2fa8", hair: "braids", pants: "#3a3f4a" };
+const BIKE_COLORS = ["#b4442a", "#1f4fd1", "#13202b", "#2f7a4b", "#7a2fa8"];
 
-export function drawBoda(ctx: Ctx, cx: number, cy: number, dir: number, passenger: boolean, t: number, night: boolean) {
+export interface BodaOptions {
+  /** Who rides. null = parked (no rider on it). */
+  rider?: Look | null;
+  /** Passenger behind the rider. */
+  passenger?: Look | null;
+  /** Rider's stage vest number, e.g. "07". */
+  vest?: string;
+  color?: string;
+}
+
+/** A boda boda centred on (cx, cy) in tiles, facing +x when dir > 0. */
+export function drawBoda(ctx: Ctx, cx: number, cy: number, dir: number, passenger: boolean, t: number, night: boolean, opts: BodaOptions = {}) {
   const p = toScreen(cx, cy);
   shadow(ctx, p, 16, 6);
   const flip = dir < 0;
@@ -737,7 +769,7 @@ export function drawBoda(ctx: Ctx, cx: number, cy: number, dir: number, passenge
   ctx.fillStyle = "#151515";
   ctx.beginPath(); ctx.ellipse(-11, -6, 5, 5.5, 0.3, 0, Math.PI * 2); ctx.stroke();
   ctx.beginPath(); ctx.ellipse(11, 4, 5, 5.5, 0.3, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = "#b4442a";
+  ctx.fillStyle = opts.color ?? "#b4442a";
   ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(8, -2); ctx.lineTo(10, -6); ctx.lineTo(-6, -14); ctx.closePath(); ctx.fill();
   ctx.fillStyle = "#222";
   ctx.fillRect(-8, -16, 12, 3);
@@ -750,8 +782,35 @@ export function drawBoda(ctx: Ctx, cx: number, cy: number, dir: number, passenge
   }
   ctx.restore();
   const vib = Math.sin(t / 40) * 0.4;
-  if (passenger) drawPerson(ctx, p.sx - (flip ? -7 : 7), p.sy - 6 + vib, PASSENGER, 0, false, flip, 0.9);
-  drawPerson(ctx, p.sx + (flip ? -2 : 2), p.sy - 4 + vib, RIDER, 0, false, flip, 0.95);
+  const rider = opts.rider === undefined ? RIDER : opts.rider;
+  const back = opts.passenger !== undefined ? opts.passenger : passenger ? PASSENGER : null;
+  if (back) drawPerson(ctx, p.sx - (flip ? -7 : 7), p.sy - 6 + vib, back, 0, false, flip, 0.9);
+  if (rider) {
+    drawPerson(ctx, p.sx + (flip ? -2 : 2), p.sy - 4 + vib, rider, 0, false, flip, 0.95);
+    if (opts.vest) vestNumber(ctx, p.sx + (flip ? -2 : 2), p.sy - 4 + vib - 22, opts.vest);
+  }
+}
+
+/** The numbered stage vest boda riders wear. */
+export function vestNumber(ctx: Ctx, x: number, y: number, n: string) {
+  ctx.fillStyle = "#f2d23c";
+  ctx.fillRect(x - 5, y - 4, 10, 7);
+  ctx.fillStyle = "#13202b";
+  ctx.font = "800 6px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(n, x, y);
+  ctx.textAlign = "left";
+}
+
+export function parkedBoda(ctx: Ctx, x: number, y: number, variant: number, night: boolean) {
+  drawBoda(ctx, x + 0.5, y + 0.5, variant % 2 ? -1 : 1, false, 0, night, { rider: null, color: BIKE_COLORS[variant % BIKE_COLORS.length] });
+  if (variant % 2 === 0) {
+    // the rider waits beside the bike in his stage vest
+    const q = toScreen(x + 0.85, y + 0.25);
+    drawPerson(ctx, q.sx, q.sy, { ...RIDER, shirt: ["#e07a1f", "#2f7a4b", "#1f4fd1"][variant % 3] }, 0, false, variant % 4 === 0, 1);
+    vestNumber(ctx, q.sx, q.sy - 22, String(10 + variant * 7).padStart(2, "0"));
+  }
 }
 
 function wheels(ctx: Ctx, b: Box, us: number[]) {
@@ -768,7 +827,8 @@ function wheels(ctx: Ctx, b: Box, us: number[]) {
 // ---------- backdrop ----------
 
 /** Kampala hills behind the street, drawn in screen space with parallax. */
-export function drawBackdrop(ctx: Ctx, w: number, h: number, offsetX: number, offsetY: number, night: boolean, rain: boolean, dusk: number) {
+export function drawBackdrop(ctx: Ctx, w: number, h: number, offsetX: number, offsetY: number, night: boolean, rain: boolean, dusk: number): SkylineHit[] {
+  const hits: SkylineHit[] = [];
   const sky = ctx.createLinearGradient(0, 0, 0, h);
   if (night) {
     sky.addColorStop(0, "#0b1530");
@@ -791,10 +851,11 @@ export function drawBackdrop(ctx: Ctx, w: number, h: number, offsetX: number, of
     : rain
       ? [["#7d8a83", 0.25, 0.42, 0.11], ["#6d7a6f", 0.4, 0.5, 0.09]]
       : [["#8fae8a", 0.25, 0.42, 0.11], ["#6f9369", 0.4, 0.5, 0.09]];
-  for (const [color, par, baseY, amp] of hills) {
+  hills.forEach(([color, par, baseY, amp], hillIndex) => {
     ctx.fillStyle = color;
     ctx.beginPath();
     const ox = offsetX * par, oy = offsetY * par;
+    const ridge = (sx: number) => h * baseY + oy - (Math.sin((sx + ox) / 210) * 0.6 + Math.sin((sx + ox) / 97 + 1) * 0.3 + 1) * h * amp;
     ctx.moveTo(0, h);
     for (let x = 0; x <= w + 20; x += 20) {
       const wx = x + ox;
@@ -813,6 +874,16 @@ export function drawBackdrop(ctx: Ctx, w: number, h: number, offsetX: number, of
       ctx.fillStyle = night ? (r() < 0.35 ? "#f6cf72" : "#2a3352") : r() < 0.5 ? "#c96f4a" : r() < 0.5 ? "#e8e1d4" : "#9aa1a6";
       ctx.fillRect(x, y, night ? 2 : 4, night ? 2 : 3);
     }
-  }
+    // Kampala landmarks standing on this hill
+    const s = Math.max(0.85, Math.min(1.45, h / 650)) * (hillIndex === 0 ? 0.85 : 1);
+    const haze = hillIndex === 0 ? "far" : "near";
+    for (const lm of LANDMARKS) {
+      if (lm.place.kind !== "skyline" || lm.place.hill !== hillIndex) continue;
+      const sx = (lm.place.at / 1000) * w * 0.92 + w * 0.04 - ox * 0.5;
+      if (sx < -60 || sx > w + 60) continue;
+      hits.push(drawSkylineLandmark(ctx, lm, sx, ridge(sx) + 6, s, night, haze));
+    }
+  });
+  return hits;
 }
 
