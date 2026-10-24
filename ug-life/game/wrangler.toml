@@ -1,0 +1,13 @@
+# Cloudflare Pages project for Ug Life (static game + /api functions + D1 database).
+name = "ug-life"
+pages_build_output_dir = "./dist"
+compatibility_date = "2025-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ug-life-db"
+database_id = "45d85de1-a09a-420f-a2ca-f8a9bc89574f"
+migrations_dir = "migrations"
+
+# ADMIN_TOKEN is a secret, set once with:
+#   npx wrangler pages secret put ADMIN_TOKEN --project-name ug-life

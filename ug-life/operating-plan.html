@@ -1,0 +1,266 @@
+<title>Ug Life Operating Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column with a matatu-checker band as the signature; wide tables scroll in place */
+:root{
+  --bg:#f4f6f7; --surface:#ffffff; --ink:#13202b; --muted:#56646f; --line:#d9e0e5;
+  --matatu:#1f4fd1; --matatu-soft:#e6edfd; --laterite:#b4442a; --laterite-soft:#f8e7e2;
+  --leaf:#2f7a4b; --leaf-soft:#e3f1e8; --amber:#a86a00; --amber-soft:#f8eed9;
+  --display:"Bricolage Grotesque", "Arial Black", system-ui, sans-serif;
+  --body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f161c; --surface:#16212a; --ink:#e7edf1; --muted:#9aa8b3; --line:#2a3843;
+  --matatu:#7b9dff; --matatu-soft:#1b2a4d; --laterite:#ef8467; --laterite-soft:#3a2019;
+  --leaf:#6cc890; --leaf-soft:#173325; --amber:#e6b04f; --amber-soft:#3a2d12; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f161c; --surface:#16212a; --ink:#e7edf1; --muted:#9aa8b3; --line:#2a3843;
+  --matatu:#7b9dff; --matatu-soft:#1b2a4d; --laterite:#ef8467; --laterite-soft:#3a2019;
+  --leaf:#6cc890; --leaf-soft:#173325; --amber:#e6b04f; --amber-soft:#3a2d12; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.6 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:860px;margin:0 auto;padding-block:40px 80px;display:grid;gap:56px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(2.6rem,8vw,4.4rem);font-weight:800;letter-spacing:-.02em}
+h2{font-size:clamp(1.5rem,4vw,2rem);font-weight:800}
+h3{font-size:1.1rem;font-weight:600}
+p{margin:0;max-width:65ch}
+.eyebrow{font:500 .75rem/1 var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+section{display:grid;gap:18px}
+.lede{font-size:1.15rem;color:var(--muted)}
+.checker{height:14px;border-radius:2px;
+  background:repeating-conic-gradient(var(--matatu) 0 25%, transparent 0 50%) 0 0/14px 14px;
+  background-color:var(--surface);border-block:1px solid var(--matatu)}
+.tags{display:flex;flex-wrap:wrap;gap:8px}
+.tag{font:500 .78rem/1 var(--mono);padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
+.tag.side{border-color:var(--matatu);color:var(--matatu)}
+
+.constraints{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.constraints div{background:var(--surface);padding:16px;display:grid;gap:4px;min-width:0}
+.constraints b{font:800 1.6rem/1 var(--display)}
+.constraints span{font-size:.85rem;color:var(--muted)}
+@media (max-width:640px){.constraints{grid-template-columns:repeat(2,1fr)}}
+
+.loop{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.92rem}
+.loop span{background:var(--matatu-soft);color:var(--ink);padding:6px 10px;border-radius:6px}
+.loop i{font-style:normal;color:var(--muted)}
+
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:560px}
+th,td{text-align:left;vertical-align:top;padding:11px 14px;border-bottom:1px solid var(--line)}
+th{font:500 .72rem/1.2 var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td s{color:var(--muted)}
+
+.phases{display:grid;gap:0;counter-reset:ph}
+.phase{display:grid;grid-template-columns:56px 1fr;gap:14px;padding:14px 0;border-top:1px solid var(--line)}
+.phase:last-child{border-bottom:1px solid var(--line)}
+.phase .n{font:800 1.8rem/1 var(--display);color:var(--matatu)}
+.phase .gate{font-size:.88rem;color:var(--muted);margin-top:4px}
+.phase .gate b{color:var(--ink);font-weight:600}
+
+.agents{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media (max-width:640px){.agents{grid-template-columns:1fr}}
+.agent{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:8px;align-content:start;min-width:0}
+.agent header{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.agent .when{font:500 .72rem/1 var(--mono);color:var(--muted);white-space:nowrap}
+.agent .can,.agent .cant{font-size:.88rem}
+.agent .can::before{content:"Can: ";font-weight:600;color:var(--leaf)}
+.agent .cant::before{content:"Never: ";font-weight:600;color:var(--laterite)}
+
+.week{display:grid;gap:8px}
+.slot{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:baseline;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.slot .min{font:500 .85rem/1 var(--mono);color:var(--matatu);font-variant-numeric:tabular-nums}
+
+.tiers{display:grid;gap:10px}
+.tier{border-radius:8px;padding:14px 16px;display:grid;gap:4px;border-left:4px solid}
+.tier.p0{background:var(--laterite-soft);border-color:var(--laterite)}
+.tier.p1{background:var(--amber-soft);border-color:var(--amber)}
+.tier.p2{background:var(--leaf-soft);border-color:var(--leaf)}
+.tier b{font-family:var(--display)}
+.tier p{font-size:.92rem}
+
+.flow{display:grid;gap:8px;font-size:.92rem}
+.flow .row{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:start}
+.flow .k{font:500 .78rem/1.4 var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+@media (max-width:520px){.flow .row,.slot,.phase{grid-template-columns:1fr}.phase .n{font-size:1.3rem}}
+
+.loops{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.loops li{display:grid;gap:2px;padding:12px 0;border-top:1px solid var(--line)}
+.loops li b{font-weight:600}
+.loops li span{color:var(--muted);font-size:.92rem}
+
+.calls{display:grid;gap:12px;margin:0;padding:0;list-style:none}
+.calls li{background:var(--surface);border:1px solid var(--matatu);border-radius:10px;padding:16px;display:grid;gap:6px}
+.calls li b{font-family:var(--display);font-size:1.05rem}
+.calls .rec{font-size:.88rem;color:var(--muted)}
+.calls .rec em{font-style:normal;color:var(--matatu);font-weight:600}
+.note{font-size:.85rem;color:var(--muted)}
+footer{font-size:.85rem;color:var(--muted);display:grid;gap:6px}
+code{font:500 .85em var(--mono);background:var(--matatu-soft);padding:1px 5px;border-radius:4px}
+</style>
+
+<div class="wrap">
+
+<header style="display:grid;gap:18px">
+  <div class="eyebrow">Operating plan · v0.4 · 24 Oct 2026</div>
+  <h1>Ug Life</h1>
+  <p class="lede">A Kampala life world you open from a WhatsApp link. You walk the street, make your Ug Tag, earn simulated shillings, run a kiosk and bring your friends. It's built so agents run the daily work and Sammy steers it in about two hours a week.</p>
+  <div class="tags">
+    <span class="tag side">Side project · not Maji Safi</span>
+    <span class="tag">Merges GDD v1.0 + brief v0.2 + ops v0.3</span>
+    <span class="tag">Inspired by Lagos Life</span>
+  </div>
+  <div class="checker" aria-hidden="true"></div>
+</header>
+
+<section>
+  <div class="eyebrow">Ground rules you set</div>
+  <div class="constraints">
+    <div><b>2 h</b><span>of your time a week once live</span></div>
+    <div><b>$0</b><span>a month until revenue, except essentials</span></div>
+    <div><b>1</b><span>human on call: you</span></div>
+    <div><b>Link</b><span>web app (PWA) first, no store</span></div>
+  </div>
+  <p class="note">Everything below follows from these four. With one person on call and no budget, the system has to stop small problems from ever reaching you.</p>
+</section>
+
+<section>
+  <h2>What ships first</h2>
+  <p>One street block in one Kampala neighborhood, drawn in an isometric 2.5D view with realistic lighting, local signage and matatus. It runs on a mid-range Android phone over mobile data, with a first load of 5 MB or less. The server and data are designed so a 3D version can be added later without starting over.</p>
+  <div class="loop" aria-label="First life loop">
+    <span>Open link</span><i>→</i><span>Make your Ug Tag</span><i>→</i><span>Walk the street</span><i>→</i><span>Do a delivery shift</span><i>→</i><span>Earn UGX (simulated)</span><i>→</i><span>Lease a kiosk</span><i>→</i><span>Paint your sign</span><i>→</i><span>Share card to WhatsApp</span><i>→</i><span>Return for tomorrow's street event</span>
+  </div>
+  <p class="note">Included in v1: Ug Tag with verified socials, privacy toggles and ghost mode; one fictional pothole report-and-fix; block and report. Left out of v1: real money, betting, real brands or officials, voice chat, Nairobi, drivable cars, user code.</p>
+</section>
+
+<section>
+  <h2>Where this plan overrides the GDD</h2>
+  <p>The Kampala Life GDD v1.0 is a good foundation. Five of its decisions don't survive your constraints:</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Topic</th><th>GDD v1.0 said</th><th>Now</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Name</td><td><s>Kampala Life</s></td><td>Ug Life</td><td>Your v0.2 addendum. Needs a URSB check before brand spend.</td></tr>
+      <tr><td>Audience</td><td><s>Broad, including children</s></td><td>18+ at launch</td><td>Child safety laws and moderation can't be handled by one person on $0. You can widen it later.</td></tr>
+      <tr><td>Graphics</td><td><s>Three.js 3D, desktop first</s></td><td>Isometric 2.5D, phone first</td><td>Most of Kampala plays on cheap Android with expensive data.</td></tr>
+      <tr><td>Controls</td><td><s>WASD + two cameras</s></td><td>Tap to walk, pinch to zoom</td><td>Touch is the main input. Keyboard still works on desktop.</td></tr>
+      <tr><td>Operations</td><td><s>Not covered</s></td><td>Agent-run with gates</td><td>You asked for a system that runs without you.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Unchanged from the GDD: one neighborhood, a server-side ledger, a fictional government, simulated UGX, stage gates, and the creator platform later.</p>
+</section>
+
+<section>
+  <h2>Phases and gates</h2>
+  <div class="phases">
+    <div class="phase"><div class="n">0</div><div><h3>Research</h3><p>Nine research items, a Lagos Life teardown, your Kampala photo pack and a name check.</p><p class="gate"><b>Gate:</b> you approve the written plan.</p></div></div>
+    <div class="phase"><div class="n">1</div><div><h3>Build</h3><p>The street, the Ug Tag, the life loop and the ledger. The support and moderation agents go live before any players arrive.</p><p class="gate"><b>Gate:</b> a full day loop works on a cheap Android over 3G/4G, and the first load is 5 MB or less.</p></div></div>
+    <div class="phase"><div class="n">2</div><div><h3>Soft launch</h3><p>About 100 invited testers, with real support and moderation running.</p><p class="gate"><b>Gate:</b> day-1 return rate ≥ 30%, day-7 ≥ 10%, no open P0, tickets answered within 24 h. These are starting targets; we'll adjust them once we have data.</p></div></div>
+    <div class="phase"><div class="n">3</div><div><h3>Viral launch</h3><p>Creators, campuses, WhatsApp Status and the weekly challenge.</p><p class="gate"><b>Gate:</b> rate limits and the ticket queue hold up under 10× soft-launch load in a test.</p></div></div>
+    <div class="phase"><div class="n">4</div><div><h3>Scale</h3><p>Events, shops, creator tools, the first revenue, then Nairobi.</p><p class="gate"><b>Gate:</b> revenue covers running costs before any paid expansion.</p></div></div>
+  </div>
+</section>
+
+<section>
+  <h2>The company on paper</h2>
+  <p>It's set up the way a large company would run a game in-house: each function exists on paper with one owner. Here the owners are agents with narrow permissions, and you're the only human. The hard rule is that no agent moves money, bans a player, deletes an account or posts publicly by itself.</p>
+  <div class="agents">
+    <article class="agent"><header><h3>Support</h3><span class="when">every 2 h</span></header><p class="can">answer from the FAQ, open and label tickets, draft replies.</p><p class="cant">change balances, refund, ban.</p></article>
+    <article class="agent"><header><h3>Moderation</h3><span class="when">always on</span></header><p class="can">auto-hide clear slurs and scam links, queue unclear cases.</p><p class="cant">ban anyone (it only recommends).</p></article>
+    <article class="agent"><header><h3>Economy watchdog</h3><span class="when">hourly</span></header><p class="can">catch duplicate rewards, exploits and inflation; pause one account's economy activity (reversible).</p><p class="cant">remove money.</p></article>
+    <article class="agent"><header><h3>Dev &amp; QA</h3><span class="when">per bug</span></header><p class="can">reproduce bugs, write tests and fixes, deploy to preview.</p><p class="cant">deploy to production.</p></article>
+    <article class="agent"><header><h3>Comms</h3><span class="when">per release</span></header><p class="can">draft patch notes and broadcasts in English, Luganda and Swahili.</p><p class="cant">send without your OK.</p></article>
+    <article class="agent"><header><h3>Growth</h3><span class="when">daily</span></header><p class="can">track TikTok trends, list creators, draft challenges, count referrals.</p><p class="cant">message creators or post publicly.</p></article>
+    <article class="agent"><header><h3>Live ops</h3><span class="when">weekly</span></header><p class="can">schedule approved events and daily rewards.</p><p class="cant">set rewards outside the approved range.</p></article>
+    <article class="agent"><header><h3>Data</h3><span class="when">Monday</span></header><p class="can">compute metrics and write your weekly digest.</p><p class="cant">read private messages.</p></article>
+    <article class="agent"><header><h3>Finance</h3><span class="when">monthly</span></header><p class="can">track free-tier usage, costs and revenue.</p><p class="cant">pay or sign anything.</p></article>
+    <article class="agent"><header><h3>Competitor watch</h3><span class="when">weekly</span></header><p class="can">track Lagos Life updates and any move into Kampala.</p><p class="cant">nothing risky to restrict.</p></article>
+  </div>
+  <p class="note">Each agent has an off switch, and every action it takes is logged in the repo. A single "maintenance mode" switch pauses sign-ups and all economy activity. Agents run as scheduled Claude Code sessions on the repo, which your existing Claude plan already covers. Player-facing AI chat stays off until revenue pays for it.</p>
+</section>
+
+<section>
+  <h2>Your two hours</h2>
+  <div class="week">
+    <div class="slot"><span class="min">15 min</span><p><b>Monday digest.</b> Players, return rates, tickets, incidents, costs. One page.</p></div>
+    <div class="slot"><span class="min">30 min</span><p><b>Approval queue.</b> Deploys, broadcasts, bans, economy changes, creator deals. Each item is approve or reject with a one-line reason.</p></div>
+    <div class="slot"><span class="min">30 min</span><p><b>Play the build</b> on the cheap Android. Log three things that feel wrong.</p></div>
+    <div class="slot"><span class="min">30 min</span><p><b>One growth move only you can make:</b> a creator call, a campus visit, or a shop owner on your street.</p></div>
+    <div class="slot"><span class="min">15 min</span><p><b>Buffer.</b></p></div>
+  </div>
+</section>
+
+<section>
+  <h2>What reaches you, and when</h2>
+  <div class="tiers">
+    <div class="tier p0"><b>P0 · interrupts you now</b><p>Safety threat or a report involving a child, a money or ledger exploit, site down for more than 30 minutes, a data leak, a legal notice, or press.</p></div>
+    <div class="tier p1"><b>P1 · waits for Monday</b><p>Ban appeals, refunds (once real money exists), creator deals, economy changes, broadcast approvals.</p></div>
+    <div class="tier p2"><b>P2 · agents handle and log it</b><p>FAQs, bug reports, how-to questions, routine moderation. You only see the counts.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Customer care</h2>
+  <div class="flow">
+    <div class="row"><span class="k">Channels</span><p>In-game Help button, a WhatsApp Business number (free app with quick replies and an away message), and email.</p></div>
+    <div class="row"><span class="k">Triage</span><p>The support agent sorts each ticket into how-to, bug, account, safety or payment.</p></div>
+    <div class="row"><span class="k">How-to</span><p>Answered from the FAQ and closed.</p></div>
+    <div class="row"><span class="k">Bug</span><p>Dev &amp; QA reproduces it and links the fix. The player gets a reply when it ships.</p></div>
+    <div class="row"><span class="k">Account</span><p>Goes into your Monday queue.</p></div>
+    <div class="row"><span class="k">Safety</span><p>The content is hidden right away and you get a P0 alert.</p></div>
+    <div class="row"><span class="k">Learning</span><p>Every answer that wasn't already in the FAQ becomes a new FAQ entry, so support costs less each week.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>How it spreads</h2>
+  <ul class="loops">
+    <li><b>Ug Tag card to WhatsApp Status</b><span>Every shared card carries the join link. Status is where Kampala actually shares things.</span></li>
+    <li><b>Daily street event</b><span>A short daily moment with a result you can share, like Wordle.</span></li>
+    <li><b>Referrals</b><span>You and the friend you invite both get a cosmetic item. Never cash.</span></li>
+    <li><b>Real shops claim their kiosk</b><span>Shop owners bring their own customers in. This is your free distribution.</span></li>
+    <li><b>Weekly Kampala challenge</b><span>Comes with a creator spotlight each week.</span></li>
+    <li><b>Campus ambassadors</b><span>Makerere, Kyambogo, MUBS, UCU. Paid in status and cosmetics at first.</span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>The $0 stack</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Job</th><th>Tool</th><th>When it starts costing</th></tr></thead>
+    <tbody>
+      <tr><td>Game client</td><td>Phaser 3 + TypeScript, PWA</td><td>Never (open source)</td></tr>
+      <tr><td>Art</td><td>Kenney CC0 isometric packs, your street photos, AI-made signs</td><td>When you hire an artist with first revenue</td></tr>
+      <tr><td>Hosting + API</td><td>Cloudflare Pages + Workers</td><td>Past the free daily request limit</td></tr>
+      <tr><td>Accounts + data</td><td>Supabase free</td><td>Past the free limits. Free projects pause when idle, so a scheduled ping keeps it awake.</td></tr>
+      <tr><td>Errors + analytics</td><td>Sentry free, PostHog free</td><td>Past the free event volume</td></tr>
+      <tr><td>Support</td><td>WhatsApp Business app, in-game Help, FAQ</td><td>WhatsApp API and AI replies both charge per message</td></tr>
+      <tr><td>Agents</td><td>Scheduled Claude Code sessions on this repo</td><td>Covered by your current Claude plan</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">The only spending I consider truly necessary: a domain (about $10–15 a year) before launch, then the URSB trademark fee before the viral push. Free-tier limits change, so the finance agent checks them monthly.</p>
+</section>
+
+<section>
+  <h2>Your calls</h2>
+  <p>I need these from you before Phase 0 starts. My recommendation is under each one.</p>
+  <ul class="calls">
+    <li><b>Which neighborhood is the first street?</b><p class="rec">My pick: <em>a Wandegeya or Kikoni-style street</em>. It's close to Makerere, so the first players and campus ambassadors are right there.</p></li>
+    <li><b>Is 18+ at launch acceptable, given the GDD wanted a broad audience?</b><p class="rec">My pick: <em>yes</em>. Open to 13+ once there's a paid moderator.</p></li>
+    <li><b>Can you shoot about 100 reference photos of that street?</b><p class="rec">Signs, kiosks, stages, rain, roofs. This is the art edge an outside studio doesn't have.</p></li>
+    <li><b>Which phone is the test phone?</b><p class="rec">My pick: <em>the cheapest Android you or a friend owns</em>. If the game runs well on it, it runs everywhere.</p></li>
+    <li><b>Where should P0 alerts reach you?</b><p class="rec">My pick: <em>a separate WhatsApp group with just you and the alert bot</em>, kept apart from Maji Safi chats.</p></li>
+  </ul>
+</section>
+
+<footer>
+  <div class="checker" aria-hidden="true"></div>
+  <p>The source files live in the repo under <code>ug-life/</code>: <code>MASTER_PLAN.md</code>, <code>AGENTS.md</code> and <code>FOUNDER_PROFILE.md</code>. Lagos Life figures and platform API rules come from earlier drafts and haven't been verified yet. Phase 0 research checks them.</p>
+</footer>
+
+</div>
