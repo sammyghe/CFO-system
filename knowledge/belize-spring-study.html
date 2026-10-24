@@ -1,0 +1,524 @@
+<title>Belize Spring Water Study</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap">
+<style>
+/* Layout: one long study, ten numbered sections in reading order, sticky section bar on top. Same palette and faces as the Safi Treatment data sheet and company profile. */
+:root{
+  --navy:#104070; --blue:#0077B6; --sky:#7EC8E3; --wash:#E8F4FA; --ink:#1A2B35; --muted:#5C7280;
+  --bg:#F4F7F9; --surface:#FFFFFF; --line:#D5E1E8; --chip:#E8F4FA; --onblue:#FFFFFF;
+  --ok:#1D7F55; --warn:#A8670E; --bad:#B23A2A;
+  --display:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --body:"Source Sans 3",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --navy:#9FC9EA; --blue:#5DB3E6; --sky:#7EC8E3; --wash:#14293A; --ink:#E3ECF2; --muted:#9AAEBC;
+  --bg:#0D1820; --surface:#13222D; --line:#25394A; --chip:#183245; --onblue:#0D1820;
+  --ok:#4CC08B; --warn:#E2A64A; --bad:#EE6A55; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --navy:#9FC9EA; --blue:#5DB3E6; --sky:#7EC8E3; --wash:#14293A; --ink:#E3ECF2; --muted:#9AAEBC;
+  --bg:#0D1820; --surface:#13222D; --line:#25394A; --chip:#183245; --onblue:#0D1820;
+  --ok:#4CC08B; --warn:#E2A64A; --bad:#EE6A55; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+a{color:var(--blue);text-decoration:none;font-weight:600}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.wrap{max-width:1040px;margin:0 auto;padding-block:0 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);color:var(--navy);text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,5vw,44px);line-height:1.08;letter-spacing:-.01em}
+h2{font-size:clamp(23px,3.2vw,30px);line-height:1.15}
+h3{font-size:18px;line-height:1.25}
+p{margin:0}
+.eyebrow{font-size:12.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}
+.muted{color:var(--muted)}
+.small{font-size:13.5px}
+.src{font-size:12.5px;color:var(--muted)}
+.src a{font-weight:600}
+
+/* masthead */
+.mast{padding-block:28px 22px;display:grid;gap:14px;border-bottom:1px solid var(--line)}
+.brandline{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;font-size:13.5px;color:var(--muted)}
+.brandline b{color:var(--navy);font-weight:700;letter-spacing:.04em}
+.lede{font-size:18.5px;max-width:64ch}
+.docmeta{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted)}
+.docmeta span b{color:var(--ink);font-weight:600}
+
+/* section bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line);margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)))}
+.bar nav{display:flex;gap:2px;overflow-x:auto;padding:6px max(16px,env(safe-area-inset-left,0px));scrollbar-width:none}
+.bar nav::-webkit-scrollbar{display:none}
+.bar a{flex:none;font-size:13.5px;font-weight:600;color:var(--muted);padding:7px 10px;border-radius:8px;white-space:nowrap}
+.bar a:hover{background:var(--wash);text-decoration:none;color:var(--ink)}
+.bar a.on{background:var(--wash);color:var(--navy)}
+.bar a i{font-style:normal;color:var(--blue);margin-right:5px;font-variant-numeric:tabular-nums}
+
+section{padding-block:40px 8px;display:grid;gap:18px;scroll-margin-top:60px}
+.head{display:grid;gap:6px;max-width:72ch}
+.num{font-family:var(--display);font-size:15px;color:var(--blue);font-weight:700}
+
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.grid>*{min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:grid;gap:8px;align-content:start}
+.fact b.big{font-family:var(--display);font-size:30px;line-height:1;color:var(--navy);font-variant-numeric:tabular-nums}
+.fact p{font-size:14.5px}
+.callout{background:var(--navy);color:#fff;border-radius:12px;padding:18px 20px;display:grid;gap:6px}
+:root[data-theme="dark"] .callout{background:#0A2F52}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .callout{background:#0A2F52}}
+.callout h3{color:#fff;font-size:20px}
+.callout p{color:#DCEBF5}
+.list{margin:0;padding-left:20px;display:grid;gap:6px}
+
+/* summary */
+.answer{display:grid;gap:10px}
+.answer li{font-size:16px}
+.order{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.order .panel{border-top:4px solid var(--blue)}
+.order .panel:nth-child(2){border-top-color:var(--sky)}
+.order .panel:nth-child(3){border-top-color:var(--line)}
+.tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:var(--chip);color:var(--navy)}
+.tag.ok{color:var(--ok)} .tag.warn{color:var(--warn)} .tag.bad{color:var(--bad)}
+
+/* players */
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.fbtn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.fbtn[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+:root[data-theme="dark"] .fbtn[aria-pressed="true"]{color:var(--onblue)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .fbtn[aria-pressed="true"]{color:var(--onblue)}}
+.players{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+.player{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:8px;align-content:start}
+.ph{display:flex;gap:12px;align-items:center}
+.mono{width:44px;height:44px;border-radius:10px;flex:none;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:17px;color:#fff;letter-spacing:.02em}
+.ph h3{font-size:17px}
+.ph .k{font-size:12.5px;color:var(--muted)}
+.player dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;font-size:14px}
+.player dt{color:var(--muted);font-weight:600}
+.player dd{margin:0;overflow-wrap:anywhere}
+.player .strong{font-size:14px;background:var(--wash);border-radius:8px;padding:8px 10px}
+
+/* table */
+.tablebox{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:14.5px}
+th,td{text-align:left;padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
+thead th{border-top:0;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--wash);cursor:pointer;user-select:none;white-space:nowrap}
+thead th[aria-sort="ascending"]::after{content:" ▲";color:var(--blue)}
+thead th[aria-sort="descending"]::after{content:" ▼";color:var(--blue)}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.conf{font-size:12px;font-weight:700;letter-spacing:.04em}
+.conf.h{color:var(--ok)} .conf.m{color:var(--warn)} .conf.l{color:var(--bad)}
+
+/* chart */
+.chart{display:grid;gap:7px}
+.crow{display:grid;grid-template-columns:minmax(0,190px) minmax(0,1fr) 72px;gap:10px;align-items:center;font-size:13.5px}
+.crow .lab{overflow-wrap:anywhere}
+.crow .track{height:16px;background:var(--wash);border-radius:4px;overflow:hidden}
+.crow .fill{height:100%;background:var(--blue);border-radius:4px}
+.crow.jar .fill{background:var(--navy)}
+.crow .val{font-variant-numeric:tabular-nums;text-align:right;font-weight:600}
+@media (max-width:560px){.crow{grid-template-columns:minmax(0,1fr) 64px}.crow .track{grid-column:1/-1;grid-row:2}}
+
+/* treatment */
+.scen{display:flex;flex-wrap:wrap;gap:8px}
+.scen label{display:flex;gap:8px;align-items:center;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;font-size:14.5px;cursor:pointer}
+.scen input{width:18px;height:18px;accent-color:var(--blue);margin:0}
+.modules{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+.mod{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);display:grid;gap:3px;opacity:.45;transition:opacity .2s,border-color .2s}
+.mod.on{opacity:1;border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
+.mod b{font-size:14px;color:var(--navy)}
+.mod span{font-size:13px;color:var(--muted)}
+.train{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:14px;font-weight:600}
+.train .st{background:var(--chip);color:var(--navy);border-radius:8px;padding:5px 9px}
+.train .ar{color:var(--muted)}
+.verdict{border-radius:10px;padding:12px 14px;font-size:15px;border:1px solid var(--line);background:var(--surface)}
+.verdict.ok{border-color:var(--ok)} .verdict.bad{border-color:var(--bad)}
+.verdict b{display:block;margin-bottom:2px}
+.verdict.ok b{color:var(--ok)} .verdict.bad b{color:var(--bad)}
+
+/* capacity */
+.calc{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.calc>*{min-width:0}
+.ctl{display:grid;gap:4px}
+.ctl label{display:flex;justify-content:space-between;gap:8px;font-size:14.5px;font-weight:600}
+.ctl label output{color:var(--blue);font-variant-numeric:tabular-nums}
+.ctl input[type=range]{width:100%;accent-color:var(--blue)}
+.ctl small{color:var(--muted);font-size:12.5px}
+.outs{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.out{background:var(--wash);border-radius:10px;padding:10px 12px;display:grid;gap:2px}
+.out b{font-family:var(--display);font-size:24px;color:var(--navy);font-variant-numeric:tabular-nums;line-height:1.1}
+.out span{font-size:12.5px;color:var(--muted)}
+.meter{height:12px;background:var(--wash);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.meter i{display:block;height:100%;background:var(--blue)}
+.meter.over i{background:var(--bad)}
+
+/* steps */
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.steps li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.steps li:first-child{border-top:0}
+.steps .sn{width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px}
+:root[data-theme="dark"] .steps .sn{color:var(--onblue)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .steps .sn{color:var(--onblue)}}
+.steps h3{font-size:16.5px;font-family:var(--body);font-weight:700}
+.steps p{font-size:14.5px}
+.steps .who{font-size:12.5px;color:var(--blue);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+
+.two{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.two>*{min-width:0}
+.check{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:14.5px}
+.check li{padding-left:22px;position:relative}
+.check li::before{content:"";position:absolute;left:2px;top:.55em;width:9px;height:9px;border-radius:2px;background:var(--sky)}
+.check.minus li::before{background:var(--line)}
+foot,.foot{display:block;margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div class="brandline"><b>SAFIFLOW VENTURES GROUP</b><span>Maji Safi · New Markets &amp; Partnerships Office</span><span>Safi Treatment systems</span></div>
+    <div class="eyebrow">Market study · Belize</div>
+    <h1>Belize spring water: the market, the gap and how Maji Safi enters</h1>
+    <p class="lede">A partner of Mike's has found a spring on his land in Belize. This study shows what Belize drinks today, who sells it and at what price, which rules apply, how we would treat the water, and how much a plant could make based on population, before any water test is done.</p>
+    <div class="docmeta"><span>For: <b>Mike</b> (first read)</span><span>From: <b>Sammy Ghedamu, CEO</b></span><span>Issue: <b>v0.3 · 24 Oct 2026</b></span><span>Status: <b>draft, before the water test</b></span></div>
+  </header>
+
+  <div class="bar"><nav id="nav" aria-label="Sections">
+    <a href="#summary"><i>1</i>Summary</a><a href="#market"><i>2</i>Market</a><a href="#players"><i>3</i>Who is there</a><a href="#prices"><i>4</i>Prices</a><a href="#rules"><i>5</i>Rules</a><a href="#offer"><i>6</i>Our offer</a><a href="#treatment"><i>7</i>Treatment</a><a href="#capacity"><i>8</i>Capacity</a><a href="#path"><i>9</i>Steps</a><a href="#partner"><i>10</i>Partnership</a>
+  </nav></div>
+
+  <!-- 1 -->
+  <section id="summary">
+    <div class="head"><span class="num">1 · Summary</span><h2>Belize already pays for its water. Nobody sells it a spring.</h2></div>
+    <div class="callout"><h3>Jars carry the business. Cans carry the brand.</h3><p>Eight in ten Belize homes buy their drinking water, mostly as 5-gallon jars from one national brand and a long tail of small RO plants. None of them sells a named spring. We enter with spring water in jars, plus a dispenser and delivery. We then add cans for resorts and visitors, and keep small PET bottles as an option on the same filler.</p></div>
+    <ol class="list answer">
+      <li><b>The demand is already there.</b> 74.3% of households use bottled or purified water as their main drinking water, about 82,000 homes.</li>
+      <li><b>Trust decides the sale.</b> A 2025 national survey found E. coli in about 3 of every 10 household samples, mostly from storage and handling. People pay for water they can trust.</li>
+      <li><b>The market is RO-purified water everywhere.</b> RO removes the minerals. A spring treated with UF and UV keeps them, and that is our difference.</li>
+      <li><b>Size comes from the spring, not the machine.</b> One 6,000 L/h plant can serve several percent of the national jar market in a single shift (section 8). What we must prove is the dry-season flow.</li>
+      <li><b>Nothing is built until the water is tested.</b> Section 9 lists the ten steps, starting with a site visit and lab samples.</li>
+    </ol>
+    <div class="order">
+      <div class="panel"><span class="tag">First</span><h3>20L / 5-gal spring jars</h3><p class="small">Homes and offices. Weekly refills, a dispenser, delivery. The biggest and steadiest pool.</p></div>
+      <div class="panel"><span class="tag">Second</span><h3>Cans</h3><p class="small">Resorts, dive lodges, bars, tour boats and visitors. A premium product with no plastic bottle.</p></div>
+      <div class="panel"><span class="tag">Option</span><h3>Small PET bottles</h3><p class="small">On the same combo filler, only where buyers ask for it (events, grocers).</p></div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section id="market">
+    <div class="head"><span class="num">2 · Market</span><h2>Eight in ten homes buy their drinking water</h2><p class="muted">Belize has about 418,000 people. One utility, Belize Water Services, supplies piped water, but most homes drink from a jar.</p></div>
+    <div class="grid">
+      <div class="panel fact"><b class="big">74.3%</b><p>of 110,719 households use bottled or purified water as their main drinking water.</p><p class="src">2022 Census · <a href="https://sib.org.bz" target="_blank" rel="noopener">SIB</a></p></div>
+      <div class="panel fact"><b class="big">~30%</b><p>of household water samples had E. coli at the point of collection (33.7% where people drink it).</p><p class="src">MICS7 WASH, Nov 2025 · <a href="https://sib.org.bz/wp-content/uploads/PressRelease_20251127_MICS7Wash.pdf" target="_blank" rel="noopener">SIB press release</a></p></div>
+      <div class="panel fact"><b class="big">551,698</b><p>overnight visitors in 2025, about 70% from the US, staying about nine days. Plus 967,214 cruise visitors.</p><p class="src">Preliminary 2025 · <a href="https://www.belizetourismboard.org" target="_blank" rel="noopener">Belize Tourism Board</a></p></div>
+      <div class="panel fact"><b class="big">105</b><p>bottled and purified water operations that the Ministry of Health samples every month.</p><p class="src">Ministry of Health · <a href="https://pressoffice.gov.bz" target="_blank" rel="noopener">Press Office</a></p></div>
+    </div>
+    <div class="two">
+      <div class="panel"><h3>Three pools of demand</h3>
+        <ul class="check">
+          <li><b>Household jars</b>, the biggest and most regular: about 82,000 homes buying 1.5–3 jars a week.</li>
+          <li><b>Visitor single-serve</b>: about 5 million visitor-nights a year, concentrated in Ambergris Caye, Cayo and Belize City (56% of overnight stays in 2023).</li>
+          <li><b>Retail single-serve</b> for residents: shops, gas stations, schools.</li>
+        </ul></div>
+      <div class="panel"><h3>What people want</h3>
+        <ul class="check">
+          <li>Water they trust, sealed until opened.</li>
+          <li>A jar that always arrives, never just topped up. Crystal jars ran out in 2020 and a dead frog was found in one in 2024.</li>
+          <li>Less plastic. In the 2025 beach litter audit, plastic bottles were the top item.</li>
+        </ul></div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section id="players">
+    <div class="head"><span class="num">3 · Who is there</span><h2>One giant, a long tail, and no spring</h2><p class="muted">Tap a filter. Each card shows where the company is, what it sells, its strong hold and its website or listing. Badges stand in for company logos, which we don't copy.</p></div>
+    <div class="filters" id="pfil" role="group" aria-label="Filter companies"></div>
+    <div class="players" id="plist"></div>
+    <p class="src">Directory listings (Find Yello, Find Glocal) are not checked. Addresses and phone numbers need a call or visit before we rely on them.</p>
+  </section>
+
+  <!-- 4 -->
+  <section id="prices">
+    <div class="head"><span class="num">4 · Prices</span><h2>A jar costs a tenth as much per litre as a bottle</h2><p class="muted">Every price we found, in Belize dollars (BZ$2 = US$1). Tap a column to sort. Older or blog prices are marked low confidence, and the shelf audit in step 6 replaces them.</p></div>
+    <div class="filters" id="xfil" role="group" aria-label="Filter by format"></div>
+    <div class="tablebox"><table id="ptable"><thead><tr>
+      <th data-k="brand">Brand / seller</th><th data-k="fmt">Format</th><th data-k="size">Size</th><th data-k="price">Price BZ$</th><th data-k="ppl">BZ$ per litre</th><th data-k="date">Date</th><th data-k="conf">Confidence</th><th data-k="src">Source</th>
+    </tr></thead><tbody></tbody></table></div>
+    <div class="panel"><h3>Price per litre, shelf to shelf</h3><div class="chart" id="pchart"></div><p class="src">Per-litre values are worked out from the prices above. A 5-gallon jar is 18.9 L.</p></div>
+    <div class="callout"><h3>What this means for us</h3><p>Jars compete at about BZ$0.30 a litre, so we price at Crystal's level and win on spring, proof and delivery. Cans sell where a litre costs BZ$4–11: resorts, bars and visitors. Coca-Cola's 12 oz glass bottle at BZ$1 is the price everyone in Belize knows for a single drink.</p></div>
+  </section>
+
+  <!-- 5 -->
+  <section id="rules">
+    <div class="head"><span class="num">5 · Rules</span><h2>What it takes to sell water in Belize</h2><p class="muted">Belize counsel confirms each rule before we file anything.</p></div>
+    <div class="tablebox"><table><thead><tr><th>Rule</th><th>What it means for us</th><th>Who</th><th>Status</th></tr></thead><tbody>
+      <tr><td><b>BZS 10:2002</b> Bottled and packaged water (compulsory)</td><td>Covers spring and purified water: treatment, microbiology, packaging, labels. The rule our product is certified against.</td><td>Belize Bureau of Standards</td><td><span class="conf h">FOUND</span> · <a href="https://bbs.gov.bz/?p=205" target="_blank" rel="noopener">catalogue</a></td></tr>
+      <tr><td><b>BZ CP 4:2007</b> Code of hygienic practice for bottled water</td><td>Plant hygiene, cleaning, staff, records. Matches our Kampala SOPs.</td><td>Belize Bureau of Standards</td><td><span class="conf h">FOUND</span> · <a href="https://bbs.gov.bz/?p=205" target="_blank" rel="noopener">catalogue</a></td></tr>
+      <tr><td><b>Monthly sampling</b> of water operations</td><td>The Ministry of Health tests 105 operations a month. Expect routine checks from day one.</td><td>Ministry of Health</td><td><span class="conf h">FOUND</span></td></tr>
+      <tr><td><b>Water Industry Act, Cap. 222</b>, Part V (s. 61, licence required)</td><td>A licence to take water from the spring. Ask how it applies to a spring.</td><td>National Hydrological Service / Ministry</td><td><span class="conf m">TO CONFIRM</span> · <a href="https://faolex.fao.org/docs/pdf/blz26314.pdf" target="_blank" rel="noopener">Act</a></td></tr>
+      <tr><td><b>Returnable Containers Act</b>, Cap. 328:01</td><td>A deposit on bottles <b>and cans</b> up to 1 gallon. Dealers and distributors take empties back. This gives cans a take-back route by law.</td><td>Department of Environment</td><td><span class="conf h">FOUND</span> · <a href="https://elaw.org/resource/bz_plasticlaws" target="_blank" rel="noopener">summary</a></td></tr>
+      <tr><td><b>Plastic regulations</b>, SI 17 of 2022</td><td>Bans single-use plates, cups, straws and bags. Water bottles are not covered.</td><td>Department of Environment</td><td><span class="conf h">FOUND</span> · <a href="https://www.greaterbelize.com/belize-targets-illegal-single-use-products/" target="_blank" rel="noopener">report</a></td></tr>
+      <tr><td><b>Fiscal Incentives Act</b>, No. 4 of 2023</td><td>Relief from import duty on plant and machinery. Regular programme up to 25 years. An MSME track also exists. Foreign companies can apply.</td><td>BELTRAIDE</td><td><span class="conf h">FOUND</span> · <a href="https://beltraide.bz/?p=5270" target="_blank" rel="noopener">BELTRAIDE</a></td></tr>
+      <tr><td><b>Environmental clearance</b></td><td>The plant and the spring works likely need a screening by the Department of Environment.</td><td>Department of Environment</td><td><span class="conf m">TO CONFIRM</span></td></tr>
+      <tr><td><b>Company, trade licence, tax registration</b></td><td>A Belize operating company under the Companies Act, a trade licence and tax registration (also needed for incentives).</td><td>Companies Registry, town council, Belize Tax Service</td><td><span class="conf m">TO CONFIRM</span></td></tr>
+      <tr><td><b>Land rights</b></td><td>A written agreement with the landowner covering the spring, access, the plant site and protection of the area around the spring.</td><td>Landowner, counsel</td><td><span class="conf l">NOT STARTED</span></td></tr>
+    </tbody></table></div>
+  </section>
+
+  <!-- 6 -->
+  <section id="offer">
+    <div class="head"><span class="num">6 · Our offer</span><h2>How we win: the Oasis and Primo model, with a real spring</h2><p class="muted">Primo and Oasis both grew on the same habit: a dispenser in the home and a full jar on a fixed day. We bring that model to a market that already buys jars.</p></div>
+    <div class="two">
+      <div class="panel"><span class="tag">First · Jars</span><h3>Spring water at home and at the office</h3>
+        <ul class="check"><li>5-gallon (18.9 L) jars, the size Belize already uses, at Crystal's price.</li><li>Dispenser placed with the first order. Jar swapped one for one.</li><li>Order on WhatsApp, delivered on a fixed day by zone.</li><li>Every jar comes back to the plant, is washed and refilled, and sealed. Never just topped up.</li><li>Batch lab results behind a QR code on the seal.</li></ul></div>
+      <div class="panel"><span class="tag">Second · Cans</span><h3>The brand people see</h3>
+        <ul class="check"><li>Still spring water in aluminium cans for resorts, lodges, bars, tour boats and premium grocers.</li><li>The deposit law already covers cans, so take-back can be built with distributors.</li><li>Mike's network opens the first resorts.</li><li>Small PET bottles on the same filler, only when a buyer asks.</li></ul></div>
+    </div>
+    <div class="panel"><h3>Claims we keep off the label</h3><ul class="check minus"><li>Health claims ("alkaline", "cures").</li><li>"Purest", "safest", or any comparison with Crystal.</li><li>"Plastic-free" (can linings are plastic) and reef claims until a can take-back runs.</li><li>"Spring", until the lab and BZS 10 confirm it.</li></ul></div>
+  </section>
+
+  <!-- 7 -->
+  <section id="treatment">
+    <div class="head"><span class="num">7 · Treatment</span><h2>Before the test: what the spring might need</h2><p class="muted">The water decides the technology. Much of inland Belize sits on limestone, so expect hard water and quick changes in clarity after heavy rain. Tick what the test might show to see which Safi Treatment modules would run.</p></div>
+    <div class="scen" id="scen"></div>
+    <div class="train" id="train" aria-live="polite"></div>
+    <div class="modules" id="mods"></div>
+    <div class="verdict" id="verdict" aria-live="polite"></div>
+    <div class="two">
+      <div class="panel"><h3>The tests we need</h3>
+        <ul class="check">
+          <li><b>On-site screen</b> at the first visit: TDS, conductivity, pH, temperature, turbidity, and a field E. coli kit.</li>
+          <li><b>Accredited lab panel against BZS 10:</b> E. coli, total coliforms, enterococci, Pseudomonas; hardness, calcium, magnesium, sodium, potassium, bicarbonate, chloride, sulphate, nitrate, nitrite, fluoride, iron, manganese, arsenic, lead and other metals.</li>
+          <li><b>Farm chemicals</b> if there are fields or orchards upstream.</li>
+          <li><b>Repeat in both seasons:</b> wet (about Jun–Nov) and dry (about Feb–May).</li>
+          <li><b>Flow logging</b> every week through the dry season: the lowest number sets the plant size.</li>
+          <li><b>Sanitary survey</b> of the catchment: livestock, septic tanks, roads, farming.</li>
+        </ul></div>
+      <div class="panel"><h3>Why our treatment fits a spring</h3>
+        <ul class="check">
+          <li>UF at 0.01 µm stops bacteria and particles and keeps the natural minerals.</li>
+          <li>UV is the final barrier before filling. No chemicals go into the water.</li>
+          <li>RO only if the water is salty, and then the product is sold as purified, not spring.</li>
+          <li>Proven daily at our UNBS-certified Kampala plant, with E. coli and coliforms at 0 in accredited lab panels (May and Sept 2026).</li>
+        </ul>
+        <p class="src">Module numbers follow the Safi Treatment Technical Data Sheet SF-TDS-001.</p></div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section id="capacity">
+    <div class="head"><span class="num">8 · Capacity</span><h2>How big it gets, from population, not from money</h2><p class="muted">Move the sliders. Each result comes from Belize's own numbers and our plant logic. The defaults are a sensible middle case, not a forecast.</p></div>
+    <div class="calc">
+      <div class="panel" style="gap:14px">
+        <h3>Jars</h3>
+        <div class="ctl"><label for="hhPct">Homes that buy drinking water <output id="hhPctO"></output></label><input id="hhPct" type="range" min="50" max="90" step="0.1" value="74.3"><small>Census 2022: 74.3% of 110,719 homes</small></div>
+        <div class="ctl"><label for="jpw">Jars per home per week <output id="jpwO"></output></label><input id="jpw" type="range" min="1" max="4" step="0.5" value="2"><small>Our assumption: 1.5–3 is typical for a family</small></div>
+        <div class="ctl"><label for="share">Our share of homes <output id="shareO"></output></label><input id="share" type="range" min="1" max="25" step="1" value="5"><small>Start one district at a time</small></div>
+        <h3>Cans</h3>
+        <div class="ctl"><label for="vshare">Visitor-days with one of our cans <output id="vshareO"></output></label><input id="vshare" type="range" min="1" max="20" step="1" value="5"><small>551,698 visitors × 9 nights</small></div>
+        <div class="ctl"><label for="rshare">Residents who buy one can a week <output id="rshareO"></output></label><input id="rshare" type="range" min="0" max="10" step="0.5" value="2"><small>About 418,000 residents</small></div>
+        <h3>Plant</h3>
+        <div class="ctl"><label for="hrs">Hours the treatment plant runs a day <output id="hrsO"></output></label><input id="hrs" type="range" min="4" max="20" step="1" value="10"><small>Treatment rated 6,000 L/h</small></div>
+        <div class="ctl"><label for="fill">Can filler speed, cans an hour <output id="fillO"></output></label><input id="fill" type="range" min="500" max="6000" step="250" value="1500"><small>To set with the China quotes</small></div>
+      </div>
+      <div class="panel" style="gap:14px">
+        <h3>What that means</h3>
+        <div class="outs">
+          <div class="out"><b id="oHomes"></b><span>homes we serve</span></div>
+          <div class="out"><b id="oJars"></b><span>jars a day (6 delivery days)</span></div>
+          <div class="out"><b id="oCans"></b><span>cans a day (300 days)</span></div>
+          <div class="out"><b id="oLitres"></b><span>litres a day, all products</span></div>
+          <div class="out"><b id="oFill"></b><span>filler hours a day for cans</span></div>
+          <div class="out"><b id="oFlow"></b><span>spring flow needed (L/min, with margin)</span></div>
+        </div>
+        <div class="ctl"><label>Treatment plant used <output id="oUse"></output></label><div class="meter" id="mUse"><i></i></div></div>
+        <div class="ctl"><label>Spring flow needed vs 15 L/min (our pilot minimum) <output id="oFloor"></output></label><div class="meter" id="mFloor"><i></i></div></div>
+        <p class="small muted" id="capNote"></p>
+        <p class="src">Our logic: jar = 18.9 L. Can = 355 ml. Water needed = product × 1.25 (rinse and UF losses), spread over 24 hours of spring flow, then doubled as a dry-season margin. Treatment capacity = 6,000 L/h × hours a day.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 -->
+  <section id="path">
+    <div class="head"><span class="num">9 · Steps</span><h2>Ten steps from a spring on a map to a jar on a table</h2><p class="muted">Each step passes before the next one starts. Steps 2 to 6 run side by side.</p></div>
+    <ol class="steps">
+      <li><span class="sn">1</span><div><span class="who">Mike + landowner</span><h3>Locate and document</h3><p>District and nearest town, GPS pin, land title, photos and video of the spring, any past water test or well log.</p></div></li>
+      <li><span class="sn">2</span><div><span class="who">Maji Safi engineers</span><h3>Site visit and first samples</h3><p>On-site screen, sterile lab samples, a sanitary survey of the catchment, the plant site, power and road access.</p></div></li>
+      <li><span class="sn">3</span><div><span class="who">Landowner's team, our method</span><h3>Log the flow through the dry season</h3><p>Weekly flow readings from now to the end of May 2027. The lowest reading sets the plant size.</p></div></li>
+      <li><span class="sn">4</span><div><span class="who">Accredited lab</span><h3>Lab panels, wet and dry</h3><p>The full BZS 10 panel in both seasons. This decides the treatment modules and whether the spring claim holds.</p></div></li>
+      <li><span class="sn">5</span><div><span class="who">Belize counsel</span><h3>Rights and permits</h3><p>Landowner agreement, abstraction licence, environmental screening, company set-up, BELTRAIDE application.</p></div></li>
+      <li><span class="sn">6</span><div><span class="who">Mike's network + our team</span><h3>Market audit</h3><p>Shelf and menu prices in Belize City, San Pedro, Belmopan, Placencia and Cayo, with photos. 25–40 buyer interviews. Letters of intent from homes, offices and resorts.</p></div></li>
+      <li><span class="sn">7</span><div><span class="who">Maji Safi engineers</span><h3>Design the plant</h3><p>Safi Treatment modules chosen from the lab results. A jar line plus one can/PET combo filler, sized to the flow and the letters of intent.</p></div></li>
+      <li><span class="sn">8</span><div><span class="who">Bureau of Standards, Ministry of Health</span><h3>Build, commission, certify</h3><p>Install, train local operators, run the commissioning test, then certify against BZS 10 and BZ CP 4.</p></div></li>
+      <li><span class="sn">9</span><div><span class="who">Operating company</span><h3>Launch jars in one district</h3><p>Dispensers, WhatsApp orders, fixed delivery days. Prove that homes reorder before adding the next district.</p></div></li>
+      <li><span class="sn">10</span><div><span class="who">Operating company + Mike</span><h3>Add cans, then PET if asked</h3><p>Resorts and visitor areas first, with can take-back through distributors.</p></div></li>
+    </ol>
+  </section>
+
+  <!-- 10 -->
+  <section id="partner">
+    <div class="head"><span class="num">10 · Partnership</span><h2>How we work together</h2><p class="muted">A Belize operating company holds the spring licence, the plant and the staff. The landowner brings the spring and the land. Mike brings the deal and the first buyers. Maji Safi builds and runs the water.</p></div>
+    <div class="two">
+      <div class="panel"><span class="tag">Brand option A</span><h3>Maji Safi Belize</h3><ul class="check"><li>One brand from Kampala to Belize. Our proof carries over.</li><li>Builds Maji Safi as an international name.</li></ul><ul class="check minus"><li>A Swahili name in a Caribbean market.</li><li>"Maji Safi Group" is already a Tanzanian nonprofit, so the trademark needs care.</li></ul></div>
+      <div class="panel"><span class="tag">Brand option B</span><h3>A new Belize spring name, "Operated by Maji Safi"</h3><ul class="check"><li>Named after the spring and the place. The landowner's story leads.</li><li>Easier to trademark in Belize and the US.</li></ul><ul class="check minus"><li>Built from zero.</li><li>Maji Safi shows only as the quality badge.</li></ul></div>
+    </div>
+    <div class="tablebox"><table><thead><tr><th>Maji Safi's role</th><th>What we do</th><th>What we hold</th></tr></thead><tbody>
+      <tr><td><b>1 · Partner and operator</b></td><td>Design, build and run the plant. Train the team, keep it certified.</td><td>A stake in the operating company, plus a contract to run the plant</td></tr>
+      <tr><td><b>2 · Technology and licence</b></td><td>Supply the Safi Treatment system, commission it, service it, license the Maji Safi method and brand (if option A).</td><td>Service and licence agreements, no stake</td></tr>
+      <tr><td><b>3 · Partner only</b></td><td>Co-own and help run it.</td><td>A stake only</td></tr>
+    </tbody></table></div>
+    <div class="panel"><h3>Later, if investors need it</h3><p class="small">A US holding company can sit above the Belize company to give US investors a familiar structure. We decide that after the pilot. Belize comes first.</p></div>
+    <div class="callout"><h3>What we need from Mike now</h3><p>1. The spring's district, a GPS pin and the land title. 2. Photos, video and any past water test. 3. A call with the landowner to agree steps 1 to 4. 4. A date for our engineers' visit. 5. Ten introductions to resorts, restaurants, offices and a distributor.</p></div>
+  </section>
+
+  <div class="foot">Safiflow Ventures Group Ltd, trading as Maji Safi · Lukuli Road, Kampala, Uganda · maji-safi.com · Sammy Ghedamu, CEO · sammy@maji-safi.com · +256 751 595 924<br>Draft for discussion. Market figures carry their source and date. Directory listings and blog prices are checked in the market audit (step 6).</div>
+</div>
+
+<script>
+(function(){
+var $=function(s){return document.querySelector(s)};
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+
+/* ---------- players ---------- */
+var P=[
+ {n:"Crystal Bottling Co.",o:"Bowen & Bowen Ltd",t:"national",i:"CR",c:"#0B5C8E",where:"National · 4 plants incl. Ladyville and Esperanza",sells:"500 ml, 5-gal jar, 25¢ pouch, resort co-brands",tech:"11 steps incl. double RO",strong:"The brand Belize trusts most. Exclusive Coca-Cola bottler and owner of Belikin, so it shares one distribution network with every shop in the country. In 2016 it opened a BZ$40M bottling facility that serves all its drinks, not only water.",links:[["bowen.bz","https://www.bowen.bz/beverage-division/crystal-bottling-company"],["crystalwaterbelize.com","http://crystalwaterbelize.com/about-crystal/crystal-quality.html"],["BZ$40M facility","https://www.7newsbelize.com/sstory.php?nid=34904"]]},
+ {n:"Coca-Cola soft drinks",o:"Bowen & Bowen Ltd",t:"national",i:"CC",c:"#A8261D",where:"National, same network as Crystal",sells:"12 oz glass, 500 ml glass, 600 ml PET, 1.5 L, 2 L",tech:"Soft drinks (price reference)",strong:"Sets the price everyone knows for a single drink: BZ$1 for a 12 oz glass bottle, unchanged since 2010. Returnable glass and depots across the country.",links:[["Love FM price report","https://lovefm.com/price-increase-on-bowen-and-bowen-beverages-explained-by-corporate-relations-manager/"]]},
+ {n:"Zeta Purified Water",o:"Zeta Ice Factory",t:"local",i:"ZE",c:"#2F7D6D",where:"Belmopan (Garden City) · Corozal (Santa Rita Rd)",sells:"5-gal jars, ice",tech:"RO + UV",strong:"Strong in the capital and the north. Ice and water from the same plant.",links:[["Find Yello listing","https://www.findyello.com/belize/zeta-ice-factory-purified-water/"]]},
+ {n:"BEL AquA",o:"Bluefield Belize Foods Co. Ltd",t:"local",i:"BA",c:"#3E6FB0",where:"To verify",sells:"Purified water",tech:"Purified",strong:"Has been in the market since 2006, part of a food company.",links:[]},
+ {n:"Aquazul",o:"Aquazul Purified Water",t:"local",i:"AZ",c:"#1F8FB8",where:"To verify",sells:"5-gal jars, ice, delivery",tech:"Purified",strong:"Delivers jars and ice to the door.",links:[["Find Yello listing","https://www.findyello.com/belize/Aquazul-Purified-Water/"]]},
+ {n:"Aquatic Premium",o:"Aquatic Premium Purified Water",t:"local",i:"AQ",c:"#4A5FA8",where:"Orange Walk (Belize Corozal Rd)",sells:"Water and ice delivery",tech:"Purified",strong:"Home and office delivery in the north.",links:[["Find Glocal listing","https://www.findglocal.com/BZ/Orange-Walk/493340451041313/Aquatic-Premium-Purified-Water"]]},
+ {n:"Agua Dulce",o:"Local plant",t:"local",i:"AD",c:"#5C8A3A",where:"San Pedro, Ambergris Caye",sells:"Purified water",tech:"Purified",strong:"On the island with the most visitors.",links:[]},
+ {n:"Best Choice Purified Water",o:"Local plant",t:"local",i:"BC",c:"#7A6A9E",where:"Belmopan (University Blvd)",sells:"Bottled water",tech:"Purified",strong:"Listed as closed at the time of the search. Shows how hard the small end of the market is.",links:[["Facebook page","https://www.facebook.com/bestchoicewaterbz/"]]},
+ {n:"Refill stations",o:"Grocery stores",t:"refill",i:"RF",c:"#7D8A93",where:"Most towns, inside grocery stores",sells:"Refill into your own jar",tech:"Varies, not audited",strong:"The cheapest litre in the country. Nobody vouches for the quality.",links:[["San Pedro guide","https://ambergriscaye.com/help/article-58.html"]]},
+ {n:"Filter Pure Solutions",o:"Home RO systems",t:"systems",i:"FP",c:"#8A5A2B",where:"National",sells:"Home and business RO systems, service",tech:"RO",strong:"Sells households a way out of buying jars. Its own site says a home system suits families who buy 5 to 10 five-gallon jars a week. A possible partner or rival for Safi Treatment systems.",links:[["filterpure.bz","https://www.filterpure.bz/"]]},
+ {n:"Imported premium",o:"La Croix and others",t:"import",i:"IM",c:"#9C3D6B",where:"Tourist shops, Ambergris Caye",sells:"Cans of sparkling water, bottled imports",tech:"Imported",strong:"Shows visitors already pay about US$2 a can. No still water in a can was found.",links:[["Luna Realty, 2022","https://lunarealtybelize.com"]]},
+ {n:"Belize Water Services",o:"National utility",t:"utility",i:"BW",c:"#2B4F6E",where:"National piped supply",sells:"Tap water",tech:"Municipal treatment",strong:"The only piped water provider. Most homes still buy drinking water on top.",links:[["bws.bz","https://www.bws.bz"]]}
+];
+var PT={all:"All",national:"National",local:"Local plants",refill:"Refills",systems:"Home systems",import:"Imports",utility:"Utility"};
+var pcur="all";
+function drawPlayers(){
+  $("#pfil").innerHTML=Object.keys(PT).map(function(k){return '<button class="fbtn" type="button" data-p="'+k+'" aria-pressed="'+(k===pcur)+'">'+PT[k]+'</button>'}).join("");
+  $("#plist").innerHTML=P.filter(function(p){return pcur==="all"||p.t===pcur}).map(function(p){
+    return '<article class="player"><div class="ph"><span class="mono" style="background:'+p.c+'" aria-hidden="true">'+p.i+'</span><div><h3>'+esc(p.n)+'</h3><div class="k">'+esc(p.o)+' · '+PT[p.t]+'</div></div></div>'+
+    '<dl><dt>Where</dt><dd>'+esc(p.where)+'</dd><dt>Sells</dt><dd>'+esc(p.sells)+'</dd><dt>Process</dt><dd>'+esc(p.tech)+'</dd></dl>'+
+    '<p class="strong"><b>Strong hold.</b> '+esc(p.strong)+'</p>'+
+    (p.links.length?'<p class="small">'+p.links.map(function(l){return '<a href="'+l[1]+'" target="_blank" rel="noopener">'+esc(l[0])+' ↗</a>'}).join(" · ")+'</p>':'<p class="small muted">No website found yet.</p>')+'</article>';
+  }).join("");
+}
+$("#pfil").addEventListener("click",function(e){var b=e.target.closest("[data-p]");if(!b)return;pcur=b.dataset.p;drawPlayers();});
+drawPlayers();
+
+/* ---------- prices ---------- */
+var X=[
+ {brand:"Crystal",fmt:"Jar",size:"5-gal (18.9 L)",l:18.9,price:6.00,date:"Aug 2024",conf:"h",src:["San Pedro Sun","https://www.sanpedrosun.com"]},
+ {brand:"Crystal (sales centre)",fmt:"Jar",size:"5-gal (18.9 L)",l:18.9,price:3.60,date:"Mar 2020",conf:"m",src:["Breaking Belize News","https://www.breakingbelizenews.com/2020/03/16/crystal-bottling-company-asks-public-to-not-hoard-5-gallon-waters/"]},
+ {brand:"Crystal",fmt:"Pouch",size:"Pouch (~0.5 L)",l:0.5,price:0.25,date:"Aug 2024",conf:"m",src:["San Pedro Sun","https://www.sanpedrosun.com"]},
+ {brand:"Crystal (case of 24, each)",fmt:"Bottle",size:"500 ml",l:0.5,price:0.68,date:"2016",conf:"l",src:["Taco Girl blog","https://tacogirl.com/cost-belikin-beer-shop-distributor/"]},
+ {brand:"Local brands, shop",fmt:"Bottle",size:"500 ml",l:0.5,price:1.25,date:"2024–25",conf:"l",src:["Blog and crowd prices","https://www.numbeo.com/cost-of-living/country_result.jsp?country=Belize"]},
+ {brand:"Visitor areas, average",fmt:"Bottle",size:"500 ml",l:0.5,price:3.00,date:"2024–25",conf:"l",src:["Blog and crowd prices","https://hikersbay.com/prices/belize?lang=en"]},
+ {brand:"Supermarket water",fmt:"Bottle",size:"1.5 L",l:1.5,price:2.20,date:"2026",conf:"l",src:["Hikersbay","https://hikersbay.com/prices/belize?lang=en"]},
+ {brand:"La Croix (imported)",fmt:"Can",size:"355 ml",l:0.355,price:4.00,date:"2022",conf:"m",src:["Luna Realty","https://lunarealtybelize.com"]},
+ {brand:"Coca-Cola",fmt:"Soft drink",size:"12 oz glass (355 ml)",l:0.355,price:1.00,date:"~2023",conf:"h",src:["Love FM","https://lovefm.com/price-increase-on-bowen-and-bowen-beverages-explained-by-corporate-relations-manager/"]},
+ {brand:"Coca-Cola",fmt:"Soft drink",size:"500 ml glass",l:0.5,price:1.50,date:"~2023",conf:"h",src:["Love FM","https://lovefm.com/price-increase-on-bowen-and-bowen-beverages-explained-by-corporate-relations-manager/"]},
+ {brand:"Coca-Cola",fmt:"Soft drink",size:"600 ml PET",l:0.6,price:2.25,date:"~2024",conf:"m",src:["Love FM","https://lovefm.com/price-increase-for-bowen-and-bowen-soft-drinks-hits-consumers/"]},
+ {brand:"Coca-Cola",fmt:"Soft drink",size:"1.5 L PET",l:1.5,price:4.85,date:"~2023",conf:"h",src:["Love FM","https://lovefm.com/price-increase-on-bowen-and-bowen-beverages-explained-by-corporate-relations-manager/"]},
+ {brand:"Coca-Cola",fmt:"Soft drink",size:"2 L PET",l:2,price:5.68,date:"Apr 2025",conf:"m",src:["Expatistan","https://www.expatistan.com/price/coke/belize-city"]},
+ {brand:"Soft drink, average",fmt:"Soft drink",size:"12 oz",l:0.355,price:1.37,date:"2026",conf:"m",src:["Numbeo","https://www.numbeo.com/cost-of-living/country_result.jsp?country=Belize"]},
+ {brand:"Local RO plants",fmt:"Jar",size:"5-gal (18.9 L)",l:18.9,price:null,date:"To audit",conf:"l",src:["Cheaper than Crystal, price not published",""]},
+ {brand:"Refill stations",fmt:"Refill",size:"Your own jar",l:18.9,price:null,date:"To audit",conf:"l",src:["Price not found",""]}
+];
+X.forEach(function(r){r.ppl=r.price==null?null:r.price/r.l});
+var CONF={h:"HIGH",m:"MEDIUM",l:"LOW"};
+var xcur="All",sk="ppl",sd=1;
+var fmts=["All","Jar","Bottle","Can","Pouch","Soft drink","Refill"];
+function money(v){return v==null?"—":v.toFixed(2)}
+function drawPrices(){
+  $("#xfil").innerHTML=fmts.map(function(f){return '<button class="fbtn" type="button" data-x="'+f+'" aria-pressed="'+(f===xcur)+'">'+f+'</button>'}).join("");
+  var rows=X.filter(function(r){return xcur==="All"||r.fmt===xcur});
+  rows.sort(function(a,b){var A=a[sk],B=b[sk];if(sk==="src"){A=a.src[0];B=b.src[0]}if(sk==="size"){A=a.l;B=b.l}
+    if(A==null&&B==null)return 0;if(A==null)return 1;if(B==null)return -1;return (typeof A==="number"?A-B:String(A).localeCompare(String(B)))*sd});
+  $("#ptable tbody").innerHTML=rows.map(function(r){return '<tr><td><b>'+esc(r.brand)+'</b></td><td>'+r.fmt+'</td><td>'+esc(r.size)+'</td><td class="n">'+money(r.price)+'</td><td class="n">'+money(r.ppl)+'</td><td class="n">'+esc(r.date)+'</td><td><span class="conf '+r.conf+'">'+CONF[r.conf]+'</span></td><td class="small">'+(r.src[1]?'<a href="'+r.src[1]+'" target="_blank" rel="noopener">'+esc(r.src[0])+'</a>':esc(r.src[0]))+'</td></tr>'}).join("");
+  document.querySelectorAll("#ptable th").forEach(function(th){th.setAttribute("aria-sort",th.dataset.k===sk?(sd>0?"ascending":"descending"):"none")});
+  var cr=rows.filter(function(r){return r.ppl!=null}).sort(function(a,b){return a.ppl-b.ppl});
+  var max=Math.max.apply(null,cr.map(function(r){return r.ppl}).concat([1]));
+  $("#pchart").innerHTML=cr.map(function(r){return '<div class="crow'+(r.fmt==="Jar"?' jar':'')+'"><span class="lab">'+esc(r.brand)+' · '+esc(r.size)+'</span><span class="track"><span class="fill" style="width:'+Math.max(1,r.ppl/max*100).toFixed(1)+'%;display:block"></span></span><span class="val">'+r.ppl.toFixed(2)+'</span></div>'}).join("")||'<p class="small muted">No priced rows in this format yet.</p>';
+}
+$("#xfil").addEventListener("click",function(e){var b=e.target.closest("[data-x]");if(!b)return;xcur=b.dataset.x;drawPrices();});
+document.querySelector("#ptable thead").addEventListener("click",function(e){var th=e.target.closest("th");if(!th)return;var k=th.dataset.k;if(k===sk)sd=-sd;else{sk=k;sd=1}drawPrices();});
+drawPrices();
+
+/* ---------- treatment ---------- */
+var M=[
+ ["M1","Micron filters 5 + 1 µm","Sand, silt"],["M2","Iron & manganese media","Dissolved Fe, Mn"],["M3","Activated carbon","Taste, odour, colour"],["M4","Ultrafiltration 0.01 µm","Bacteria, turbidity; minerals kept"],["M5","UV-C","Final disinfection"],["M6","Chlorine dosing","Jar-line and pipe hygiene only"],["M7","Fluoride media","Excess fluoride"],["M8","NF / RO","Dissolved salts"],["M9","Cleaning (CIP)","Membranes and media"],["M10","Smart Controller","Runs and logs the line"]
+];
+var S=[
+ {id:"clean",l:"Clean spring (best case)",m:[]},
+ {id:"turbid",l:"Cloudy after heavy rain",m:["pre"]},
+ {id:"bact",l:"Bacteria at the source",m:[]},
+ {id:"hard",l:"Hard, limestone water",m:[]},
+ {id:"iron",l:"Iron or manganese",m:["M2"]},
+ {id:"organic",l:"Colour, taste or smell",m:["M3"]},
+ {id:"fluor",l:"Fluoride above 1.5 mg/L",m:["M7"]},
+ {id:"salt",l:"Salty or brackish",m:["M8"]}
+];
+var sel={clean:true,hard:true,turbid:true};
+function drawTreat(){
+  $("#scen").innerHTML=S.map(function(s){return '<label><input type="checkbox" data-s="'+s.id+'"'+(sel[s.id]?" checked":"")+'> '+s.l+'</label>'}).join("");
+  var on={M1:1,M4:1,M5:1,M9:1,M10:1};
+  var pre=false;
+  S.forEach(function(s){if(sel[s.id])s.m.forEach(function(m){if(m==="pre")pre=true;else on[m]=1})});
+  if(sel.salt){delete on.M4}
+  $("#mods").innerHTML=M.map(function(m){return '<div class="mod'+(on[m[0]]?" on":"")+'"><b>'+m[0]+' · '+m[1]+'</b><span>'+m[2]+'</span></div>'}).join("");
+  var order=[];if(pre)order.push("Media pre-filter");order.push("M1 Micron");if(on.M2)order.push("M2 Iron");if(on.M7)order.push("M7 Fluoride");if(on.M3)order.push("M3 Carbon");order.push(on.M8?"M8 NF/RO":"M4 UF");order.push("M5 UV");order.push("Jar & can lines");
+  $("#train").innerHTML='<span class="st">Spring</span>'+order.map(function(s){return '<span class="ar">→</span><span class="st">'+s+'</span>'}).join("");
+  var v=$("#verdict");
+  if(sel.salt){v.className="verdict bad";v.innerHTML="<b>Sold as purified water, not spring</b>RO removes the salts and the natural minerals. We would still make good water, but the spring story is gone. This is why the dry-season test matters.";}
+  else{
+    var notes=[];
+    if(sel.hard)notes.push("hard water stays as natural minerals on the label, with no softening (Mehari to check scaling on the lines)");
+    if(sel.bact)notes.push("UF + UV handle bacteria, and the sanitary survey protects the catchment");
+    if(sel.turbid)notes.push("a media pre-filter takes the rainy-season silt off before the membranes");
+    if(on.M2||on.M7||on.M3)notes.push("each extra module changes the water a little, so we check it against the spring rules");
+    v.className="verdict ok";v.innerHTML="<b>The spring claim can hold</b>"+(notes.length?"With this water: "+notes.join("; ")+".":"Micron, UF and UV only. The lightest touch, with the minerals unchanged.")+" Confirmed against BZS 10 after the lab panel.";
+  }
+}
+$("#scen").addEventListener("change",function(e){var c=e.target.closest("[data-s]");if(!c)return;sel[c.dataset.s]=c.checked;drawTreat();});
+drawTreat();
+
+/* ---------- capacity ---------- */
+var HH=110719,POP=418000,VIS=551698,NIGHTS=9,JAR=18.9,CAN=0.355,PLANT=6000,FLOOR=15;
+function n(v){return Math.round(v).toLocaleString("en-US")}
+function calc(){
+  var hhPct=+$("#hhPct").value,jpw=+$("#jpw").value,share=+$("#share").value,vs=+$("#vshare").value,rs=+$("#rshare").value,hrs=+$("#hrs").value,fill=+$("#fill").value;
+  $("#hhPctO").textContent=hhPct.toFixed(1)+"%";$("#jpwO").textContent=jpw;$("#shareO").textContent=share+"%";$("#vshareO").textContent=vs+"%";$("#rshareO").textContent=rs+"%";$("#hrsO").textContent=hrs+" h";$("#fillO").textContent=n(fill);
+  var homes=HH*hhPct/100*share/100;
+  var jarsDay=homes*jpw/6;
+  var cansYr=VIS*NIGHTS*vs/100+POP*rs/100*52;
+  var cansDay=cansYr/300;
+  var litres=jarsDay*JAR+cansDay*CAN;
+  var raw=litres*1.25;
+  var flow=raw/1440*2;
+  var cap=PLANT*hrs;
+  var use=raw/cap*100;
+  $("#oHomes").textContent=n(homes);$("#oJars").textContent=n(jarsDay);$("#oCans").textContent=n(cansDay);$("#oLitres").textContent=n(litres);
+  $("#oFill").textContent=(cansDay/fill).toFixed(1);$("#oFlow").textContent=flow.toFixed(1);
+  $("#oUse").textContent=use.toFixed(0)+"%";var mu=$("#mUse");mu.querySelector("i").style.width=Math.min(100,use)+"%";mu.classList.toggle("over",use>100);
+  $("#oFloor").textContent=(flow/FLOOR*100).toFixed(0)+"%";var mf=$("#mFloor");mf.querySelector("i").style.width=Math.min(100,flow/FLOOR*100)+"%";mf.classList.toggle("over",flow>FLOOR);
+  var note;
+  if(use>100)note="The treatment plant is over capacity at these settings. Run longer hours or plan a second treatment skid.";
+  else if(flow>FLOOR)note="The plant copes, but the spring would need more than 15 L/min in the dry season. The flow log decides whether this share is possible.";
+  else note="Both the plant and a 15 L/min spring cope at these settings. Jars use most of the water; cans use the filler hours.";
+  $("#capNote").textContent=note;
+}
+["hhPct","jpw","share","vshare","rshare","hrs","fill"].forEach(function(id){$("#"+id).addEventListener("input",calc)});
+calc();
+
+/* ---------- section bar ---------- */
+var links=[].slice.call(document.querySelectorAll("#nav a"));
+var secs=links.map(function(a){return document.querySelector(a.getAttribute("href"))});
+function spy(){var y=window.scrollY+90,cur=0;secs.forEach(function(s,i){if(s&&s.offsetTop<=y)cur=i});links.forEach(function(a,i){a.classList.toggle("on",i===cur)});}
+window.addEventListener("scroll",spy,{passive:true});spy();
+var h=location.hash&&document.querySelector(location.hash);if(h)h.scrollIntoView();
+})();
+</script>

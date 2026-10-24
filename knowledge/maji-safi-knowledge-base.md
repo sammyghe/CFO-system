@@ -76,6 +76,11 @@ Rule: add to this file every session. Do not delete agreed facts unless Sammy sa
 New facts: Returnable Containers Act (Cap. 328:01) puts a deposit on cans and bottles up to 1 gallon. Fiscal Incentives Act No. 4 of 2023 gives duty relief on machinery. Water Industry Act Cap. 222 Part V s.61 requires an abstraction licence. Crystal has 4 plants (incl. Ladyville and Esperanza).
 How Sammy works: he wants to approve ideas and flow before any build, and wants documents short (10 pages maximum).
 
+**v0.3 study, 24 Oct 2026:** interactive page https://claude.ai/artifact/UXTVGgEbXvwzvxcFXAbhmU (source `knowledge/belize-spring-study.html`). Framed as the Maji Safi New Markets & Partnerships Office, using the Safi Treatment visual system (Navy #104070, Blue #0077B6, Sky #7EC8E3; Source Serif 4 / Source Sans 3) so it matches the treatment documents.
+Rules Sammy set for Belize documents: **no Maji Safi money in it** (no capex, revenue or fees). Show capacity from population and our business logic. Market prices of competitors are fine. Company cards carry a strong hold, a location and website links. Competitor logos are replaced by monogram badges (we don't copy other companies' marks).
+Price facts: Crystal 5-gal BZ$6 (Aug 2024); sales-centre BZ$3.60 / retail cap BZ$5.50 (Mar 2020). Coca-Cola 12 oz glass BZ$1 (unchanged since 2010), 500 ml glass BZ$1.50, 1.5 L BZ$4.85, 600 ml PET SRP BZ$2.25, 2 L ~BZ$5.68 (Apr 2025). La Croix can ~US$2 on Ambergris (2022).
+Other players: Filter Pure Solutions (home RO systems; a possible partner or rival for Safi Treatment), Zeta (Belmopan, Corozal), Aquatic (Orange Walk), Aquazul, BEL AquA (Bluefield Belize Foods, 2006), Agua Dulce (San Pedro), Best Choice (Belmopan, listed closed).
+
 **Still open:** spring location and title, water test, dry-season flow, landowner terms, who owns BrandCo, brand lead.
 
 ## 5. How Sammy thinks (working style)
