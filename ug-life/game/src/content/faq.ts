@@ -9,6 +9,9 @@ export const FAQ: { q: string; a: string }[] = [
   { q: "What is the Ug Tag?", a: "Your name tag floats over your character. Tap it to edit your name, status and up to 3 socials. Ghost mode hides your tag and socials completely." },
   { q: "Are my socials verified?", a: "Not yet. Socials show as unverified until sign-in verification goes live, so don't trust a tag just because it lists a big account." },
   { q: "Is the government in the game real?", a: "No. The Ward 7 Works Office, its budget and its crews are fictional. Nothing in the game is a real report about a real road or official." },
-  { q: "Where is my progress saved?", a: "In this preview build, on this phone only. Clearing your browser data deletes it. Accounts that save online are coming in the next build." },
+  { q: "Where is my progress saved?", a: "On your phone, and online every minute or so when you have signal. To move to a new phone, open Help, show your recovery code, and enter it on the new phone." },
+  { q: "What are Street Snaps?", a: "Photograph a real Kampala street and your phone turns it into street art. Share it and, once a person checks it, it goes on the community board and can be featured on the billboard. The areas with the most snaps get built next." },
+  { q: "What photos are allowed?", a: "Streets, shops, roads and buildings that you photographed yourself. Blur every face you can recognise and every number plate (tap the photo to blur). No children, no inside of homes, no military or police sites." },
+  { q: "Can I remove a photo I shared?", a: "Yes. Delete it from Your snaps, and send a note from Help asking us to take it off the board. We remove it within a day. If you're in someone else's photo, tell us the same way." },
   { q: "Who can play?", a: "Ug Life is for people aged 18 and over for now." },
 ];

@@ -3,7 +3,8 @@
 **Goal:** every player gets a correct answer within 24 hours, and support gets cheaper every week.
 
 ## Inputs
-- `tickets` table (once accounts are live). In the preview build, notes stay on the player's phone.
+- Open tickets: `GET /api/admin/tickets?status=open` (see `ops/CONTROL_ROOM.md`). Reply with
+  `POST /api/admin/tickets/<id>`; the player sees the reply in Help.
 - WhatsApp Business app: Sammy forwards screenshots into `ops/queue/whatsapp-inbox.md` until the WhatsApp API is affordable.
 - FAQ: `game/src/content/faq.ts`.
 

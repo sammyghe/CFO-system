@@ -2,6 +2,7 @@ import { MAP_H, MAP_W, isWalkable } from "./map";
 import { findPath, type Pt } from "./path";
 import type { Look } from "../game/state";
 import { RESIDENTS, type Resident } from "../content/residents";
+import type { Visitor } from "../net/api";
 
 export interface Walker {
   id: string;
@@ -16,6 +17,9 @@ export interface Walker {
   look: Look;
   carrying: boolean;
   resident?: Resident;
+  /** A real player, shown where they last were. */
+  visitor?: Visitor;
+  home?: Pt;
   onArrive?: () => void;
 }
 
@@ -55,6 +59,7 @@ export class Sim {
   player: Walker;
   residents: Walker[];
   vehicles: Vehicle[];
+  visitors: Walker[] = [];
   floaters: Floater[] = [];
   private timers: { at: number; fn: () => void }[] = [];
   private rand = Math.random;
@@ -107,6 +112,29 @@ export class Sim {
     return true;
   }
 
+  /** Shows real players from the server; they stroll near the spot they last saved. */
+  setVisitors(list: Visitor[], hidden: string[]) {
+    const keep: Walker[] = [];
+    for (const v of list) {
+      if (hidden.includes(v.id)) continue;
+      const home = { x: Math.floor(v.pos.x), y: Math.floor(v.pos.y) };
+      if (!isWalkable(home.x, home.y)) continue;
+      const existing = this.visitors.find((w) => w.id === v.id);
+      if (existing) {
+        existing.visitor = v;
+        existing.look = v.look;
+        existing.home = home;
+        keep.push(existing);
+      } else {
+        const w = makeWalker(v.id, home.x + 0.5, home.y + 0.5, v.look, 1.4);
+        w.visitor = v;
+        w.home = home;
+        keep.push(w);
+      }
+    }
+    this.visitors = keep;
+  }
+
   float(text: string, x: number, y: number, color = "#2f7a4b") {
     this.floaters.push({ text, x, y, t0: performance.now(), color });
   }
@@ -127,6 +155,17 @@ export class Sim {
         r.idleUntil = now + 3000 + this.rand() * 7000;
       }
       stepWalker(r, dt);
+    }
+    for (const v of this.visitors) {
+      if (!v.path.length && now > v.idleUntil && v.home) {
+        const tx = v.home.x + Math.round((this.rand() - 0.5) * 6), ty = v.home.y + Math.round((this.rand() - 0.5) * 4);
+        if (isWalkable(tx, ty)) {
+          const path = findPath({ x: Math.floor(v.x), y: Math.floor(v.y) }, { x: tx, y: ty });
+          if (path && path.length < 10) v.path = path.map((q) => ({ x: q.x + 0.5, y: q.y + 0.5 }));
+        }
+        v.idleUntil = now + 4000 + this.rand() * 8000;
+      }
+      stepWalker(v, dt);
     }
     this.updateTraffic(dt, now);
     this.floaters = this.floaters.filter((f) => now - f.t0 < 1600);

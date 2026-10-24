@@ -13,8 +13,15 @@ everything drawn in code so the whole game is about 40 KB gzipped.
 - Daily street event, street goals, share card for WhatsApp Status, help + FAQ, settings
 - 18+ gate, scam and abuse filters, block and report
 
-Progress saves on the phone (localStorage). Online accounts use `supabase/schema.sql`
-when switched on.
+- Street Snaps: photograph a real street, blur faces and plates, the phone turns it into
+  street art (`src/snaps/toon.ts`, no AI service, no cost), share it for review, approved snaps
+  go on the community board and the rooftop billboard; areas race to be built next
+- Online: anonymous accounts with a recovery code, saves checked against the money rules on
+  the server (`src/game/validate.ts`), real players visible on the street, support tickets with
+  replies, reports, daily event counts, and the Control Room (`/admin.html`)
+
+The game is local-first: it plays fully offline, and syncs when there's signal. If the
+server is down or over its free limit, nobody loses progress.
 
 ## Commands
 
@@ -28,12 +35,27 @@ npm run build:single # one self-contained HTML file in dist-single/ (for preview
 
 Add `?debug=1` to the URL to expose `window.ug` for automated play tests.
 
-## Deploy for free (Cloudflare Pages)
+## Hosting (Cloudflare, free tier)
 
-1. Cloudflare dashboard → Workers & Pages → Create → Pages → connect this GitHub repo.
-2. Root directory `ug-life/game`, build command `npm run build`, output `dist`.
-3. Set `VITE_PUBLIC_URL` to the final link so share cards show it.
-4. Every merge to the main branch deploys. Pull requests get preview links.
+| Piece | Service | Free allowance | When it grows |
+|---|---|---|---|
+| Game files | Cloudflare Pages CDN | Unlimited requests and bandwidth | Never needs upgrading |
+| API (`functions/api`) | Pages Functions | 100,000 requests a day (roughly 5,000 daily players) | Workers Paid, $5/month, 10M requests |
+| Database + photos | D1 `ug-life-db` | 5 GB, 5M reads and 100k writes a day | Workers Paid raises it; photos can move to R2 |
+
+Deploys are automatic (`.github/workflows/ug-life-deploy.yml`): every push builds, tests and
+deploys; `main` is the live site, other branches get preview links. It needs two repository
+secrets: `CLOUDFLARE_API_TOKEN` and `UGLIFE_ADMIN_TOKEN`. A health check
+(`ug-life-health.yml`) opens a P0 GitHub issue if the site or API stops answering.
+
+## Running the whole thing locally
+
+```
+npm run build
+npm run db:local                       # local copy of the database
+echo 'ADMIN_TOKEN="any-long-test-password"' > .dev.vars
+npm run serve:local                    # game + API + Control Room on http://localhost:8788
+```
 
 ## Code map
 
@@ -43,6 +65,10 @@ Add `?debug=1` to the URL to expose `window.ug` for automated play tests.
 | `src/world/` | Map, isometric projection, art, simulation (people, traffic), renderer |
 | `src/ui/` | HUD, panels, share card |
 | `src/content/` | Residents and FAQ (the support agent uses the FAQ too) |
-| `src/backend/` | Where saves go: local now, Supabase later |
-| `supabase/` | Database schema with the server-side money rules |
-| `tests/` | Rule tests |
+| `src/backend/` | Saves on the phone |
+| `src/net/` | Talking to the server; everything works offline if it fails |
+| `src/snaps/` | Photo to street art, privacy blur, the snaps panels, on-phone album |
+| `src/admin/` | The Control Room page |
+| `server/`, `functions/` | The API (Cloudflare Pages Functions) |
+| `migrations/` | Database schema |
+| `tests/` | Rules, server save checks, photo filter |

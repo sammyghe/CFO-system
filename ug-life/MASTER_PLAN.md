@@ -46,12 +46,15 @@ and the founder constraints set on 2026-10-24. Where they conflict, this file wi
   offline shell, install prompt). Whole game ~40 KB gzipped, far under the 5 MB budget.
 - Art: drawn in code for now (no downloads). Next: Sammy's own Kampala street photos as reference,
   then CC0 packs or a freelance artist once there's revenue. Every asset logged with its source and licence.
-- Hosting: Cloudflare Pages (static) + Cloudflare Workers (API).
-- Data/auth: Supabase free tier (Postgres + Auth). All money/ownership changes go through
-  server functions; the client is never trusted. Ledger is append-only and idempotent.
-- Realtime presence: Supabase Realtime for "who's on the street" (light). Authoritative
-  game server only when Phase 4 needs it.
-- Monitoring: Sentry free, PostHog free (or Cloudflare Web Analytics), uptime check.
+- Hosting: Cloudflare Pages (static, unlimited free bandwidth) + Pages Functions (API) +
+  D1 database `ug-life-db` (also holds snap images until R2 is enabled). Same Cloudflare
+  account as Maji Safi, kept separate by name (Sammy's choice, 2026-10-24).
+- Accounts: anonymous, with a recovery code. No phone number or email collected.
+- Money safety: the game runs on the phone; every save is checked on the server against the
+  rules (append-only ledger, price and pay limits, daily caps). Breaking saves are refused and flagged.
+- Presence: real players shown where they last saved (refreshed every 30 s). True real-time
+  multiplayer (Durable Objects) when player numbers justify it.
+- Monitoring: GitHub Action health check every 30 min opens a P0 issue; own daily event counts.
 - Ops brain: this GitHub repo. Agents read/write `ops/` (tickets, digests, decisions).
 
 ## 4. The company on paper (Google-style functions, one human)
@@ -130,8 +133,11 @@ Phase 1 preview built in `game/` (see `game/README.md`): one Wandegeya-style str
 delivery → kiosk loop with a tested ledger, fictional pothole fix, daily street events,
 day/night on Kampala time, share card, help/FAQ, 18+ gate, scam filters. Saves on the phone.
 Operations system in `ops/`: kill switches, runbooks, approval and P0 queues.
-Not done yet: online accounts (Supabase schema written, not deployed), real multiplayer,
-social sign-in verification, PostHog, scheduled agents switched on, public hosting.
+Phase 1.5 (same day): Street Snaps (photo to street art on the phone, privacy blur,
+community board, billboard, neighbourhood race), online accounts and save checks, real players
+on the street, support tickets with replies, Control Room, deploy pipeline, health check.
+Database created on Cloudflare. Waiting on Sammy: two GitHub secrets to go live.
+Not done yet: real-time multiplayer, social sign-in verification, Luganda/Swahili UI.
 
 ## 11. Open decisions for Sammy
 

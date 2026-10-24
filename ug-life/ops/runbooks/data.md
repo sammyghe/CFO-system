@@ -2,7 +2,7 @@
 
 **Goal:** one page every Monday that tells Sammy whether Ug Life is working.
 
-Events come from `game/src/track.ts` (PostHog once it's switched on):
+Daily counts come from `GET /api/admin/metrics?days=7` and `GET /api/admin/overview` (see `ops/CONTROL_ROOM.md`). Event names:
 `age_confirmed, onboarded, session_start, job_accepted, job_completed, kiosk_leased, kiosk_painted,
 upgrade_bought, pothole_reported, card_shared, ticket_saved`.
 

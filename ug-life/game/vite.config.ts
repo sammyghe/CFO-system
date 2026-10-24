@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => ({
     outDir: mode === "single" ? "dist-single" : "dist",
     target: "es2020",
     copyPublicDir: mode !== "single",
+    rollupOptions: mode === "single" ? {} : { input: { main: "index.html", admin: "admin.html" } },
   },
   test: { environment: "node" },
 }));

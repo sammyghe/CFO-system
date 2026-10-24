@@ -28,6 +28,11 @@ ops/
 3. Play the latest preview on the test Android and log 3 things that feel wrong as issues (30 min).
 4. Do one growth move only you can make (30 min).
 
+## The live system
+
+See `CONTROL_ROOM.md`: the Control Room page for Sammy, and the API the agents use.
+A health check runs every 30 minutes and opens a GitHub issue labelled P0 if the site is down.
+
 ## Running the agents
 
 Each agent is a scheduled Claude Code task on this repository, using the prompt

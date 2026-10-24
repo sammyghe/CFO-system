@@ -14,7 +14,10 @@ import { formatUGX, levelForXp, xpForLevel } from "./game/economy";
 import { kampalaHour } from "./game/time";
 import { h, ICONS } from "./ui/dom";
 import * as S from "./ui/sheets";
-import { track } from "./track";
+import { drainEventNames, track } from "./track";
+import { Api, type Visitor } from "./net/api";
+import { listSnaps, saveSnap, type SnapRecord } from "./snaps/store";
+import { albumSheet } from "./snaps/ui";
 
 const BILLBOARD = "UG LIFE · YOUR STREET, YOUR STORY";
 
@@ -39,6 +42,13 @@ export class Game implements S.GameApi {
   private installEvt: BeforeInstallPromptEvent | null = null;
   private walkedTiles = 0;
   private running = false;
+  readonly api = new Api();
+  private unsynced = false;
+  private syncing = false;
+  private net = { sync: 0, street: 0, track: 0, uploads: 0 };
+  private visitors: Visitor[] = [];
+  private billboard: { img: CanvasImageSource | null; key: string } = { img: null, key: "" };
+  private online = false;
 
   constructor(private canvas: HTMLCanvasElement) {
     const now = Date.now();
@@ -52,8 +62,10 @@ export class Game implements S.GameApi {
     this.bindInput();
     window.addEventListener("resize", () => this.renderer.resize());
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden) this.persist(true);
-      else this.lastTick = performance.now();
+      if (document.hidden) {
+        this.persist(true);
+        void this.syncNow();
+      } else this.lastTick = performance.now();
     });
     window.addEventListener("pagehide", () => this.persist(true));
     window.addEventListener("beforeinstallprompt", (e) => {
@@ -78,6 +90,7 @@ export class Game implements S.GameApi {
 
   changed() {
     this.dirty = true;
+    this.unsynced = true;
     this.sim.player.look = this.state.look;
     this.updateHud();
   }
@@ -170,6 +183,24 @@ export class Game implements S.GameApi {
     track(name, props);
   }
 
+  onSnap(rec: SnapRecord | null) {
+    track("snap_made");
+    if (rec?.status === "queued") void this.uploadQueued();
+    void this.refreshBillboard();
+  }
+
+  adoptSave(save: PlayerState, message: string) {
+    this.state = { ...newPlayer(save.createdAt ?? Date.now(), save.id), ...save };
+    this.sim.player.x = this.state.pos.x;
+    this.sim.player.y = this.state.pos.y;
+    this.sim.player.path = [];
+    this.backend.save(this.state);
+    this.unsynced = false;
+    this.toast(message, "info");
+    this.changed();
+    this.unsynced = false;
+  }
+
   residentReported() {
     const order = [
       { id: "r-okello", name: "Okello", delay: 5000 },
@@ -223,6 +254,141 @@ export class Game implements S.GameApi {
     this.nextCustomerAt = performance.now() + 12000;
     track("session_start", { days: this.state.stats.daysVisited });
     this.changed();
+    void this.goOnline();
+    void this.refreshBillboard();
+  }
+
+  // ---------- online ----------
+
+  private async goOnline() {
+    if (!this.api.available) return;
+    const cfg = await this.api.loadConfig();
+    if (!cfg) return;
+    if (cfg.announcement) this.toast(cfg.announcement, "info");
+    if (cfg.maintenance) {
+      this.toast("Ug Life is in maintenance. Keep playing; your progress saves when it's back.", "info");
+      return;
+    }
+    if (!(await this.api.ensureSession())) return;
+    this.online = true;
+    await this.syncNow();
+    void this.refreshVisitors();
+    void this.uploadQueued();
+  }
+
+  private async syncNow() {
+    if (!this.online || this.syncing || !this.state.onboarded) return;
+    this.syncing = true;
+    this.unsynced = false;
+    try {
+      const r = await this.api.sync(this.state);
+      if (!r) this.unsynced = true;
+      else if (r.kind === "replace") this.adoptSave(r.save, r.message);
+      else if (r.kind === "error") {
+        this.unsynced = true;
+        if (/maintenance|review/.test(r.message)) this.toast(r.message, "info");
+      }
+    } finally {
+      this.syncing = false;
+    }
+  }
+
+  private async refreshVisitors() {
+    if (!this.online) return;
+    const list = await this.api.street();
+    this.visitors = list.filter((v) => v.id !== this.api.playerId);
+    this.sim.setVisitors(this.visitors, this.state.blocked);
+  }
+
+  private async uploadQueued() {
+    if (!this.online) return;
+    // support notes written while offline
+    for (const t of this.state.tickets.filter((x) => x.status === "saved")) {
+      if (!(await this.api.ticket(t.category, t.text))) break;
+      t.status = "sent";
+      this.changed();
+    }
+    if (this.api.config?.uploads === false) return;
+    const snaps = await listSnaps();
+    for (const s of snaps.filter((x) => x.status === "queued")) {
+      const r = await this.api.uploadPhoto(s.blob, { area: s.area, place: s.place, width: s.width, height: s.height });
+      if (!r) return; // offline: try again later
+      if ("id" in r) {
+        s.status = "pending";
+        s.serverId = r.id;
+        track("snap_uploaded");
+        this.toast(`Your snap of ${s.place} is being checked. You'll see it on the board once approved.`, "ok");
+      } else {
+        s.status = "local";
+        s.reason = r.error;
+      }
+      await saveSnap(s);
+    }
+    const pending = snaps.filter((x) => x.status === "pending" && x.serverId);
+    if (pending.length) {
+      const server = await this.api.myPhotos();
+      for (const s of pending) {
+        const row = server.find((p) => p.id === s.serverId);
+        if (!row || row.status === "pending") continue;
+        s.status = row.status === "approved" ? "approved" : "rejected";
+        s.reason = row.reason ?? undefined;
+        await saveSnap(s);
+        this.toast(s.status === "approved" ? `Your snap of ${s.place} is on the community board!` : `Your snap of ${s.place} wasn't approved: ${s.reason ?? "it broke a photo rule"}`, s.status === "approved" ? "ok" : "info");
+      }
+    }
+  }
+
+  /** The rooftop billboard shows a featured community snap, or your own latest one. */
+  private async refreshBillboard() {
+    let src: string | null = null, key = "";
+    const community = this.online ? await this.api.photos() : null;
+    const top = community?.photos[0];
+    if (top) {
+      src = this.api.photoUrl(top.id);
+      key = top.id;
+    } else {
+      const mine = (await listSnaps())[0];
+      if (mine) {
+        src = URL.createObjectURL(mine.blob);
+        key = mine.id;
+      }
+    }
+    if (key === this.billboard.key) return;
+    if (!src) {
+      this.billboard = { img: null, key: "" };
+      this.renderer.invalidate("b:pharmacy");
+      return;
+    }
+    const img = new Image();
+    img.src = src;
+    try {
+      await img.decode();
+      this.billboard = { img, key };
+      this.renderer.invalidate("b:pharmacy");
+    } catch {
+      /* keep the text billboard */
+    }
+  }
+
+  private netTick(t: number) {
+    if (!this.online) return;
+    if (this.unsynced && t > this.net.sync) {
+      this.net.sync = t + 45_000;
+      void this.syncNow();
+    }
+    if (t > this.net.street) {
+      this.net.street = t + 30_000;
+      void this.refreshVisitors();
+    }
+    if (t > this.net.track) {
+      this.net.track = t + 60_000;
+      void this.api.track(drainEventNames());
+    }
+    if (t > this.net.uploads) {
+      this.net.uploads = t + 120_000;
+      void this.uploadQueued();
+      void this.refreshBillboard();
+    }
   }
 
   private onPlayerArrive() {
@@ -265,6 +431,7 @@ export class Game implements S.GameApi {
       this.changed();
     }
     this.kioskCustomers(t);
+    this.netTick(t);
 
     if (this.follow) {
       const p = toScreen(this.sim.player.x, this.sim.player.y);
@@ -344,6 +511,8 @@ export class Game implements S.GameApi {
       hiddenTags: s.blocked,
       reducedMotion: s.settings.reducedMotion || window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       billboard: BILLBOARD,
+      billboardImage: this.billboard.img,
+      billboardKey: this.billboard.key,
     };
   }
 
@@ -366,6 +535,7 @@ export class Game implements S.GameApi {
     const side = h("div", { class: "hud-side" },
       btn(ICONS.tag, "Your Ug Tag", () => this.openSheet(S.tagSheet(this, false))),
       goalsBtn,
+      btn(ICONS.camera, "Street Snaps", () => this.openSheet(albumSheet(this))),
       btn(ICONS.share, "Share your card", () => this.openSheet(S.shareSheet(this))),
       btn(ICONS.help, "Help", () => this.openSheet(S.helpSheet(this))),
       btn(ICONS.locate, "Find me", () => { this.follow = true; }));
@@ -425,6 +595,7 @@ export class Game implements S.GameApi {
     if (!g("kiosk")) return balanceOf(s.ledger) < 25_000 ? "Save UGX 25,000 to lease the kiosk across the road. Deliveries pay." : "You can afford a kiosk. Tap the TO LET board across the road.";
     if (!g("paint")) return "Tap your kiosk to paint your sign.";
     if (!g("profile")) return "Tap your Ug Tag to add your TikTok or Instagram.";
+    if (!g("snap")) return "Snap a real Kampala street with the camera button. It becomes art on the street.";
     if (!g("share")) return "Share your Ug Tag card to WhatsApp Status.";
     return "";
   }
@@ -506,6 +677,15 @@ export class Game implements S.GameApi {
         return;
       case "resident":
         this.openSheet(S.residentSheet(this, pick.id));
+        return;
+      case "visitor": {
+        const v = this.visitors.find((x) => x.id === pick.id);
+        if (v) this.openSheet(S.visitorSheet(this, v));
+        return;
+      }
+      case "board":
+        this.walkTo({ x: 25, y: 11 });
+        this.openSheet(albumSheet(this));
         return;
       case "plot": {
         const plot = PLOTS.find((p) => p.id === pick.plotId)!;

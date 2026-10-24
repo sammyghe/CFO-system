@@ -163,3 +163,21 @@ details.faq p { padding-bottom: 12px; color: var(--muted); }
 .toast { background: var(--ink); color: #fff; border-radius: 14px; padding: 11px 14px; font-size: 14px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.3); animation: rise .2s ease; }
 .toast.ok { background: var(--leaf); }
 .toast.bad { background: var(--laterite); }
+
+/* ---------- street snaps ---------- */
+.snap-canvas { width: 100%; height: auto; border-radius: 14px; display: block; background: var(--mist); touch-action: manipulation; }
+.snap-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+figure.snap { margin: 0; display: grid; gap: 6px; align-content: start; min-width: 0; }
+figure.snap img { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; background: var(--mist); }
+figure.snap figcaption { font-size: 12.5px; color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
+figure.snap figcaption b { color: var(--ink); }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 8px; background: var(--mist); color: var(--muted); margin-top: 4px; }
+.pill.approved { background: var(--leaf-soft); color: var(--leaf); }
+.pill.pending, .pill.queued { background: var(--blue-soft); color: var(--blue-deep); }
+.pill.rejected { background: var(--laterite-soft); color: var(--laterite); }
+.bar-row { display: grid; grid-template-columns: minmax(0, 9em) 1fr auto; gap: 10px; align-items: center; font-size: 14px; }
+.bar-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar { height: 10px; background: var(--mist); border-radius: 5px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--blue); border-radius: 5px; }
+ul.rules { margin: 6px 0 0; padding-left: 18px; line-height: 1.5; }
+.code { font-family: ui-monospace, Menlo, monospace; font-size: 17px; letter-spacing: .04em; }

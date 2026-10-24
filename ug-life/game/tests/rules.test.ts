@@ -195,3 +195,59 @@ describe("misc", () => {
     expect(levelForXp(80)).toBe(3);
   });
 });
+
+import { validateSave } from "../src/game/validate";
+import { rewardSnap } from "../src/game/snaps";
+
+describe("server save check", () => {
+  const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
+
+  it("accepts honest play", () => {
+    const s = player();
+    deliver(s, T0);
+    rewardSnap(s, T0);
+    expect(validateSave(null, s, T0 + 1000)).toMatchObject({ ok: true });
+  });
+
+  it("refuses invented money", () => {
+    const s = player();
+    const prev = clone(s);
+    s.ledger.entries.push({ key: "gift", amount: 1_000_000, reason: "hack", at: T0 });
+    expect(validateSave(prev, s, T0).ok).toBe(false);
+  });
+
+  it("refuses an inflated job", () => {
+    const s = player();
+    s.ledger.entries.push({ key: "job:x", amount: 99_000, reason: "x", at: T0 });
+    expect(validateSave(null, s, T0).ok).toBe(false);
+  });
+
+  it("refuses rewriting history", () => {
+    const s = player();
+    deliver(s, T0);
+    const prev = clone(s);
+    s.ledger.entries[1].amount = 4_000_000;
+    expect(validateSave(prev, s, T0).errors[0]).toMatch(/changed/);
+    const shorter = clone(prev);
+    shorter.ledger.entries.pop();
+    expect(validateSave(prev, shorter, T0).ok).toBe(false);
+  });
+
+  it("refuses more than 10 paid jobs in a day and a second snap reward", () => {
+    const s = player();
+    for (let i = 0; i < 11; i++) s.ledger.entries.push({ key: `job:x${i}`, amount: 3000, reason: "", at: T0 });
+    expect(validateSave(null, s, T0).ok).toBe(false);
+    const t = player();
+    t.ledger.entries.push({ key: "snap:2026-10-24", amount: 1000, reason: "", at: T0 }, { key: "snap:2026-10-24b", amount: 1000, reason: "", at: T0 });
+    expect(validateSave(null, t, T0).ok).toBe(false);
+  });
+
+  it("allows a real kiosk lease and upgrade", () => {
+    const s = player();
+    post(s.ledger, "test-grant", 100_000, "test", T0);
+    const prev = clone(s);
+    A.leaseKiosk(s, "plot-a", T0);
+    A.buyUpgrade(s, "solar", T0);
+    expect(validateSave(prev, s, T0).ok).toBe(true);
+  });
+});

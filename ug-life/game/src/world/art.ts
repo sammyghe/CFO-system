@@ -208,7 +208,7 @@ export function buildingBox(b: Building): Box {
   return { x: b.x, y: b.y, w: b.w, d: b.d, h: b.floors * FLOOR_H + 6 };
 }
 
-export function drawBuilding(ctx: Ctx, b: Building, night: boolean, billboard: string) {
+export function drawBuilding(ctx: Ctx, b: Building, night: boolean, billboard: string, billboardImage: CanvasImageSource | null = null) {
   const box = buildingBox(b);
   const r = rng(b.x * 97 + b.floors);
   const wall = b.wall;
@@ -318,10 +318,17 @@ export function drawBuilding(ctx: Ctx, b: Building, night: boolean, billboard: s
     }
   }
 
-  if (b.id === "pharmacy") drawRoofBillboard(ctx, box, billboard, night);
+  if (b.id === "pharmacy") drawRoofBillboard(ctx, box, billboard, night, billboardImage);
 }
 
-function drawRoofBillboard(ctx: Ctx, box: Box, text: string, night: boolean) {
+function imageSize(img: CanvasImageSource): { w: number; h: number } {
+  const any = img as { naturalWidth?: number; width?: number | SVGAnimatedLength; naturalHeight?: number; height?: number | SVGAnimatedLength };
+  const w = any.naturalWidth || (typeof any.width === "number" ? any.width : 1);
+  const h = any.naturalHeight || (typeof any.height === "number" ? any.height : 1);
+  return { w, h };
+}
+
+function drawRoofBillboard(ctx: Ctx, box: Box, text: string, night: boolean, image: CanvasImageSource | null) {
   const bb: Box = { x: box.x + 0.4, y: box.y + 1.6, w: box.w - 0.8, d: 0.05, h: 0 };
   const base = box.h + 8;
   // posts
@@ -338,7 +345,21 @@ function drawRoofBillboard(ctx: Ctx, box: Box, text: string, night: boolean) {
     const u0 = (i / cells) * bb.w, u1 = ((i + 1) / cells) * bb.w;
     quadY(ctx, bb, u0, u1, v0 + (i % 2 ? 0 : 4), v0 + (i % 2 ? 4 : 8), "#ffffff");
   }
-  signTextY(ctx, bb, 0.05, bb.w - 0.05, v0 + 14, v1 - 4, text, "#ffffff", 900);
+  if (image) {
+    // a player's street snap, painted onto the billboard face
+    const o = fy(bb, 0, 0);
+    const W = bb.w * HW, top = v1, bottom = v0 + 9;
+    const { w: iw, h: ih } = imageSize(image);
+    const scale = Math.max(W / iw, (top - bottom) / ih);
+    const dw = iw * scale, dh = ih * scale;
+    ctx.save();
+    ctx.transform(1, 0.5, 0, 1, o.sx, o.sy);
+    ctx.beginPath();
+    ctx.rect(0, -top, W, top - bottom);
+    ctx.clip();
+    ctx.drawImage(image, (W - dw) / 2, -top + (top - bottom - dh) / 2, dw, dh);
+    ctx.restore();
+  } else signTextY(ctx, bb, 0.05, bb.w - 0.05, v0 + 14, v1 - 4, text, "#ffffff", 900);
   if (night) {
     ctx.fillStyle = "rgba(255,240,200,0.12)";
     const p = fy(bb, bb.w / 2, (v0 + v1) / 2);
@@ -357,6 +378,7 @@ export function propBox(p: Prop): Box {
     case "bench": return { x: p.x + 0.15, y: p.y + 0.3, w: 0.7, d: 0.4, h: 8 };
     case "parked": return { x: p.x, y: p.y + 0.05, w: 2.2, d: 0.9, h: 28 };
     case "bush": return { x: p.x + 0.2, y: p.y + 0.2, w: 0.6, d: 0.6, h: 16 };
+    case "board": return { x: p.x + 0.1, y: p.y + 0.6, w: 0.9, d: 0.15, h: 52 };
     case "wall": return { x: p.x, y: p.y + 0.3, w: 30, d: 0.4, h: 12 };
     default: return { x: p.x, y: p.y, w: 1, d: 1, h: 20 };
   }
@@ -443,6 +465,22 @@ export function drawProp(ctx: Ctx, p: Prop, night: boolean, t: number) {
       ctx.beginPath(); ctx.ellipse(base.sx, base.sy - 7, 14, 9, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "#e0457b";
       for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(base.sx - 8 + i * 5, base.sy - 10 - (i % 2) * 3, 1.8, 0, Math.PI * 2); ctx.fill(); }
+      break;
+    }
+    case "board": {
+      // Street Snaps community board: two posts, a painted header, pinned snaps
+      shadow(ctx, base, 26, 9);
+      for (const u of [0.08, 0.82]) quadY(ctx, box, u, u + 0.05, 0, 44, "#4a3726");
+      quadY(ctx, box, -0.04, 0.94, 18, 52, "#7d5530");
+      quadY(ctx, box, 0.02, 0.88, 20, 44, "#c9a46a");
+      quadY(ctx, box, -0.04, 0.94, 44, 52, "#1f4fd1");
+      signTextY(ctx, box, -0.02, 0.92, 44, 52, "STREET SNAPS", "#ffffff", 900);
+      const pins = ["#b4442a", "#2f7a4b", "#f2d23c", "#7a2fa8", "#13202b", "#e07a1f"];
+      for (let i = 0; i < 6; i++) {
+        const u = 0.08 + (i % 3) * 0.27, v = 23 + Math.floor(i / 3) * 10;
+        quadY(ctx, box, u, u + 0.2, v, v + 8, "#f4efe4");
+        quadY(ctx, box, u + 0.02, u + 0.18, v + 1, v + 7, pins[i]);
+      }
       break;
     }
     case "wall": {

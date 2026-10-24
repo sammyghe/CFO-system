@@ -33,5 +33,6 @@ export const ICONS = {
   close: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
   locate: svg('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/>'),
   sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  camera: svg('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'),
   rain: svg('<path d="M20 15a4 4 0 0 0-4-6 6 6 0 0 0-11.5 2A3.5 3.5 0 0 0 5 18h11"/><path d="M8 20l-1 2M12 20l-1 2M16 20l-1 2"/>'),
 };

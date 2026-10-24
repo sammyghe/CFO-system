@@ -15,6 +15,8 @@ import { FAQ } from "../content/faq";
 import { drawPerson } from "../world/art";
 import { renderShareCard } from "./sharecard";
 import { DAY_MS } from "../game/time";
+import type { Api, Visitor } from "../net/api";
+import type { SnapRecord } from "../snaps/store";
 
 export interface GameApi {
   state: PlayerState;
@@ -31,6 +33,11 @@ export interface GameApi {
   installPrompt(): (() => void) | null;
   track(name: string, props?: Record<string, unknown>): void;
   residentReported(): void;
+  api: Api;
+  /** A snap was saved or deleted on this phone. */
+  onSnap(rec: SnapRecord | null): void;
+  /** Replace the whole save (restore on a new phone). */
+  adoptSave(save: PlayerState, message: string): void;
 }
 
 export interface SheetSpec {
@@ -480,20 +487,59 @@ export function helpSheet(G: GameApi, prefill = ""): SheetSpec {
       const text = h("textarea", { id: "t-text", maxlength: "1000", placeholder: "What happened?" });
       text.value = prefill;
       const err = h("div", { class: "err", role: "alert" });
-      const send = h("button", { class: "btn block", type: "button" }, "Save my note");
-      send.addEventListener("click", () => {
+      const online = G.api.available && G.api.signedIn;
+      const send = h("button", { class: "btn block", type: "button" }, online ? "Send to support" : "Save my note");
+      send.addEventListener("click", async () => {
         const r = A.addTicket(s, cat.value as PlayerState["tickets"][number]["category"], text.value, G.now());
         if (!r.ok) { err.textContent = r.message; return; }
         G.changed();
         G.track("ticket_saved", { category: cat.value });
-        G.toast("Saved. It goes to support when accounts go live.", "ok");
+        send.disabled = true;
+        const sent = online && (await G.api.ticket(cat.value, text.value.trim()));
+        if (sent) s.tickets[s.tickets.length - 1].status = "sent";
+        if (sent && prefill.startsWith("Report about")) await G.api.report(prefill.slice(13, -2), text.value.trim());
+        G.toast(sent ? "Sent. Replies show up here in Help, usually within a day." : "Saved on this phone. It sends when you're back online.", "ok");
         G.closeSheet();
       });
+      const replies = h("div", { class: "list" });
       body.append(
         h("h3", { style: "margin:6px 0 0;font-size:16px" }, "Contact support"),
-        h("div", { class: "notice" }, "Support isn't connected in this preview build. Your note is saved on this phone and sent to support once online accounts are switched on."),
-        field("Topic", cat), field("Your message", text, err), send);
-      if (s.tickets.length) body.append(h("p", { class: "muted small" }, `${s.tickets.length} note${s.tickets.length === 1 ? "" : "s"} saved on this phone.`));
+        ...(online ? [] : [h("div", { class: "notice" }, G.api.available ? "You're offline. Your note is saved on this phone and sent when you reconnect." : "Support is connected on the live site. In this preview, your note stays on this phone.")]),
+        field("Topic", cat), field("Your message", text, err), send, replies);
+      if (online) {
+        void G.api.myTickets().then((list) => {
+          if (!list.length) return;
+          replies.append(h("label", { style: "font-size:13px;font-weight:700" }, "Your messages"));
+          for (const t of list.slice(0, 5)) replies.append(h("div", { class: "offer" }, h("div", { class: "muted small" }, t.body.slice(0, 140)), t.reply ? h("div", {}, h("b", {}, "Ug Life: "), t.reply) : h("div", { class: "muted small" }, t.status === "open" ? "Waiting for a reply" : t.status)));
+        });
+      }
+
+      // move to a new phone
+      if (G.api.available) {
+        const code = G.api.recoveryCode();
+        const box = h("div", { class: "field" }, h("label", {}, "Move to a new phone"));
+        if (code) {
+          const show = h("button", { class: "btn ghost small", type: "button" }, "Show my recovery code");
+          show.addEventListener("click", () => {
+            show.replaceWith(h("div", { class: "notice" }, h("b", { class: "code" }, code.match(/.{1,4}/g)!.join(" ")), h("br", {}), "Write this down and keep it private. Anyone with this code can play as you."));
+          });
+          box.append(show);
+        }
+        const input = h("input", { id: "restore-code", placeholder: "Recovery code from your old phone", autocomplete: "off", autocapitalize: "off" });
+        const restore = h("button", { class: "btn ghost small", type: "button" }, "Restore");
+        const rerr = h("div", { class: "err", role: "alert" });
+        restore.addEventListener("click", async () => {
+          restore.disabled = true;
+          const r = await G.api.restore(input.value);
+          restore.disabled = false;
+          if ("error" in r) { rerr.textContent = r.error; return; }
+          if (r.save) G.adoptSave(r.save, "Your progress is back.");
+          else G.toast("Code accepted. That account had no progress yet.", "info");
+          G.closeSheet();
+        });
+        box.append(h("div", { style: "display:grid;grid-template-columns:1fr auto;gap:8px" }, input, restore), rerr);
+        body.append(box);
+      }
 
       // settings
       const live = h("input", { type: "checkbox", id: "set-live", checked: s.settings.liveTime });
@@ -521,7 +567,9 @@ export function helpSheet(G: GameApi, prefill = ""): SheetSpec {
         }
         G.resetSave();
       });
-      body.append(reset, h("p", { class: "muted small" }, "Privacy: this build stores your tag, progress and notes only on this phone. Nothing is sent to a server."));
+      body.append(reset, h("p", { class: "muted small" }, G.api.available
+        ? "Privacy: we store your Ug Tag, progress, support messages and the snaps you choose to share. No phone number, email or location. Delete my progress clears this phone; ask support to delete your online copy."
+        : "Privacy: this preview stores your tag, progress and notes only on this phone. Nothing is sent to a server."));
       return body;
     },
   };
@@ -576,6 +624,42 @@ export function shareSheet(G: GameApi): SheetSpec {
       });
       btns.append(wa, copy);
       return h("div", { class: "sheet-body" }, img, btns, h("p", { class: "muted small" }, "Long-press the card to save it, then post it to your WhatsApp Status or TikTok."));
+    },
+  };
+}
+
+// ---------- real players on the street ----------
+
+export function visitorSheet(G: GameApi, v: Visitor): SheetSpec {
+  return {
+    kind: "visitor",
+    eyebrow: "Player",
+    title: v.name,
+    body: () => {
+      const s = G.state;
+      const blocked = s.blocked.includes(v.id);
+      const socials = v.tag.socials?.length
+        ? h("div", { class: "field" }, h("label", {}, "Socials"), v.tag.socials.map((so) => {
+          const p = PLATFORMS.find((x) => x.id === so.platform);
+          return p ? h("div", { class: "social-row" }, h("span", {}, h("b", {}, p.label), " ", h("a", { href: profileUrl(p.id, so.handle), target: "_blank", rel: "noopener noreferrer" }, "@" + so.handle)), h("span", { class: "badge grey" }, "unverified")) : null;
+        }))
+        : null;
+      const report = h("button", { class: "btn ghost small", type: "button" }, "Report");
+      report.addEventListener("click", () => G.openSheet(helpSheet(G, `Report about ${v.name} (${v.id}): `)));
+      const block = h("button", { class: "btn danger small", type: "button" }, blocked ? "Unblock" : "Block");
+      block.addEventListener("click", () => {
+        s.blocked = blocked ? s.blocked.filter((x) => x !== v.id) : [...s.blocked, v.id];
+        G.changed();
+        G.toast(blocked ? `${v.name} unblocked` : `${v.name} blocked. You won't see them.`, "info");
+        G.closeSheet();
+      });
+      G.track("visitor_viewed");
+      return h("div", { class: "sheet-body" },
+        h("div", { class: "profile-head" }, avatarCanvas(v.look), h("div", { style: "display:grid;gap:6px" }, h("div", {}, h("span", { class: "badge", style: "background:#2f7a4b" }, `Level ${v.level}`)), h("b", {}, v.tag.status || "On the street"))),
+        v.kiosk ? h("div", { class: "notice" }, `Runs the kiosk ${v.kiosk.name}`) : null,
+        socials,
+        h("p", { class: "muted small" }, "A real player who was on the street in the last few minutes. Never send money or codes to anyone you meet here."),
+        h("div", { class: "row-btns" }, report, block));
     },
   };
 }

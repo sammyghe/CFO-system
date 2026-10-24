@@ -21,6 +21,8 @@ export interface SceneState {
   hiddenTags: string[];
   reducedMotion: boolean;
   billboard: string;
+  billboardImage: CanvasImageSource | null;
+  billboardKey: string;
 }
 
 export interface TagInfo {
@@ -29,11 +31,15 @@ export interface TagInfo {
   status?: string;
   socials: string[];
   mine?: boolean;
+  /** A real player (green level chip) rather than a street resident. */
+  player?: boolean;
 }
 
 export type Pick =
   | { type: "player" }
   | { type: "resident"; id: string }
+  | { type: "visitor"; id: string }
+  | { type: "board" }
   | { type: "building"; building: Building }
   | { type: "plot"; plotId: string }
   | { type: "pothole" }
@@ -190,7 +196,8 @@ export class Renderer {
       const box = buildingBox(b);
       const bb = boxBounds(box, (BUILDING_EXTRA_TOP[b.id] ?? 0) + 22);
       const bounds = { x0: bb.x0 - 4, x1: bb.x1 + 4, y0: bb.y0, y1: bb.y1 + 4 };
-      items.push(this.spriteItem(`b:${b.id}:${nightKey}:${scene.billboard}`, box, bounds, scale, (g) => drawBuilding(g, b, scene.night, scene.billboard)));
+      const bbKey = b.id === "pharmacy" ? scene.billboardKey : "";
+      items.push(this.spriteItem(`b:${b.id}:${nightKey}:${bbKey}`, box, bounds, scale, (g) => drawBuilding(g, b, scene.night, scene.billboard, b.id === "pharmacy" ? scene.billboardImage : null)));
     }
     for (const p of PROPS) {
       const box = propBox(p);
@@ -221,7 +228,7 @@ export class Renderer {
         },
       });
     }
-    const walkers: Walker[] = [...sim.residents, sim.player];
+    const walkers: Walker[] = [...sim.residents, ...sim.visitors, sim.player];
     for (const w of walkers) {
       const box: Box = { x: w.x - 0.2, y: w.y - 0.2, w: 0.4, d: 0.4, h: 46 };
       const p = toScreen(w.x, w.y);
@@ -390,8 +397,17 @@ export class Renderer {
       if (d < 0.9 && scene.playerTag) continue; // don't stack on top of your own tag
       list.push({ w: r, tag: { name: r.resident.name, level: r.resident.level, socials: r.resident.socials.map((s) => s.platform) } });
     }
+    for (const v of sim.visitors) {
+      if (!v.visitor) continue;
+      const d = Math.hypot(v.x - sim.player.x, v.y - sim.player.y);
+      if (d < 0.9 && scene.playerTag) continue;
+      list.push({ w: v, tag: { name: v.visitor.name, level: v.visitor.level, socials: (v.visitor.tag.socials ?? []).map((x) => x.platform), player: true } });
+    }
     if (scene.playerTag) list.push({ w: sim.player, tag: scene.playerTag });
-    list.sort((a, b) => a.w.x + a.w.y - (b.w.x + b.w.y));
+    // your own tag first, then whoever is closest; a tag that would cover one already shown is skipped
+    const dist = (w: Walker) => (w === sim.player ? -1 : Math.hypot(w.x - sim.player.x, w.y - sim.player.y));
+    list.sort((a, b) => dist(a.w) - dist(b.w));
+    const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
     for (const { w, tag } of list) {
       const s = this.worldPxToScreen(toScreen(w.x, w.y));
       const headY = s.sy - 52 * this.cam.zoom;
@@ -403,6 +419,8 @@ export class Renderer {
       const width = lvW + 6 + nameW + (iconW ? iconW + 4 : 0) + 12;
       const height = mine ? 22 : 20;
       const x0 = s.sx - width / 2, y0 = headY - height;
+      if (placed.some((r) => x0 < r.x1 - 6 && x0 + width > r.x0 + 6 && y0 < r.y1 - 4 && y0 + height > r.y0 + 4)) continue;
+      placed.push({ x0, y0: tag.status && mine ? y0 - 18 : y0, x1: x0 + width, y1: y0 + height });
       ctx.fillStyle = mine ? "rgba(255,255,255,0.97)" : "rgba(255,255,255,0.88)";
       rounded(ctx, x0, y0, width, height, height / 2);
       ctx.fill();
@@ -411,7 +429,7 @@ export class Renderer {
         ctx.lineWidth = 2;
         ctx.stroke();
       }
-      ctx.fillStyle = "#1f4fd1";
+      ctx.fillStyle = tag.player ? "#2f7a4b" : "#1f4fd1";
       rounded(ctx, x0 + 3, y0 + 3, lvW, height - 6, (height - 6) / 2);
       ctx.fill();
       ctx.fillStyle = "#fff";
@@ -512,13 +530,13 @@ export class Renderer {
   pick(px: number, py: number, sim: Sim): Pick {
     for (let i = this.tagRects.length - 1; i >= 0; i--) {
       const r = this.tagRects[i];
-      if (px >= r.x0 - 4 && px <= r.x1 + 4 && py >= r.y0 - 4 && py <= r.y1 + 6) return r.id === "player" ? { type: "player" } : { type: "resident", id: r.id };
+      if (px >= r.x0 - 4 && px <= r.x1 + 4 && py >= r.y0 - 4 && py <= r.y1 + 6) return r.id === "player" ? { type: "player" } : sim.visitors.some((v) => v.id === r.id) ? { type: "visitor", id: r.id } : { type: "resident", id: r.id };
     }
     const wp = this.screenToWorldPx(px, py);
-    const people = [...sim.residents, sim.player].sort((a, b) => b.x + b.y - (a.x + a.y));
+    const people = [...sim.residents, ...sim.visitors, sim.player].sort((a, b) => b.x + b.y - (a.x + a.y));
     for (const w of people) {
       const s = toScreen(w.x, w.y);
-      if (Math.abs(wp.sx - s.sx) < 13 && wp.sy < s.sy + 5 && wp.sy > s.sy - 48) return w === sim.player ? { type: "player" } : { type: "resident", id: w.id };
+      if (Math.abs(wp.sx - s.sx) < 13 && wp.sy < s.sy + 5 && wp.sy > s.sy - 48) return w === sim.player ? { type: "player" } : w.visitor ? { type: "visitor", id: w.id } : { type: "resident", id: w.id };
     }
     const t = toWorld(wp.sx, wp.sy);
     const tx = Math.floor(t.x), ty = Math.floor(t.y);
@@ -526,6 +544,8 @@ export class Renderer {
       const sil = boxSilhouette(kioskBox(plot.x, plot.y), 14);
       if (pointInPoly(wp.sx, wp.sy, sil) || (tx >= plot.x && tx <= plot.x + 1 && ty >= plot.y && ty <= plot.y + 1)) return { type: "plot", plotId: plot.id };
     }
+    const board = PROPS.find((p) => p.kind === "board");
+    if (board && (pointInPoly(wp.sx, wp.sy, boxSilhouette(propBox(board), 0)) || (tx === board.x && ty === board.y))) return { type: "board" };
     if (Math.abs(t.x - (POTHOLE.x + 0.5)) < 0.8 && Math.abs(t.y - (POTHOLE.y + 0.5)) < 0.8) return { type: "pothole" };
     // front-most building first
     const sorted = [...BUILDINGS].sort((a, b) => b.x + b.w + b.y + b.d - (a.x + a.w + a.y + a.d));

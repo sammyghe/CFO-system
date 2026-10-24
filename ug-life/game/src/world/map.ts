@@ -36,7 +36,7 @@ export interface Plot {
 }
 
 export interface Prop {
-  kind: "tree" | "lamp" | "stall" | "shelter" | "bench" | "billboard" | "wall" | "bush" | "parked";
+  kind: "tree" | "lamp" | "stall" | "shelter" | "bench" | "billboard" | "wall" | "bush" | "parked" | "board";
   x: number;
   y: number;
   variant?: number;
@@ -64,6 +64,9 @@ export const POTHOLE = { x: 12, y: 7 };
 
 export const STAGE_DOOR = { x: 3, y: 11 };
 
+/** The Street Snaps community board by the benches. */
+export const SNAP_BOARD = { x: 25, y: 12 };
+
 export const PROPS: Prop[] = [
   { kind: "shelter", x: 1, y: 12, blocks: true },
   { kind: "parked", x: 4, y: 13, blocks: true },
@@ -83,6 +86,7 @@ export const PROPS: Prop[] = [
   { kind: "lamp", x: 9, y: 4, blocks: true },
   { kind: "lamp", x: 21, y: 4, blocks: true },
   { kind: "wall", x: 0, y: 16 },
+  { kind: "board", x: 25, y: 12, blocks: true },
 ];
 
 /** Drain slabs: the only places to step over the roadside drains. */

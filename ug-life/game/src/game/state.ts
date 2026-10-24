@@ -45,10 +45,11 @@ export interface Ticket {
   category: "how-to" | "bug" | "account" | "safety" | "other";
   text: string;
   at: number;
-  status: "saved";
+  /** saved = only on this phone; sent = delivered to support */
+  status: "saved" | "sent";
 }
 
-export type GoalId = "walk" | "delivery" | "earn25" | "kiosk" | "paint" | "share" | "pothole" | "profile";
+export type GoalId = "walk" | "delivery" | "earn25" | "kiosk" | "paint" | "share" | "pothole" | "profile" | "snap";
 
 export interface PlayerState {
   version: number;
@@ -108,5 +109,6 @@ export const GOALS: { id: GoalId; label: string }[] = [
   { id: "kiosk", label: "Lease a kiosk" },
   { id: "paint", label: "Paint your kiosk sign" },
   { id: "profile", label: "Add a social to your Ug Tag" },
+  { id: "snap", label: "Snap a real Kampala street" },
   { id: "share", label: "Share your card" },
 ];
