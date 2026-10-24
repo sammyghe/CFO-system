@@ -104,6 +104,9 @@ How Sammy works: start every plan with the aim and what each party gets. He want
 
 **v1.1 PDF, 24 Oct 2026:** added an "Our position" page: Safiflow (parent, treatment technology, the technology partner and operator in Belize) → Maji Safi (brand and proof, jar and delivery model, one brand option) → Safi Treatment (the treatment line at the spring). It has a "what we are / what we are not" list and a positioning map (purified ↔ named spring × product only ↔ tested + delivered), with the Belize spring alone top right; placement is our qualitative reading. The market and trust pages were merged. Rule: **no HD photos → no photos at all**, in the PDF and the deck alike.
 
+**Product mockups, 24 Oct 2026:** `knowledge/belize-report/mockups/` (rendered from mockups.html with Playwright at 3x). Four concepts: a 5-gal jar and a 500 ml tall can (Liquid Death-style bold vertical type) in two brand options. **Option A Maji Safi:** navy to blue, white Maji Safi logo, "SPRING WATER". **Option B Belize Spring, operated by Maji Safi:** jungle/reef teal-green, flag red and blue bands, gold accents, a big vertical "BELIZE". They are on deck slide 10 and PDF page 10 (13 pages now).
+Logos: company websites, Wikimedia and Clearbit are all blocked from this workspace; only npm and raw.githubusercontent.com are reachable. Competitor logos still need files from Sammy.
+
 **Still open:** spring location and title, water test, dry-season flow, landowner terms, who owns BrandCo, brand lead.
 
 ## 5. How Sammy thinks (working style)
