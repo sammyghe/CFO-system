@@ -1,0 +1,25 @@
+# Schedule in Africa/Kampala time.
+research_and_route:
+  at: "06:00"
+  agents: [universe_builder, dossier_researcher, route_finder]
+  output: new or refreshed target rows, evidence rows, contact routes
+
+ask_and_send:
+  at: "06:45"
+  agents: [ask_writer, localiser, outreach_operator]
+  rule: only ASK-queue targets; mdam.guardrails.check_send must return []; up to the daily cap
+
+inbox_sweep:
+  at: ["08:00", "18:00"]
+  agents: [reply_interpreter, outreach_operator]
+  rule: classify, suppress, escalate, then mdam.cadence.next_action for every open series
+
+briefing:
+  at: "08:15"
+  agents: [mission_commander, cash_impact_controller]
+  output: mdam.briefing.render to Sammy's inbox
+
+weekly_learning:
+  at: "Sun 07:00"
+  agents: [learning_scientist, mission_commander]
+  output: experiment review, lessons, method cards, top-25, do-not-contact list, stale-data refresh, recruit proposals

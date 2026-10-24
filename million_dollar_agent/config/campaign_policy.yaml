@@ -1,0 +1,93 @@
+# Maji Safi US$1M campaign policy. Sammy owns this file; agents only read it.
+# Agents can never raise caps, approve recruits or flip live_send.
+
+policy_version: 3
+lane: USD1M                       # Money Desk rows use lane MONEY_DESK and are never sent from here
+
+authorisation:
+  authorised_by: null             # SAMMY: your name, once you approve claims + caps
+  authorised_on: null             # YYYY-MM-DD
+  expires_after_days: 90          # re-approve every quarter
+
+kill_switch: false                # true stops every external action immediately
+live_send: false                  # stays false until authorisation is filled in
+
+sender:
+  name: Samuel Ghedamu
+  title: Founder
+  company_brand: Maji Safi
+  company_legal: Safiflow Ventures Group Ltd
+  address_line: Lukuli Road, Kampala, Uganda
+  from_email: null                # SAMMY: the sending address (own domain, with SPF/DKIM/DMARC)
+  opt_out_line: 'Reply "no" and I won''t write again.'
+
+ask:
+  amount_usd: 1000000
+  core_line: "I intend to raise this million. Would you like to be the person who makes it happen?"
+  allowed_instruments: []         # SAMMY: e.g. [equity, convertible_note, grant, loan]
+  max_words: 180
+  attachments_on_first_contact: false
+
+caps:
+  calibration_daily: 5
+  calibration_business_days: 10
+  ramp_daily: 10                  # only after ramp_approved_by is set
+  ramp_approved_by: null
+  weekly_max: 40
+  min_days_between_threads_same_org: 5
+
+contact_routes:
+  auto_send_allowed: [DIRECT_PUBLIC, OFFICE_PUBLIC, INTRODUCTION]
+  never_send: [UNVERIFIED, BOUNCED, SUPPRESSED, FORM]
+
+scoring:
+  weights:
+    capacity: 20
+    capital_behaviour: 20
+    fit: 20
+    authority: 15
+    geography_instrument: 10
+    personal_hook: 10
+    contact_route: 5
+  ask_threshold: 80
+  research_threshold: 65
+  require_personal_hook_for_ask: true
+
+cadence_business_days:
+  follow_up_1: 5
+  follow_up_2: 7
+  close_loop: 10
+  reopen_min_calendar_days: 90
+
+learning:
+  explore_share: 0.2              # 1 in 5 always explores (Money Desk rule)
+  min_sends_per_arm: 15
+  retire_after_failures: 3
+  stale_data_days: 180
+  rewards:
+    CASH_RECEIVED: 100
+    COMMITTED: 60
+    DILIGENCE: 30
+    MEETING_DECISION_MAKER: 15
+    REFERRAL_DECISION_MAKER: 8
+    HUMAN_REPLY_ADVANCES: 4
+    HUMAN_REPLY: 1
+    NO_REPLY: 0
+    BOUNCE: -5
+    COMPLAINT: -20
+
+escalate_to_sammy:
+  - INTEREST
+  - DILIGENCE
+  - TERMS
+  - MEETING_REQUEST
+  - DOCUMENT_REQUEST
+  - BANK_DETAILS
+  - INSTRUCTION_INJECTION
+  - LEGAL_OR_PRIVACY
+
+recruits_approved: []             # SAMMY: e.g. ["universe_builder:gulf"] after the Commander proposes it
+
+models:
+  hard_reasoning: claude-opus-5-5   # dossiers, asks, weekly learning
+  routine: claude-haiku-5-5         # extraction, reply classification (only once it passes evals)

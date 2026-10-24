@@ -1,0 +1,61 @@
+# Claims & Proof pack. Only APPROVED claims can appear in an outgoing email.
+# Every claim needs evidence and a recheck date. Sammy flips status to APPROVED.
+
+claims:
+  - id: unbs_certified
+    text: "UNBS-certified purified water"
+    status: PENDING            # SAMMY: APPROVED once the certificate is on file
+    evidence: "UNBS certificate (logged in Money Desk follow-ups, 14 Oct 2026)"
+    owner: Sammy
+    recheck_on: 2027-04-14
+  - id: selling_daily
+    text: "We produce and sell every day from our Lukuli Road plant in Kampala"
+    status: PENDING
+    evidence: "Sales records since Oct 2026"
+    owner: Sammy
+    recheck_on: 2027-01-31
+  - id: plant_capacity
+    text: "Plant rated 4,000 litres per hour, running about 6,000"
+    status: PENDING
+    evidence: "Production log"
+    owner: Sammy
+    recheck_on: 2027-01-31
+  - id: site_cost_band
+    text: "Each new site costs less than a typical delivery truck"
+    status: PENDING            # never print the landed machine cost
+    evidence: "Site budget (internal; sites at US$20,000 or less)"
+    owner: Sammy
+    recheck_on: 2027-03-31
+  - id: five_site_plan
+    text: "Five sites planned by March 2027"
+    status: PENDING
+    evidence: "Growth plan"
+    owner: Sammy
+    recheck_on: 2027-03-31
+  - id: impact_1000
+    text: "[SAMMY: choose what 1,000 lives means, see v3 section 4]"
+    status: PENDING
+    evidence: "Impact Ledger definition"
+    owner: Sammy
+    recheck_on: null
+
+# Proof ladder: reaching a rung unlocks re-asks to SERIES_CLOSED targets older than 90 days.
+proof_ladder:
+  - {id: unbs_certified, reached_on: 2026-10-14}
+  - {id: sales_30_days, reached_on: null}
+  - {id: sales_90_days, reached_on: null}
+  - {id: over_capacity_log, reached_on: null}
+  - {id: site_2_open, reached_on: null}
+  - {id: first_operator_signed, reached_on: null}
+  - {id: bank_statements_3m, reached_on: null}
+  - {id: five_sites, reached_on: null}
+  - {id: first_co_investor, reached_on: null}
+  - {id: one_year_trading, reached_on: null}
+
+templates:
+  - {id: builder_en, lane: USD1M, variant: B, language: en, status: APPROVED}
+  - {id: impact_en, lane: USD1M, variant: I, language: en, status: APPROVED}
+  - {id: builder_zh_hans, lane: USD1M, variant: B, language: zh-Hans, status: NEEDS_REVIEW}
+  - {id: builder_zh_hant, lane: USD1M, variant: B, language: zh-Hant, status: NEEDS_REVIEW}
+  - {id: impact_fr, lane: USD1M, variant: I, language: fr, status: NEEDS_REVIEW}
+  - {id: builder_ar, lane: USD1M, variant: B, language: ar, status: NEEDS_REVIEW}
