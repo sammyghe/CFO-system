@@ -3,7 +3,10 @@
 // The game never depends on it to be playable: if this is down or over its free
 // limit, phones keep playing and sync later.
 
-import { validateSave } from "../src/game/validate";
+import { validateSave, type ServerFacts } from "../src/game/validate";
+import { PLOTS } from "../src/world/map";
+import { KIOSK_LEASE_DAYS } from "../src/game/economy";
+import { YARD_ITEMS } from "../src/content/catalog";
 import { checkDisplayName, checkFreeText } from "../src/game/moderation";
 import { AREAS, SNAPS_PER_DAY } from "../src/game/snaps";
 import { balanceOf } from "../src/game/ledger";
@@ -68,12 +71,13 @@ interface PlayerRow {
   save_json: string | null;
   save_version: number;
   name: string;
+  referred_by: string | null;
 }
 
 async function auth(req: Request, env: Env): Promise<PlayerRow | null> {
   const t = bearer(req);
   if (!t || t.length < 20 || t.length > 64) return null;
-  return env.db.prepare("SELECT id, frozen, save_json, save_version, name FROM players WHERE token_hash = ?").bind(await sha256(t)).first<PlayerRow>();
+  return env.db.prepare("SELECT id, frozen, save_json, save_version, name, referred_by FROM players WHERE token_hash = ?").bind(await sha256(t)).first<PlayerRow>();
 }
 
 function isAdmin(req: Request, env: Env) {
@@ -118,10 +122,14 @@ const createSession: Handler = async (req, env, _p, { now }) => {
   const c = await config(env);
   if (c.signups_enabled === "false" || c.maintenance_mode === "true") return fail(503, "Sign-ups are paused for a moment. You can keep playing.");
   if (!(await take(env, await ipKey(req), "signup", 30, now))) return fail(429, "Too many new accounts from this connection today.");
+  const body = (await req.json().catch(() => null)) as { ref?: string } | null;
   const token = randomToken();
   const playerId = id("p");
-  await env.db.prepare("INSERT INTO players (id, token_hash, created_at, last_seen) VALUES (?, ?, ?, ?)").bind(playerId, await sha256(token), now, now).run();
-  return json({ playerId, token });
+  const ref = typeof body?.ref === "string" && /^p_[a-z0-9]{6,40}$/.test(body.ref) ? body.ref : null;
+  const referrer = ref ? await env.db.prepare("SELECT id FROM players WHERE id = ?").bind(ref).first<{ id: string }>() : null;
+  await env.db.prepare("INSERT INTO players (id, token_hash, created_at, last_seen, referred_by) VALUES (?, ?, ?, ?, ?)").bind(playerId, await sha256(token), now, now, referrer?.id ?? null).run();
+  if (referrer) await env.db.prepare("INSERT INTO referrals (referred_id, referrer_id, created_at) VALUES (?, ?, ?)").bind(playerId, referrer.id, now).run();
+  return json({ playerId, token, referred: !!referrer });
 };
 
 const restoreSession: Handler = async (req, env) => {
@@ -149,7 +157,8 @@ const putSave: Handler = async (req, env, _p, { now }) => {
   }
   const prev = me.save_json ? (JSON.parse(me.save_json) as PlayerState) : null;
   const next = body.save;
-  const verdict = validateSave(prev, next, now);
+  const facts = await serverFacts(env, me);
+  const verdict = validateSave(prev, next, now, facts);
   if (!verdict.ok) {
     await flag(env, me.id, "save_refused", verdict.errors.join("; "), now);
     return json({ error: "This save breaks the game rules, so it wasn't kept.", details: verdict.errors, version: me.save_version, save: prev }, 422);
@@ -171,7 +180,90 @@ const putSave: Handler = async (req, env, _p, { now }) => {
     Number(next.pos?.x) || 3.5, Number(next.pos?.y) || 11.5, next.kiosk ? JSON.stringify({ name: next.kiosk.name, color: next.kiosk.color }) : null,
     next.tag?.ghost ? 1 : 0, now, me.id,
   ).run();
+  await afterSave(env, me, next, now);
   return json({ ok: true, version });
+};
+
+async function serverFacts(env: Env, me: PlayerRow): Promise<ServerFacts> {
+  const claims = await env.db.prepare("SELECT plot_id, day FROM plot_claims WHERE player_id = ?").bind(me.id).all<{ plot_id: string; day: string }>();
+  const refs = await env.db.prepare("SELECT referred_id FROM referrals WHERE referrer_id = ? AND qualified = 1").bind(me.id).all<{ referred_id: string }>();
+  return {
+    plotClaims: new Set(claims.results.map((c) => `${c.plot_id}:${c.day}`)),
+    referrals: new Set(refs.results.map((r) => r.referred_id)),
+    referred: !!me.referred_by,
+  };
+}
+
+/** Keeps shared things in step with an accepted save: the kiosk everyone sees, referrals, unpaid claims. */
+async function afterSave(env: Env, me: PlayerRow, next: PlayerState, now: number) {
+  const k = next.kiosk;
+  if (k) {
+    const yard = (next.yard ?? []).map((i) => (YARD_ITEMS.some((y) => y.id === i) ? i : null)).slice(0, 5);
+    const kiosk = { name: String(k.name).slice(0, 24), color: k.color, product: k.product, upgrades: k.upgrades, yard };
+    await env.db.prepare("UPDATE plots SET kiosk_json = ?, owner_name = ?, updated_at = ? WHERE plot_id = ? AND player_id = ?")
+      .bind(JSON.stringify(kiosk), next.tag?.name ?? "", now, k.plotId, me.id).run();
+  }
+  // a friend who joined through a link counts once they've done real work
+  if (me.referred_by && next.ledger.entries.some((e) => e.key.startsWith("job:") || e.key.startsWith("ride:"))) {
+    await env.db.prepare("UPDATE referrals SET qualified = 1 WHERE referred_id = ? AND qualified = 0").bind(me.id).run();
+  }
+  // a plot claimed but never paid for (10 minutes grace) goes back on the market
+  const claims = await env.db.prepare("SELECT plot_id, day, created_at FROM plot_claims WHERE player_id = ? AND created_at < ?").bind(me.id, now - 10 * 60_000).all<{ plot_id: string; day: string; created_at: number }>();
+  for (const c of claims.results) {
+    const paid = next.ledger.entries.some((e) => e.key === `lease:${c.plot_id}:${c.day}` || e.key === `renew:${c.plot_id}:${c.day}`);
+    if (paid) continue;
+    const held = await env.db.prepare("SELECT plot_id FROM plots WHERE plot_id = ? AND player_id = ? AND leased_until > ?").bind(c.plot_id, me.id, now).first();
+    await env.db.prepare("UPDATE plots SET leased_until = 0 WHERE plot_id = ? AND player_id = ?").bind(c.plot_id, me.id).run();
+    await env.db.prepare("DELETE FROM plot_claims WHERE player_id = ? AND plot_id = ? AND day = ?").bind(me.id, c.plot_id, c.day).run();
+    if (held) await flag(env, me.id, "unpaid_lease", `Claimed ${c.plot_id} on ${c.day} but never paid; released`, now);
+  }
+}
+
+// ---------- shared kiosk plots ----------
+
+const listPlots: Handler = async (_req, env, _p, { now }) => {
+  const { results } = await env.db.prepare("SELECT plot_id, player_id, owner_name, kiosk_json, leased_until FROM plots WHERE leased_until > ?").bind(now)
+    .all<{ plot_id: string; player_id: string; owner_name: string; kiosk_json: string | null; leased_until: number }>();
+  return json({ plots: results.map((r) => ({ plotId: r.plot_id, playerId: r.player_id, owner: r.owner_name, kiosk: r.kiosk_json ? JSON.parse(r.kiosk_json) : null, leasedUntil: r.leased_until })) },
+    200, { "cache-control": "public, max-age=10" });
+};
+
+/** Claims a free plot (or extends your own). The player then pays the lease in their save. */
+const claimPlot: Handler = async (req, env, [plotId], { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Make your Ug Tag first.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  const plot = PLOTS.find((p) => p.id === plotId);
+  if (!plot || plot.npcOwner) return fail(404, "That plot isn't for lease.");
+  const bal = await env.db.prepare("SELECT balance FROM players WHERE id = ?").bind(me.id).first<{ balance: number }>();
+  if ((bal?.balance ?? 0) < 25_000) return fail(402, "You need UGX 25,000 saved to lease a kiosk.");
+  const other = await env.db.prepare("SELECT plot_id FROM plots WHERE player_id = ? AND leased_until > ? AND plot_id != ?").bind(me.id, now, plotId).first();
+  if (other) return fail(409, "You already lease a kiosk. One per player.");
+  const week = KIOSK_LEASE_DAYS * 24 * 3600_000;
+  const existing = await env.db.prepare("SELECT player_id, owner_name, leased_until FROM plots WHERE plot_id = ?").bind(plotId).first<{ player_id: string; owner_name: string; leased_until: number }>();
+  const mine = existing?.player_id === me.id && existing.leased_until > now;
+  const until = mine ? existing.leased_until + week : now + week;
+  // atomic: only take the plot if it's free, expired, or already ours
+  const row = await env.db.prepare(
+    `INSERT INTO plots (plot_id, player_id, owner_name, leased_until, updated_at) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (plot_id) DO UPDATE SET player_id = excluded.player_id, owner_name = excluded.owner_name, leased_until = excluded.leased_until, updated_at = excluded.updated_at,
+       kiosk_json = CASE WHEN plots.player_id = excluded.player_id THEN plots.kiosk_json ELSE NULL END
+     WHERE plots.leased_until < ? OR plots.player_id = ?
+     RETURNING player_id, leased_until`,
+  ).bind(plotId, me.id, me.name, until, now, now, me.id).first<{ player_id: string; leased_until: number }>();
+  if (!row || row.player_id !== me.id) return fail(409, `${existing?.owner_name || "Another player"} already leases this kiosk. Try another plot.`);
+  const day = kampalaDateKey(now);
+  await env.db.prepare("INSERT INTO plot_claims (player_id, plot_id, day, created_at) VALUES (?, ?, ?, ?) ON CONFLICT (player_id, plot_id, day) DO NOTHING").bind(me.id, plotId, day, now).run();
+  return json({ ok: true, plotId, day, leasedUntil: row.leased_until, renewed: mine });
+};
+
+const rewards: Handler = async (req, env) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Not signed in.");
+  const { results } = await env.db.prepare(
+    "SELECT r.referred_id AS id, p.name AS name FROM referrals r JOIN players p ON p.id = r.referred_id WHERE r.referrer_id = ? AND r.qualified = 1",
+  ).bind(me.id).all<{ id: string; name: string }>();
+  return json({ referrals: results, referred: !!me.referred_by });
 };
 
 const street: Handler = async (_req, env, _p, { now }) => {
@@ -284,7 +376,7 @@ const createReport: Handler = async (req, env, _p, { now }) => {
   return json({ ok: true });
 };
 
-const KNOWN_EVENTS = new Set(["age_confirmed", "onboarded", "session_start", "job_accepted", "job_completed", "kiosk_leased", "kiosk_painted", "upgrade_bought", "pothole_reported", "card_shared", "ticket_saved", "snap_made", "snap_uploaded", "visitor_viewed"]);
+const KNOWN_EVENTS = new Set(["age_confirmed", "onboarded", "session_start", "job_accepted", "job_completed", "kiosk_leased", "kiosk_painted", "upgrade_bought", "pothole_reported", "card_shared", "ticket_saved", "snap_made", "snap_uploaded", "visitor_viewed", "boda_taken", "ride_done", "rolex_bought", "food_bought", "yard_built", "goal_claimed", "landmark_found"]);
 
 /** Free, private analytics: daily counters only, no personal data. */
 const track: Handler = async (req, env, _p, { now }) => {
@@ -402,6 +494,9 @@ const routes: [string, RegExp, Handler, boolean][] = [
   ["POST", /^tickets$/, createTicket, false],
   ["GET", /^tickets\/mine$/, myTickets, false],
   ["POST", /^reports$/, createReport, false],
+  ["GET", /^plots$/, listPlots, false],
+  ["POST", /^plots\/([\w-]+)\/claim$/, claimPlot, false],
+  ["GET", /^rewards$/, rewards, false],
   ["POST", /^track$/, track, false],
   ["GET", /^admin\/overview$/, adminOverview, true],
   ["GET", /^admin\/photos$/, adminPhotos, true],

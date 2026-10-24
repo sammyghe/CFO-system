@@ -1,7 +1,7 @@
 // The authored street: a Wandegeya/Kikoni-style block near campus.
 // x runs along the main road, y runs across it. Tile (0,0) is the back-left corner.
 
-export const MAP_W = 30;
+export const MAP_W = 40;
 export const MAP_H = 17;
 
 export type Ground = "earth" | "pave" | "road" | "drain" | "slab" | "stage" | "market" | "grass" | "lot";
@@ -36,7 +36,9 @@ export interface Plot {
 }
 
 export interface Prop {
-  kind: "tree" | "lamp" | "stall" | "shelter" | "bench" | "billboard" | "wall" | "bush" | "parked" | "board";
+  kind: "tree" | "lamp" | "stall" | "shelter" | "bench" | "billboard" | "wall" | "bush" | "parked" | "board" | "cart" | "bodaPark" | "gate";
+  /** For carts: which vendor in content/catalog.ts. */
+  vendor?: string;
   x: number;
   y: number;
   variant?: number;
@@ -52,17 +54,26 @@ export const BUILDINGS: Building[] = [
   { id: "salon", name: "Salon Nakato", x: 19, y: 1, w: 3, d: 3, floors: 1, wall: "#f0c6d4", trim: "#7a2fa8", roof: "iron", sign: "SALON NAKATO", signBg: "#7a2fa8", signFg: "#ffffff", door: { x: 20, y: 4 }, face: "front", kind: "Salon" },
   { id: "hostel", name: "Campus View Hostel", x: 22, y: 0, w: 4, d: 4, floors: 5, wall: "#c96f4a", trim: "#f4efe4", roof: "tank", sign: "CAMPUS VIEW HOSTEL", signBg: "#f4efe4", signFg: "#b4442a", door: { x: 24, y: 4 }, face: "front", kind: "Student hostel" },
   { id: "juice", name: "Fresh Juice Bar", x: 26, y: 1, w: 4, d: 3, floors: 2, wall: "#ffb347", trim: "#2f7a4b", roof: "flat", sign: "FRESH JUICE", signBg: "#2f7a4b", signFg: "#ffe9a8", door: { x: 28, y: 4 }, face: "front", kind: "Juice bar" },
+  { id: "sacco", name: "Kikoni Boda Sacco", x: 30, y: 1, w: 3, d: 3, floors: 1, wall: "#2f7a4b", trim: "#f2d23c", roof: "iron", sign: "KIKONI BODA SACCO", signBg: "#f2d23c", signFg: "#13202b", door: { x: 31, y: 4 }, face: "front", kind: "Boda riders' savings group" },
+  { id: "bakery", name: "Sunrise Bakery", x: 33, y: 0, w: 3, d: 4, floors: 2, wall: "#f4e3c1", trim: "#b4442a", roof: "flat", sign: "SUNRISE BAKERY", signBg: "#b4442a", signFg: "#ffffff", door: { x: 34, y: 4 }, face: "front", kind: "Bakery" },
+  { id: "guesthouse", name: "Makerere Guest House", x: 36, y: 0, w: 4, d: 4, floors: 3, wall: "#9fc4d8", trim: "#13202b", roof: "tank", sign: "MAKERERE GUEST HOUSE", signBg: "#13202b", signFg: "#ffffff", door: { x: 38, y: 4 }, face: "front", kind: "Guest house" },
 ];
 
 export const PLOTS: Plot[] = [
   { id: "plot-a", x: 16, y: 12, npcOwner: null },
   { id: "plot-b", x: 19, y: 12, npcOwner: { name: "Ssali", sign: "SSALI PHONE FIX", color: "#1f4fd1", product: "Phone repair" } },
   { id: "plot-c", x: 22, y: 12, npcOwner: null },
+  { id: "plot-d", x: 30, y: 12, npcOwner: null },
+  { id: "plot-e", x: 33, y: 12, npcOwner: null },
+  { id: "plot-f", x: 36, y: 12, npcOwner: null },
 ];
 
 export const POTHOLE = { x: 12, y: 7 };
 
 export const STAGE_DOOR = { x: 3, y: 11 };
+
+/** Where bodas wait for passengers, next to the taxi stage. */
+export const BODA_STAGE = { x: 3, y: 13 };
 
 /** The Street Snaps community board by the benches. */
 export const SNAP_BOARD = { x: 25, y: 12 };
@@ -87,10 +98,23 @@ export const PROPS: Prop[] = [
   { kind: "lamp", x: 21, y: 4, blocks: true },
   { kind: "wall", x: 0, y: 16 },
   { kind: "board", x: 25, y: 12, blocks: true },
+  { kind: "cart", x: 7, y: 12, vendor: "rolex", blocks: true },
+  { kind: "cart", x: 15, y: 12, vendor: "maize", blocks: true },
+  { kind: "cart", x: 13, y: 14, vendor: "fruit", blocks: true },
+  { kind: "bodaPark", x: 1, y: 14, variant: 0 },
+  { kind: "bodaPark", x: 2, y: 14, variant: 1 },
+  { kind: "bodaPark", x: 4, y: 14, variant: 2 },
+  { kind: "bodaPark", x: 5, y: 14, variant: 3 },
+  { kind: "bodaPark", x: 6, y: 13, variant: 4 },
+  { kind: "lamp", x: 32, y: 4, blocks: true },
+  { kind: "lamp", x: 39, y: 11, blocks: true },
+  { kind: "tree", x: 39, y: 13, variant: 0, blocks: true },
+  { kind: "bush", x: 34, y: 15 },
+  { kind: "gate", x: 14, y: 0 },
 ];
 
 /** Drain slabs: the only places to step over the roadside drains. */
-const SLABS_X = [3, 8, 12, 14, 15, 17, 24, 28];
+const SLABS_X = [3, 8, 12, 14, 15, 17, 24, 28, 31, 34, 38];
 
 export function groundAt(x: number, y: number): Ground {
   if (x >= 14 && x <= 15 && y <= 4) return "road"; // side road up the hill
@@ -101,8 +125,8 @@ export function groundAt(x: number, y: number): Ground {
   if (y >= 12 && y <= 14) {
     if (x <= 6) return "stage";
     if (x >= 8 && x <= 13) return "market";
-    if (x >= 16 && x <= 24 && PLOTS.some((p) => x >= p.x && x <= p.x + 1 && y >= p.y && y <= p.y + 1)) return "lot";
-    if (x >= 26) return "grass";
+    if (x >= 16 && PLOTS.some((p) => x >= p.x && x <= p.x + 1 && y >= p.y && y <= p.y + 1)) return "lot";
+    if (x >= 26 && x <= 29) return "grass";
     return "earth";
   }
   return y === 16 ? "grass" : "earth";
@@ -179,6 +203,7 @@ export const PLACES: Place[] = [
   { id: "market", name: "Market stalls", x: 10, y: 11 },
   { id: "plot-b", name: "Ssali Phone Fix", x: 19, y: 11 },
   { id: "benches", name: "The benches", x: 27, y: 13 },
+  { id: "bodastage", name: "Boda stage", x: BODA_STAGE.x, y: BODA_STAGE.y },
 ];
 
 export function placeById(id: string): Place | undefined {
