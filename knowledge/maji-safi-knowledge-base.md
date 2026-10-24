@@ -65,7 +65,14 @@ Rule: add to this file every session. Do not delete agreed facts unless Sammy sa
 
 **Technical fit (our edge):** UF + UV keeps the minerals and adds no chemicals, which is the right treatment for a spring claim. RO would weaken the "spring" story. Spring category = likely Clear or Ground; the raw-water test decides.
 
-**Open questions to answer:** see section 6.
+**Decisions, 24 Oct 2026:**
+- Pitch = **US brand, Belize spring** (US C-corp BrandCo; Belize is the launch market and proof; US co-packers/export are the growth story).
+- Second line = **one combo can/PET filler**.
+- Brand = undecided; the proposal shows both (new brand "Operated by Maji Safi" vs Maji Safi with a Belize feel).
+- Safiflow's role = still open. Sammy is weighing stake + operator fee, fee + licence, and stake. Proposal v0.1 compares all three and leans to stake + operator fee + small royalty.
+- Draft: `knowledge/belize-spring-proposal-v0.1.md`.
+
+**Still open:** spring location and title, water test, dry-season flow, landowner terms, who owns BrandCo, brand lead.
 
 ## 5. How Sammy thinks (working style)
 
