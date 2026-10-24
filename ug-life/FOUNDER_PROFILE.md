@@ -19,3 +19,9 @@ Living notes on how Sammy works, so any future session starts aligned. Update as
   when he asks for it to be live.
 - Live Ug Life: https://ug-life.netlify.app (Netlify team sammygedamua, site ug-life). Control Room
   password is the ADMIN_TOKEN env var on that Netlify site.
+- Gives feedback by playing it ("ok now it sort of works") and asking for more, in bursts.
+  Wants local, recognisable Kampala life: bodas, rolex, landmarks, a dense street.
+- "No demo": any feature that looks like it pays or saves must really pay and save, checked by
+  the server, with no way to claim twice. Prefers fewer real features to many fake ones.
+- Wants others to be able to add content easily (see `game/CONTENT.md`).
+- Asks "does it work, can I share it, is it saved": answer those plainly at the end of each round.
