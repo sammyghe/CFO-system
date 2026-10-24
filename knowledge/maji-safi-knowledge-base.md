@@ -86,6 +86,11 @@ Other players: Filter Pure Solutions (home RO systems; a possible partner or riv
 Logos: Sammy will send logo files for Crystal, Coca-Cola and the others. The Maji Safi logo is in Drive (file 14m6IwsHrJyN2lBZ3118b1KriQCXbk4SA) and is uploaded to the deck.
 How Sammy works: keep it short and visual. One message per slide. Shareable decks beat dense interactive pages.
 
+**v0.5 deck, 24 Oct 2026 (13 slides):** Sammy asked for more graphics, colour, the Belize flag, competitor logos, a map of the jar market, why jars and cans, spring water facts, how Belize's drinking habits differ, what Safi Treatment can treat, and every number cited. Framed as "one way to approach the Belize project".
+**The three partners are now:** Maji Safi (Mike leads for us) · the Belize partner (landowner with the spring) · an investor who joins once the water is proven.
+Verified facts in the deck: 397,483 people and 110,719 households (2022 Census); 83.8% of homes have public piped water, yet 74.3% drink bottled or purified water; MICS7 found E. coli in 29.8% of samples at collection and 33.7% at the point of drinking, including dispenser water (SIB/MoHW/BWS, Nov 2025); 551,698 overnight and 967,214 cruise visitors in 2025 (BTB, preliminary); the US is 69% of overnight arrivals (year to date, Nov 2025); San Pedro gets ~28% of overnight visitors; Primo Brands 2025 net sales US$6,664.0M, the largest US branded bottled water company (Poland Spring, Arrowhead, Deer Park, Ozarka, Zephyrhills); US bottled water was 16.4B gallons in 2024, No. 1 by volume for the 9th year (IBWA citing BMC); FDA 21 CFR 165.110 spring water definition.
+Logos: npm (simple-icons, flag-icons, world-atlas) is reachable for icons, flags and maps. Company websites are blocked from this container. Only the Coca-Cola logo is available so far. The others are name tiles until Sammy sends logo files.
+
 **Still open:** spring location and title, water test, dry-season flow, landowner terms, who owns BrandCo, brand lead.
 
 ## 5. How Sammy thinks (working style)
