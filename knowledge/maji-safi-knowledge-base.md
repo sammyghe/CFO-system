@@ -98,6 +98,10 @@ Logos: npm (simple-icons, flag-icons, world-atlas) is reachable for icons, flags
 - Simpler, clearer and easier beats more.
 Drive photo IDs used: plant 11AgvUIuiWOa42fbHovvN0CfQDlNwN4ca (13 Oct), operator 1ZbLHns2wKNL9dYs6nSe17YbTcDOWIi0B, lab 1VKo4p1oTTGvvDWCInw7VBONWM3lPriFS, 20L label 1k8tPHJ4oB4BRHY54P9k8QSx30xj2kClD.
 
+**v1.0 PDF report, 24 Oct 2026:** `knowledge/belize-report/Maji-Safi-Belize-Spring-Proposal.pdf` (source report.html; rendered with Playwright, fonts from npm @fontsource). Consultancy format, 12 pages, US Letter landscape: cover, purpose, executive summary, market, trust gap, competition, prices, spring opportunity, approach and treatment, capacity, path, partnership. Action titles, numbered exhibits, source lines on every page. No photos (Sammy asked to remove the lab and plant photos from pages 1–2) and no money.
+**The aim, as Sammy framed it:** the document exists to get ONE decision — start a joint test of the spring (site visit, wet and dry season lab panels, flow log Feb–May). What each side gets: the Belize partner gets a certified branded business on his land and a stake (to agree); Mike gets a clear, sourced case to bring to his partners and investors, plus a first step he leads; Maji Safi gets its first project outside East Africa and Safi Treatment proven in the Americas, with an operating role and stake (to agree); investors get proof before money goes in.
+How Sammy works: start every plan with the aim and what each party gets. He wants top-level, consultancy-grade output (PDF), and HD real imagery or none at all.
+
 **Still open:** spring location and title, water test, dry-season flow, landowner terms, who owns BrandCo, brand lead.
 
 ## 5. How Sammy thinks (working style)
