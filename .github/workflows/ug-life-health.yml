@@ -35,7 +35,13 @@ jobs:
         run: |
           url="${{ steps.url.outputs.url }}"
           for i in 1 2 3 4; do
-            if curl -fsS -m 15 "$url/" -o /dev/null && curl -fsS -m 15 "$url/api/config" -o /dev/null; then echo "up=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            # the page, settings, and the database-backed land, leaderboard and street talk endpoints
+            if curl -fsS -m 15 "$url/" -o /dev/null && curl -fsS -m 15 "$url/api/config" -o /dev/null \
+              && curl -fsS -m 15 "$url/api/land" | jq -e '.areas | length > 0' >/dev/null \
+              && curl -fsS -m 15 "$url/api/leaderboard" | jq -e '.landlords' >/dev/null \
+              && curl -fsS -m 15 -X POST -H 'content-type: application/json' -d '{}' "$url/api/live" | jq -e '.talk' >/dev/null; then
+              echo "up=true" >> "$GITHUB_OUTPUT"; exit 0
+            fi
             sleep 45
           done
           echo "up=false" >> "$GITHUB_OUTPUT"
@@ -48,7 +54,7 @@ jobs:
             const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: 'P0' });
             const existing = open.find((i) => i.title === title);
             if (!up && !existing) {
-              await github.rest.issues.create({ ...context.repo, title, labels: ['P0'], body: `The game or its API didn't answer for 3 minutes at ${{ steps.url.outputs.url }}.\n\nPlayers can keep playing offline; saves and uploads wait. Check the Cloudflare dashboard (Workers & Pages > ug-life) and the latest deploy run.\n\n---\n_Opened automatically by the Ug Life health check._` });
+              await github.rest.issues.create({ ...context.repo, title, labels: ['P0'], body: `The game or its API didn't answer for 3 minutes at ${{ steps.url.outputs.url }}.\n\nPlayers can keep playing offline; saves and uploads wait. Check the latest deploy run and the Netlify function logs (site ug-life).\n\n---\n_Opened automatically by the Ug Life health check._` });
             } else if (up && existing) {
               await github.rest.issues.createComment({ ...context.repo, issue_number: existing.number, body: 'Back up. Closing automatically.\n\n---\n_Ug Life health check._' });
               await github.rest.issues.update({ ...context.repo, issue_number: existing.number, state: 'closed' });
