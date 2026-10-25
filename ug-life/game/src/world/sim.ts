@@ -3,6 +3,7 @@ import { findPath, nearestWalkable, type Pt } from "./path";
 import type { Look } from "../game/state";
 import { RESIDENTS, type Resident } from "../content/residents";
 import type { Visitor } from "../net/api";
+import { PASSER_LINES, RESIDENT_LINES, phraseById } from "../content/talk";
 
 export interface Walker {
   id: string;
@@ -29,6 +30,20 @@ export interface Walker {
   hidden?: boolean;
   /** Waiting for a boda: stays put and waves. */
   waving?: boolean;
+  /** Speech bubble over their head. */
+  say?: Speech;
+  /** Short animation: wave, dance, laugh... */
+  emote?: { id: string; icon: string; until: number };
+}
+
+export interface Speech {
+  text: string;
+  until: number;
+  t0: number;
+  /** Voice hello: tap the bubble to hear it. */
+  voiceId?: string;
+  /** A talk message id, so the bubble can be reported. */
+  talkId?: string;
 }
 
 export interface Vehicle {
@@ -71,6 +86,11 @@ export class Sim {
   floaters: Floater[] = [];
   private timers: { at: number; fn: () => void }[] = [];
   private rand = Math.random;
+  private nextChatter = performance.now() + 6000;
+  /** Called when a resident says something on their own (for the talk log and voices). */
+  onChatter?: (w: Walker, text: string) => void;
+  /** How many residents and passers-by walk around (fewer on slow phones). */
+  crowd = Infinity;
 
   constructor(playerLook: Look, start: { x: number; y: number }) {
     this.player = makeWalker("player", start.x, start.y, playerLook, 3.2);
@@ -196,6 +216,17 @@ export class Sim {
       if (existing) {
         existing.visitor = v;
         existing.look = v.look;
+        // they moved: walk over to where they are now
+        if (existing.home && Math.hypot(existing.home.x - home.x, existing.home.y - home.y) > 1.5) {
+          const path = findPath({ x: Math.floor(existing.x), y: Math.floor(existing.y) }, home);
+          if (path && path.length < 40) existing.path = path.map((q) => ({ x: q.x + 0.5, y: q.y + 0.5 }));
+          else {
+            existing.x = home.x + 0.5;
+            existing.y = home.y + 0.5;
+            existing.path = [];
+          }
+          existing.speed = 2.6;
+        }
         existing.home = home;
         keep.push(existing);
       } else {
@@ -206,6 +237,68 @@ export class Sim {
       }
     }
     this.visitors = keep;
+  }
+
+  /** Anyone on the street by id: you ("player"), a resident or a real player. */
+  walker(id: string): Walker | undefined {
+    if (id === "player") return this.player;
+    return this.residents.find((r) => r.id === id) ?? this.visitors.find((v) => v.id === id);
+  }
+
+  say(w: Walker, text: string, ms = 4500, extra: Partial<Speech> = {}) {
+    const now = performance.now();
+    w.say = { text, t0: now, until: now + ms, ...extra };
+  }
+
+  emote(w: Walker, id: string, icon: string, ms = 3200) {
+    w.emote = { id, icon, until: performance.now() + ms };
+  }
+
+  /** The nearest resident within reach answers a phrase. Returns who answered. */
+  replyTo(phraseId: string, from: { x: number; y: number }, onReply?: (w: Walker, text: string) => void): Walker | null {
+    const p = phraseById(phraseId);
+    const lines = p?.replies;
+    if (!lines?.length) return null;
+    const near = this.residents
+      .filter((r) => !r.hidden && r.resident && Math.hypot(r.x - from.x, r.y - from.y) < 6 && !(r.say && r.say.until > performance.now()))
+      .sort((a, b) => Math.hypot(a.x - from.x, a.y - from.y) - Math.hypot(b.x - from.x, b.y - from.y))[0];
+    if (!near) return null;
+    const text = lines[Math.floor(this.rand() * lines.length)];
+    this.schedule(900 + this.rand() * 900, () => {
+      near.path = [];
+      near.flip = this.player.x - this.player.y < near.x - near.y;
+      this.say(near, text);
+      if (phraseId === "otya" || phraseId === "welcome") this.emote(near, "wave", "👋", 2200);
+      onReply?.(near, text);
+    });
+    return near;
+  }
+
+  /** A specific resident answers you (tapped "Say hi" on their card). */
+  greetResident(id: string, onReply?: (w: Walker, text: string) => void) {
+    const w = this.resident(id);
+    if (!w || w.hidden) return;
+    const own = RESIDENT_LINES[id] ?? PASSER_LINES;
+    const text = ["Oli otya! ", "Gyebale ko! ", "Eh, hello! "][Math.floor(this.rand() * 3)] + own[Math.floor(this.rand() * own.length)];
+    this.schedule(700, () => {
+      w.path = [];
+      this.say(w, text, 5000);
+      this.emote(w, "wave", "👋", 2200);
+      onReply?.(w, text);
+    });
+  }
+
+  private chatter(now: number) {
+    if (now < this.nextChatter) return;
+    this.nextChatter = now + 7000 + this.rand() * 9000;
+    const p = this.player;
+    const near = this.residents.filter((r) => !r.hidden && !r.waving && !(r.say && r.say.until > now) && Math.hypot(r.x - p.x, r.y - p.y) < 9);
+    if (!near.length) return;
+    const w = near[Math.floor(this.rand() * near.length)];
+    const own = RESIDENT_LINES[w.id] ?? PASSER_LINES;
+    const text = own[Math.floor(this.rand() * own.length)];
+    this.say(w, text, 4000);
+    this.onChatter?.(w, text);
   }
 
   float(text: string, x: number, y: number, color = "#2f7a4b") {
@@ -220,8 +313,11 @@ export class Sim {
       }
     }
     stepWalker(this.player, dt);
-    for (const r of this.residents) {
-      if (r.hidden || r.waving) continue;
+    this.chatter(now);
+    for (let i = 0; i < this.residents.length; i++) {
+      const r = this.residents[i];
+      // on slow phones only part of the crowd walks about; the rest stand still
+      if (r.hidden || r.waving || i >= this.crowd) continue;
       if (!r.path.length && now > r.idleUntil && !r.onArrive) {
         const target = HANGOUTS[Math.floor(this.rand() * HANGOUTS.length)];
         const path = findPath({ x: Math.floor(r.x), y: Math.floor(r.y) }, target);

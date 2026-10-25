@@ -20,6 +20,13 @@ needs changing.
 | A shop or building | `src/world/map.ts` → `BUILDINGS` | position, size, colours, sign, door |
 | A help answer | `src/content/faq.ts` | question, answer (the support agent reads it too) |
 | Boda prices | `src/content/catalog.ts` → `BODA` | rent, fare, pay per ride, rides a day |
+| A cheap snack | `src/content/catalog.ts` → `SNACKS` | name, price, boost, icon, which carts sell it |
+| A talk phrase | `src/content/talk.ts` → `PHRASES` | text, English meaning, resident replies |
+| An emote | `src/content/talk.ts` → `EMOTES` | id, label, emoji |
+| A resident's street lines | `src/content/talk.ts` → `RESIDENT_LINES` | resident id → lines they call out |
+| A street shout (spoken) | `src/content/talk.ts` → `STREET_SHOUTS` | tile, text, who |
+| A land area | `src/content/land.ts` → `LAND_AREAS` | name, blurb, first plot price, number of plots |
+| A building level on land | `src/content/land.ts` → `LAND_LEVELS` | name, cost, rent a day |
 
 ## Food carts (`VENDORS`)
 
@@ -63,6 +70,35 @@ The server's kiosk ceiling follows the biggest `incomeBonus` automatically; keep
 
 Every landmark pays `LANDMARK_REWARD` (300) once; the server knows each id, so new ids need no
 server change. Keep `at` at least ~80 away from other landmarks on the same hill.
+
+## Snacks (`SNACKS`)
+
+```ts
+{ id: "rolexegg", name: "Extra egg", price: 300, boostPct: 3, boostMinutes: 10, icon: "🥚", soldAt: ["rolex"] },
+```
+
+`soldAt` lists vendor ids from `VENDORS`, or `"chapati"` for Mama Rose's shop. Keep boosts below
+the biggest cart boost (20%) and prices low: snacks are the cheap, everyday thing to buy.
+
+## Talk phrases (`PHRASES`)
+
+```ts
+{ id: "nkwagala", text: "Nkwagala!", meaning: "I like you!", replies: ["Eh, webale!"] },
+```
+
+The server accepts any phrase id in this list. Only add phrases that are friendly and can't be
+used to scam (no numbers, no money talk). Residents nearby answer with one of `replies`.
+
+## Land (`LAND_AREAS`, `LAND_LEVELS`)
+
+```ts
+{ id: "kasubi", name: "Kasubi", blurb: "Short and true.", basePrice: 5_000, plots: 14 },
+```
+
+Each plot sold in an area makes the next 12% dearer; the hot area (one a day, picked from the
+date) costs ×1.5 and pays ×2 rent. The server sets every price and checks rent against
+`LAND_LEVELS`, so changing a level's `rent` changes what saves are allowed: never lower one that
+players already own (their saved rent would then look too high), only raise.
 
 ## Residents (`NAMED`)
 

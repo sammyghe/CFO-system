@@ -68,6 +68,32 @@ export const VENDORS: Vendor[] = [
 
 // ---------- your yard (things you build around your kiosk) ----------
 
+// ---------- cheap snacks (sold at the carts and Mama Rose's) ----------
+
+export interface Snack {
+  id: string;
+  name: string;
+  price: number;
+  boostPct: number;
+  boostMinutes: number;
+  icon: string;
+  /** Vendor ids from VENDORS, or "chapati" for Mama Rose's shop. */
+  soldAt: string[];
+}
+
+export const SNACKS: Snack[] = [
+  { id: "mandazi", name: "Mandazi", price: 200, boostPct: 2, boostMinutes: 10, icon: "🍩", soldAt: ["chapati", "rolex"] },
+  { id: "chai", name: "Chai (spiced tea)", price: 300, boostPct: 3, boostMinutes: 10, icon: "🍵", soldAt: ["chapati"] },
+  { id: "water", name: "Bottle of water", price: 300, boostPct: 2, boostMinutes: 10, icon: "💧", soldAt: ["fruit", "maize"] },
+  { id: "sugarcane", name: "Sugarcane", price: 300, boostPct: 3, boostMinutes: 10, icon: "🎋", soldAt: ["fruit"] },
+  { id: "chapati", name: "Chapati", price: 500, boostPct: 6, boostMinutes: 15, icon: "🫓", soldAt: ["chapati", "rolex"] },
+  { id: "samosa", name: "Samosa", price: 500, boostPct: 5, boostMinutes: 15, icon: "🥟", soldAt: ["chapati", "maize"] },
+  { id: "gonja", name: "Roasted gonja", price: 500, boostPct: 5, boostMinutes: 15, icon: "🍌", soldAt: ["maize"] },
+  { id: "mango", name: "Mango", price: 500, boostPct: 4, boostMinutes: 15, icon: "🥭", soldAt: ["fruit"] },
+  { id: "soda", name: "Cold soda", price: 1_000, boostPct: 5, boostMinutes: 20, icon: "🥤", soldAt: ["chapati", "fruit"] },
+  { id: "kikomando", name: "Kikomando (chapati and beans)", price: 1_500, boostPct: 12, boostMinutes: 25, icon: "🫘", soldAt: ["rolex", "chapati"] },
+];
+
 export interface YardItem {
   id: string;
   name: string;

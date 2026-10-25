@@ -12,6 +12,8 @@ import { AREAS, SNAPS_PER_DAY } from "../src/game/snaps";
 import { balanceOf } from "../src/game/ledger";
 import { levelForXp } from "../src/game/economy";
 import { kampalaDateKey } from "../src/game/time";
+import { TALK_MAX, VOICE_MAX_MS, emoteById, phraseById } from "../src/content/talk";
+import { LAND_AREAS, LAND_LEVELS, MAX_LAND, areaById, hotArea, landPrice } from "../src/content/land";
 import type { PlayerState } from "../src/game/state";
 import type { PhotoStore } from "./photostore";
 import type { Db } from "./db";
@@ -187,7 +189,9 @@ const putSave: Handler = async (req, env, _p, { now }) => {
 async function serverFacts(env: Env, me: PlayerRow): Promise<ServerFacts> {
   const claims = await env.db.prepare("SELECT plot_id, day FROM plot_claims WHERE player_id = ?").bind(me.id).all<{ plot_id: string; day: string }>();
   const refs = await env.db.prepare("SELECT referred_id FROM referrals WHERE referrer_id = ? AND qualified = 1").bind(me.id).all<{ referred_id: string }>();
+  const land = await env.db.prepare("SELECT area, slot, price FROM land WHERE player_id = ?").bind(me.id).all<{ area: string; slot: number; price: number }>();
   return {
+    landClaims: new Map(land.results.map((l) => [`${l.area}:${l.slot}`, l.price])),
     plotClaims: new Set(claims.results.map((c) => `${c.plot_id}:${c.day}`)),
     referrals: new Set(refs.results.map((r) => r.referred_id)),
     referred: !!me.referred_by,
@@ -206,6 +210,18 @@ async function afterSave(env: Env, me: PlayerRow, next: PlayerState, now: number
   // a friend who joined through a link counts once they've done real work
   if (me.referred_by && next.ledger.entries.some((e) => e.key.startsWith("job:") || e.key.startsWith("ride:"))) {
     await env.db.prepare("UPDATE referrals SET qualified = 1 WHERE referred_id = ? AND qualified = 0").bind(me.id).run();
+  }
+  // land: mark paid plots and their building level; unpaid ones go back after 10 minutes
+  const myLand = await env.db.prepare("SELECT area, slot, paid, level, bought_at FROM land WHERE player_id = ?").bind(me.id).all<{ area: string; slot: number; paid: number; level: number; bought_at: number }>();
+  for (const l of myLand.results) {
+    const bought = next.ledger.entries.some((e) => e.key === `land:${l.area}:${l.slot}`);
+    const owned = (next.land ?? []).find((x) => x.area === l.area && x.slot === l.slot);
+    if (bought && owned) {
+      const level = Math.max(0, Math.min(LAND_LEVELS.length - 1, Number(owned.level) || 0));
+      if (!l.paid || level !== l.level) await env.db.prepare("UPDATE land SET paid = 1, level = ?, owner_name = ? WHERE area = ? AND slot = ?").bind(level, next.tag?.name ?? "", l.area, l.slot).run();
+    } else if (!bought && now - l.bought_at > 10 * 60_000) {
+      await env.db.prepare("DELETE FROM land WHERE area = ? AND slot = ? AND player_id = ?").bind(l.area, l.slot, me.id).run();
+    }
   }
   // a plot claimed but never paid for (10 minutes grace) goes back on the market
   const claims = await env.db.prepare("SELECT plot_id, day, created_at FROM plot_claims WHERE player_id = ? AND created_at < ?").bind(me.id, now - 10 * 60_000).all<{ plot_id: string; day: string; created_at: number }>();
@@ -257,6 +273,46 @@ const claimPlot: Handler = async (req, env, [plotId], { now }) => {
   return json({ ok: true, plotId, day, leasedUntil: row.leased_until, renewed: mine });
 };
 
+// ---------- Kampala land ----------
+
+const listLand: Handler = async (_req, env, _p, { now }) => {
+  const day = kampalaDateKey(now);
+  const { results } = await env.db.prepare("SELECT area, slot, player_id, owner_name, level FROM land").all<{ area: string; slot: number; player_id: string; owner_name: string; level: number }>();
+  const areas = LAND_AREAS.map((a) => {
+    const rows = results.filter((r) => r.area === a.id);
+    return { id: a.id, sold: rows.length, price: landPrice(a.id, rows.length, day), owners: rows.map((r) => ({ slot: r.slot, playerId: r.player_id, name: r.owner_name, level: r.level })) };
+  });
+  return json({ day, hot: hotArea(day).id, areas }, 200, { "cache-control": "public, max-age=15" });
+};
+
+/** Sells you the next free plot in an area at today's price. You then pay for it in your save. */
+const claimLand: Handler = async (req, env, [areaId], { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Make your Ug Tag first.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  const area = areaById(areaId);
+  if (!area) return fail(404, "Unknown area.");
+  const mine = (await env.db.prepare("SELECT COUNT(*) AS n FROM land WHERE player_id = ?").bind(me.id).first<{ n: number }>())?.n ?? 0;
+  if (mine >= MAX_LAND) return fail(409, `You own ${MAX_LAND} plots already. Build them up!`);
+  const day = kampalaDateKey(now);
+  // plots sold but never paid for within 30 minutes go back on sale
+  await env.db.prepare("DELETE FROM land WHERE paid = 0 AND bought_at < ?").bind(now - 30 * 60_000).run();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const taken = await env.db.prepare("SELECT slot FROM land WHERE area = ?").bind(area.id).all<{ slot: number }>();
+    if (taken.results.length >= area.plots) return fail(409, `${area.name} is sold out. Try another area.`);
+    const used = new Set(taken.results.map((t) => t.slot));
+    let slot = 0;
+    while (used.has(slot)) slot++;
+    const price = landPrice(area.id, taken.results.length, day);
+    const bal = await env.db.prepare("SELECT balance FROM players WHERE id = ?").bind(me.id).first<{ balance: number }>();
+    if ((bal?.balance ?? 0) < price) return fail(402, `A plot in ${area.name} costs UGX ${price.toLocaleString()} today. Your saved balance is lower.`);
+    const row = await env.db.prepare("INSERT INTO land (area, slot, player_id, owner_name, price, bought_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (area, slot) DO NOTHING RETURNING slot")
+      .bind(area.id, slot, me.id, me.name, price, now).first<{ slot: number }>();
+    if (row) return json({ ok: true, area: area.id, slot, price });
+  }
+  return fail(409, "Someone bought that plot a moment ago. Try again.");
+};
+
 const rewards: Handler = async (req, env) => {
   const me = await auth(req, env);
   if (!me) return fail(401, "Not signed in.");
@@ -264,6 +320,144 @@ const rewards: Handler = async (req, env) => {
     "SELECT r.referred_id AS id, p.name AS name FROM referrals r JOIN players p ON p.id = r.referred_id WHERE r.referrer_id = ? AND r.qualified = 1",
   ).bind(me.id).all<{ id: string; name: string }>();
   return json({ referrals: results, referred: !!me.referred_by });
+};
+
+// ---------- street talk ----------
+
+const TALK_WINDOW = 10 * 60_000;
+const VOICE_TTL = 24 * 3600_000;
+const MAX_VOICE_BYTES = 120_000;
+
+interface TalkRow { id: string; player_id: string; name: string; kind: string; body: string; to_id: string | null; x: number; y: number; created_at: number }
+
+const talkOut = (r: TalkRow) => ({ id: r.id, playerId: r.player_id, name: r.name, kind: r.kind, body: r.body, to: r.to_id, x: r.x, y: r.y, at: r.created_at });
+
+function clampPos(v: unknown, max: number) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : 0;
+}
+
+/** Who is on the street right now and what they said. Also marks you as here. */
+const live: Handler = async (req, env, _p, { now }) => {
+  const me = await auth(req, env);
+  const body = (await req.json().catch(() => null)) as { x?: number; y?: number; since?: number } | null;
+  if (me && !me.frozen && body && typeof body.x === "number" && typeof body.y === "number") {
+    await env.db.prepare("UPDATE players SET pos_x = ?, pos_y = ?, last_seen = ? WHERE id = ?").bind(clampPos(body.x, 60), clampPos(body.y, 30), now, me.id).run();
+  }
+  const since = Math.max(Number(body?.since) || 0, now - TALK_WINDOW);
+  const players = await env.db.prepare(
+    `SELECT id, name, tag_json, look_json, level, pos_x, pos_y, kiosk_json, last_seen FROM players
+     WHERE last_seen > ? AND ghost = 0 AND frozen = 0 AND name != '' ORDER BY last_seen DESC LIMIT 20`,
+  ).bind(now - 15 * 60_000).all<{ id: string; name: string; tag_json: string; look_json: string; level: number; pos_x: number; pos_y: number; kiosk_json: string | null; last_seen: number }>();
+  const talk = await env.db.prepare("SELECT id, player_id, name, kind, body, to_id, x, y, created_at FROM talk WHERE created_at > ? AND hidden = 0 ORDER BY created_at DESC LIMIT 40")
+    .bind(since).all<TalkRow>();
+  return json({
+    now,
+    players: players.results.map((r) => ({ id: r.id, name: r.name, level: r.level, tag: JSON.parse(r.tag_json), look: JSON.parse(r.look_json), pos: { x: r.pos_x, y: r.pos_y }, kiosk: r.kiosk_json ? JSON.parse(r.kiosk_json) : null, seen: r.last_seen })),
+    talk: talk.results.reverse().map(talkOut),
+  });
+};
+
+async function canTalk(env: Env, me: PlayerRow | null, now: number): Promise<Response | null> {
+  if (!me) return fail(401, "Make your Ug Tag first.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  if (!me.name) return fail(400, "Make your Ug Tag first, so people know who's talking.");
+  const c = await config(env);
+  if (c.maintenance_mode === "true" || c.talk_enabled === "false") return fail(503, "Street talk is paused for a moment.");
+  const last = await env.db.prepare("SELECT created_at FROM talk WHERE player_id = ? ORDER BY created_at DESC LIMIT 1").bind(me.id).first<{ created_at: number }>();
+  if (last && now - last.created_at < 700) return fail(429, "Slow down a little.");
+  return null;
+}
+
+const postTalk: Handler = async (req, env, _p, { now }) => {
+  const me = await auth(req, env);
+  const blocked = await canTalk(env, me, now);
+  if (blocked) return blocked;
+  const b = (await req.json().catch(() => null)) as { kind?: string; body?: string; to?: string; x?: number; y?: number } | null;
+  const kind = b?.kind;
+  let text = String(b?.body ?? "");
+  if (kind === "phrase") {
+    if (!phraseById(text)) return fail(400, "Unknown phrase.");
+  } else if (kind === "emote") {
+    if (!emoteById(text)) return fail(400, "Unknown emote.");
+  } else if (kind === "text") {
+    const r = checkFreeText(text, TALK_MAX);
+    if (!r.ok) return fail(400, r.reason);
+    if (!r.value) return fail(400, "Say something first.");
+    text = r.value;
+  } else return fail(400, "kind must be phrase, text or emote");
+  if (!(await take(env, me!.id, "talk", 500, now))) return fail(429, "That's a lot of talking today. Rest your voice until tomorrow.");
+  const to = typeof b?.to === "string" && /^p_[a-z0-9]{6,40}$/.test(b.to) ? b.to : null;
+  const talkId = id("k");
+  await env.db.prepare("INSERT INTO talk (id, player_id, name, kind, body, to_id, x, y, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(talkId, me!.id, me!.name, kind, text, to, clampPos(b?.x, 60), clampPos(b?.y, 30), now).run();
+  return json({ id: talkId, at: now, body: text });
+};
+
+const postVoice: Handler = async (req, env, _p, { now, photos }) => {
+  const me = await auth(req, env);
+  const blocked = await canTalk(env, me, now);
+  if (blocked) return blocked;
+  const form = await req.formData();
+  const raw = form.get("audio") as unknown;
+  const file = raw && typeof raw === "object" && "arrayBuffer" in raw ? (raw as File) : null;
+  if (!file) return fail(400, "No recording attached.");
+  const mime = file.type.split(";")[0];
+  if (!["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/aac"].includes(mime)) return fail(415, "That recording format isn't supported.");
+  if (file.size > MAX_VOICE_BYTES) return fail(413, "Keep it to a few seconds.");
+  if (Number(form.get("ms")) > VOICE_MAX_MS + 600) return fail(400, "Keep it to 4 seconds.");
+  if (!(await take(env, me!.id, "voice", 30, now))) return fail(429, "That's 30 voice hellos today. More tomorrow.");
+  const voiceId = id("vc");
+  await photos.put(voiceId, mime, await file.arrayBuffer());
+  const talkId = id("k");
+  await env.db.prepare("INSERT INTO talk (id, player_id, name, kind, body, to_id, x, y, created_at) VALUES (?, ?, ?, 'voice', ?, NULL, ?, ?, ?)")
+    .bind(talkId, me!.id, me!.name, voiceId, clampPos(form.get("x"), 60), clampPos(form.get("y"), 30), now).run();
+  return json({ id: talkId, at: now, body: voiceId });
+};
+
+const serveVoice: Handler = async (_req, env, [voiceId], { now, photos }) => {
+  const row = await env.db.prepare("SELECT created_at, hidden FROM talk WHERE kind = 'voice' AND body = ?").bind(voiceId).first<{ created_at: number; hidden: number }>();
+  if (!row || row.hidden || now - row.created_at > VOICE_TTL) return fail(404, "That voice hello has gone.");
+  const obj = await photos.get(voiceId);
+  if (!obj) return fail(404, "Not found.");
+  return new Response(obj.data, { headers: { "content-type": obj.mime, "cache-control": "private, max-age=3600" } });
+};
+
+/** Two different players reporting a message hides it for everyone; it also goes to the Control Room. */
+const reportTalk: Handler = async (req, env, [talkId], { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Not signed in.");
+  const row = await env.db.prepare("SELECT id, player_id, name, kind, body FROM talk WHERE id = ?").bind(talkId).first<{ id: string; player_id: string; name: string; kind: string; body: string }>();
+  if (!row) return fail(404, "That message is gone.");
+  if (!(await take(env, me.id, "report", 20, now))) return fail(429, "Too many reports today.");
+  await env.db.prepare("INSERT INTO talk_reports (talk_id, reporter_id, created_at) VALUES (?, ?, ?) ON CONFLICT (talk_id, reporter_id) DO NOTHING").bind(talkId, me.id, now).run();
+  const n = (await env.db.prepare("SELECT COUNT(*) AS n FROM talk_reports WHERE talk_id = ?").bind(talkId).first<{ n: number }>())?.n ?? 1;
+  await env.db.prepare("UPDATE talk SET reports = ?, hidden = CASE WHEN ? >= 2 THEN 1 ELSE hidden END WHERE id = ?").bind(n, n, talkId).run();
+  await env.db.prepare("INSERT INTO reports (id, reporter_id, target, reason, created_at) VALUES (?, ?, ?, ?, ?)")
+    .bind(id("r"), me.id, `talk:${talkId}:${row.player_id}`, `Street talk by ${row.name} (${row.kind}): ${row.kind === "voice" ? "voice hello" : row.body}`.slice(0, 500), now).run();
+  return json({ ok: true, hidden: n >= 2 });
+};
+
+const leaderboard: Handler = async (_req, env, _p, { now }) => {
+  const week = now - 7 * 24 * 3600_000;
+  const rich = await env.db.prepare("SELECT id, name, level, balance FROM players WHERE last_seen > ? AND ghost = 0 AND frozen = 0 AND name != '' ORDER BY balance DESC LIMIT 10").bind(week).all();
+  const levels = await env.db.prepare("SELECT id, name, level, balance FROM players WHERE last_seen > ? AND ghost = 0 AND frozen = 0 AND name != '' ORDER BY level DESC, balance DESC LIMIT 10").bind(week).all();
+  const snappers = await env.db.prepare("SELECT author AS name, COUNT(*) AS n FROM photos WHERE status = 'approved' GROUP BY author ORDER BY n DESC LIMIT 5").all();
+  const landlords = await env.db.prepare("SELECT player_id AS id, MAX(owner_name) AS name, COUNT(*) AS plots, SUM(level) AS levels FROM land WHERE paid = 1 GROUP BY player_id ORDER BY plots DESC, levels DESC LIMIT 10").all();
+  const talkers = await env.db.prepare("SELECT name, COUNT(*) AS n FROM talk WHERE created_at > ? AND hidden = 0 AND kind != 'emote' GROUP BY player_id, name ORDER BY n DESC LIMIT 5").bind(now - 24 * 3600_000).all();
+  return json({ rich: rich.results, levels: levels.results, snappers: snappers.results, talkers: talkers.results, landlords: landlords.results }, 200, { "cache-control": "public, max-age=60" });
+};
+
+const adminTalk: Handler = async (_req, env) => {
+  const { results } = await env.db.prepare("SELECT * FROM talk ORDER BY reports DESC, created_at DESC LIMIT 100").all();
+  return json({ talk: results });
+};
+
+const adminTalkAction: Handler = async (req, env, [talkId]) => {
+  const body = (await req.json().catch(() => null)) as { action?: string } | null;
+  if (body?.action !== "hide" && body?.action !== "show") return fail(400, "action must be hide or show");
+  await env.db.prepare("UPDATE talk SET hidden = ? WHERE id = ?").bind(body.action === "hide" ? 1 : 0, talkId).run();
+  return json({ ok: true });
 };
 
 const street: Handler = async (_req, env, _p, { now }) => {
@@ -376,7 +570,7 @@ const createReport: Handler = async (req, env, _p, { now }) => {
   return json({ ok: true });
 };
 
-const KNOWN_EVENTS = new Set(["age_confirmed", "onboarded", "session_start", "job_accepted", "job_completed", "kiosk_leased", "kiosk_painted", "upgrade_bought", "pothole_reported", "card_shared", "ticket_saved", "snap_made", "snap_uploaded", "visitor_viewed", "boda_taken", "ride_done", "rolex_bought", "food_bought", "yard_built", "goal_claimed", "landmark_found"]);
+const KNOWN_EVENTS = new Set(["age_confirmed", "onboarded", "session_start", "job_accepted", "job_completed", "kiosk_leased", "kiosk_painted", "upgrade_bought", "pothole_reported", "card_shared", "ticket_saved", "snap_made", "snap_uploaded", "visitor_viewed", "boda_taken", "ride_done", "rolex_bought", "food_bought", "yard_built", "goal_claimed", "landmark_found", "talk_sent", "voice_sent", "emote_sent", "resident_greeted", "place_go", "sound_off", "leaderboard_viewed", "boda_offer_taken", "land_bought", "land_built", "rent_collected"]);
 
 /** Free, private analytics: daily counters only, no personal data. */
 const track: Handler = async (req, env, _p, { now }) => {
@@ -466,7 +660,7 @@ const adminPlayer: Handler = async (req, env, [playerId]) => {
 
 const adminConfig: Handler = async (req, env) => {
   const body = (await req.json().catch(() => null)) as { key?: string; value?: string } | null;
-  const allowed = ["maintenance_mode", "uploads_enabled", "signups_enabled", "announcement"];
+  const allowed = ["maintenance_mode", "uploads_enabled", "signups_enabled", "talk_enabled", "announcement"];
   if (!body?.key || !allowed.includes(body.key)) return fail(400, `key must be one of ${allowed.join(", ")}`);
   await env.db.prepare("INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").bind(body.key, String(body.value ?? "").slice(0, 280)).run();
   return json({ ok: true });
@@ -497,6 +691,14 @@ const routes: [string, RegExp, Handler, boolean][] = [
   ["GET", /^plots$/, listPlots, false],
   ["POST", /^plots\/([\w-]+)\/claim$/, claimPlot, false],
   ["GET", /^rewards$/, rewards, false],
+  ["POST", /^live$/, live, false],
+  ["POST", /^talk$/, postTalk, false],
+  ["POST", /^talk\/voice$/, postVoice, false],
+  ["POST", /^talk\/([\w]+)\/report$/, reportTalk, false],
+  ["GET", /^voice\/([\w]+)$/, serveVoice, false],
+  ["GET", /^leaderboard$/, leaderboard, false],
+  ["GET", /^land$/, listLand, false],
+  ["POST", /^land\/([\w]+)\/claim$/, claimLand, false],
   ["POST", /^track$/, track, false],
   ["GET", /^admin\/overview$/, adminOverview, true],
   ["GET", /^admin\/photos$/, adminPhotos, true],
@@ -511,6 +713,8 @@ const routes: [string, RegExp, Handler, boolean][] = [
   ["POST", /^admin\/players\/([\w]+)$/, adminPlayer, true],
   ["POST", /^admin\/config$/, adminConfig, true],
   ["GET", /^admin\/metrics$/, adminMetrics, true],
+  ["GET", /^admin\/talk$/, adminTalk, true],
+  ["POST", /^admin\/talk\/([\w]+)$/, adminTalkAction, true],
 ];
 
 export async function handle(req: Request, env: Env): Promise<Response> {

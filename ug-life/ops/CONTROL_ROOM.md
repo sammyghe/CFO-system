@@ -19,7 +19,7 @@ writes one line to `ops/queue/approvals.md` asking for it and stops.
 | Economy flags (refused or unusual saves) | `GET /api/admin/flags`, resolve with `POST /api/admin/flags/<id>` |
 | Player reports | `GET /api/admin/reports`, close with `POST /api/admin/reports/<id>` |
 | Freeze / unfreeze a player | `POST /api/admin/players/<id>` `{"frozen":true}` |
-| Switches | `POST /api/admin/config` `{"key":"maintenance_mode","value":"true"}` (also `uploads_enabled`, `signups_enabled`, `announcement`) |
+| Switches | `POST /api/admin/config` `{"key":"maintenance_mode","value":"true"}` (also `uploads_enabled`, `signups_enabled`, `talk_enabled`, `announcement`) |
 | Daily event counts | `GET /api/admin/metrics?days=7` |
 
 ## Who may do what

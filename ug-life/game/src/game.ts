@@ -11,11 +11,12 @@ import { advance } from "./game/civic";
 import { balanceOf } from "./game/ledger";
 import { eventForTime } from "./game/daily";
 import { formatUGX, levelForXp, xpForLevel } from "./game/economy";
-import { kampalaHour } from "./game/time";
+import { kampalaDateKey, kampalaHour } from "./game/time";
+import { hotArea } from "./content/land";
 import { h, ICONS } from "./ui/dom";
 import * as S from "./ui/sheets";
 import { drainEventNames, track } from "./track";
-import { Api, type Visitor } from "./net/api";
+import { Api, type LiveVisitor } from "./net/api";
 import { listSnaps, saveSnap, type SnapRecord } from "./snaps/store";
 import { albumSheet } from "./snaps/ui";
 import * as St from "./game/street";
@@ -23,7 +24,18 @@ import { bodaSheet, landmarkSheet, vendorSheet } from "./ui/streetsheets";
 import { BODA, VENDORS } from "./content/catalog";
 import { RIDER } from "./world/art";
 import type { SharedPlot } from "./net/api";
-import { placeById } from "./world/map";
+import { BUILDINGS, placeById } from "./world/map";
+import { toWorld } from "./world/iso";
+import { tileDistance } from "./world/path";
+import { sound } from "./audio/sound";
+import { STREET_SHOUTS, emoteById, phraseById } from "./content/talk";
+import { checkFreeText } from "./game/moderation";
+import { talkSheet, type TalkEntry } from "./ui/talksheet";
+import { goSheet, type Destination } from "./ui/gosheet";
+import { moreSheet } from "./ui/moresheet";
+import * as Land from "./game/land";
+import { bodaFare } from "./content/catalog";
+import type { TalkMsg } from "./net/api";
 
 const BILLBOARD = "UG LIFE · YOUR STREET, YOUR STORY";
 
@@ -51,12 +63,26 @@ export class Game implements S.GameApi {
   readonly api = new Api();
   private unsynced = false;
   private syncing = false;
-  private net = { sync: 0, street: 0, track: 0, uploads: 0 };
-  private visitors: Visitor[] = [];
+  private net = { sync: 0, street: 0, plots: 0, track: 0, uploads: 0 };
+  private visitors: LiveVisitor[] = [];
   private billboard: { img: CanvasImageSource | null; key: string } = { img: null, key: "" };
-  private online = false;
+  private isOnline = false;
   private plots: SharedPlot[] = [];
   private ridingOn = false;
+  private talk: TalkEntry[] = [];
+  private talkListeners = new Set<() => void>();
+  private talkSeen = new Set<string>();
+  private talkSince = 0;
+  private lastTalkAt = 0;
+  private othersActive = false;
+  private polling = false;
+  private unread = false;
+  private lastBalance = 0;
+  private nextAmb = 0;
+  private nextShout = performance.now() + 20_000;
+  private lastFrame = 0;
+  private lite = false;
+  private slowFrames = { n: 0, slow: 0 };
 
   constructor(private canvas: HTMLCanvasElement) {
     const now = Date.now();
@@ -66,10 +92,22 @@ export class Game implements S.GameApi {
     this.sim.player.look = this.state.look;
     const p = toScreen(this.sim.player.x, this.sim.player.y);
     this.renderer.cam = { x: p.sx, y: p.sy - 40, zoom: this.renderer.defaultZoom() };
+    if (this.state.settings.lite === undefined) this.state.settings.lite = Game.slowPhone();
+    this.lastBalance = balanceOf(this.state.ledger);
+    this.sim.onChatter = (w, text) => {
+      this.addTalk({ key: `npc:${w.id}:${performance.now()}`, whoId: w.id, who: w.resident?.name ?? "Neighbour", kind: "resident", text, at: Date.now(), mine: false });
+      if (Math.hypot(w.x - this.sim.player.x, w.y - this.sim.player.y) < 6 && Math.random() < 0.6) sound.speak(text, w.id, 0.8);
+    };
     this.buildHud();
     this.bindInput();
+    this.applySettings();
+    // browsers only allow sound after the first tap
+    const unlock = () => sound.unlock();
+    window.addEventListener("pointerdown", unlock, { passive: true });
+    window.addEventListener("keydown", unlock);
     window.addEventListener("resize", () => this.renderer.resize());
     document.addEventListener("visibilitychange", () => {
+      sound.suspend(document.hidden);
       if (document.hidden) {
         this.persist(true);
         void this.syncNow();
@@ -97,6 +135,9 @@ export class Game implements S.GameApi {
   }
 
   changed() {
+    const bal = balanceOf(this.state.ledger);
+    if (bal > this.lastBalance) sound.sfx("coin");
+    this.lastBalance = bal;
     this.dirty = true;
     this.unsynced = true;
     this.sim.player.look = this.state.look;
@@ -112,6 +153,7 @@ export class Game implements S.GameApi {
   }
 
   result(r: A.Result) {
+    if (!r.ok) sound.sfx("bad");
     this.toast(r.message, r.ok ? "ok" : "bad");
     return r.ok;
   }
@@ -178,7 +220,7 @@ export class Game implements S.GameApi {
       if (ok) this.changed();
       return ok;
     }
-    if (!this.online) {
+    if (!this.isOnline) {
       this.toast("Leasing needs a connection, so two players can't take the same plot.", "bad");
       return false;
     }
@@ -194,7 +236,7 @@ export class Game implements S.GameApi {
       await this.refreshPlots();
       return false;
     }
-    const ok = this.result(r.renewed || renew ? A.renewKiosk(s, Date.now()) : A.leaseKiosk(s, plotId, Date.now()));
+    const ok = this.result(r.renewed || renew ? A.renewKiosk(s, Date.now(), r.day) : A.leaseKiosk(s, plotId, Date.now(), r.day));
     if (ok) {
       track("kiosk_leased");
       this.changed();
@@ -206,23 +248,274 @@ export class Game implements S.GameApi {
   }
 
   takeBoda(placeId: string) {
+    const place = placeById(placeId);
+    if (place) this.rideTo(place, place.name);
+  }
+
+  /** Pays a boda fare and rides to any tile. Returns false if it couldn't. */
+  private rideTo(tile: { x: number; y: number }, name: string, onArrive?: () => void): boolean {
     const s = this.state;
     if (s.ride) {
       this.toast("You're carrying a passenger. Drop them off first.", "bad");
-      return;
+      return false;
     }
-    const place = placeById(placeId);
-    if (!place) return;
-    if (!this.result(St.payFare(s, placeId, { x: Math.floor(s.pos.x), y: Math.floor(s.pos.y) }, Date.now()))) return;
+    if (!this.result(St.payFareTo(s, { x: tile.x, y: tile.y, name }, { x: Math.floor(s.pos.x), y: Math.floor(s.pos.y) }, Date.now()))) return false;
     track("boda_taken");
     this.closeSheet();
     this.ridingOn = false;
+    sound.sfx("kick");
+    this.sim.say(this.sim.player, "Boda! Tugende!", 2200);
     this.sim.setPlayerBoda("passenger", { boda: BODA.speed, walk: BODA.walkSpeed }, { ...RIDER, shirt: "#e07a1f" });
-    this.walkTo(place, () => {
+    this.walkTo(tile, () => {
       this.sim.setPlayerBoda(null, { boda: BODA.speed, walk: BODA.walkSpeed });
-      this.toast(`You're at ${place.name}.`, "info");
+      sound.sfx("horn");
+      this.toast(`You're at ${name}.`, "info");
+      onArrive?.();
     });
     this.changed();
+    return true;
+  }
+
+  async buyLand(areaId: string): Promise<boolean> {
+    if (!this.isOnline) {
+      this.toast("Buying land needs a connection.", "bad");
+      return false;
+    }
+    this.unsynced = true;
+    await this.syncNow(); // the server checks your saved balance
+    const r = await this.api.claimLand(areaId);
+    if (!r.ok) {
+      this.toast(r.message, "bad");
+      return false;
+    }
+    const ok = this.result(Land.buyLand(this.state, areaId, r.slot, r.price, Date.now()));
+    if (ok) {
+      sound.sfx("ok");
+      this.changed();
+      this.unsynced = true;
+      await this.syncNow();
+    }
+    return ok;
+  }
+
+  goTo(d: Destination, boda: boolean) {
+    const open = () => this.openDestination(d);
+    if (boda) this.rideTo(d.tile, d.name, open);
+    else {
+      this.closeSheet();
+      this.walkTo(d.tile, open);
+    }
+  }
+
+  private openDestination(d: Destination) {
+    switch (d.open) {
+      case "vendor": return this.openSheet(vendorSheet(this, d.id));
+      case "building": {
+        const b = BUILDINGS.find((x) => x.id === d.id);
+        if (b && !(this.state.job && A.jobTarget(this.state.job)?.id === b.id)) this.openSheet(S.buildingSheet(this, b));
+        return;
+      }
+      case "kiosk": return this.openSheet(S.kioskSheet(this, d.id));
+      case "board": return this.openSheet(albumSheet(this));
+      case "pothole": return this.openSheet(S.civicSheet(this));
+      case "boda": return this.openSheet(bodaSheet(this, St.hasBoda(this.state, Date.now()) ? "work" : "ride"));
+      case "gate": return this.showLandmark("makerere-gate");
+    }
+  }
+
+  // ---------- street talk ----------
+
+  online() {
+    return this.isOnline;
+  }
+
+  sfx(name: Parameters<typeof sound.sfx>[0]) {
+    sound.sfx(name);
+  }
+
+  talkLog() {
+    return this.talk;
+  }
+
+  onTalk(fn: () => void) {
+    this.talkListeners.add(fn);
+    this.unread = false;
+    this.updateTalkDot();
+    return () => this.talkListeners.delete(fn);
+  }
+
+  private addTalk(e: TalkEntry) {
+    this.talk.push(e);
+    if (this.talk.length > 80) this.talk.splice(0, this.talk.length - 80);
+    if (this.talkListeners.size) this.talkListeners.forEach((f) => f());
+    else if (!e.mine && e.kind !== "resident") {
+      this.unread = true;
+      this.updateTalkDot();
+    }
+  }
+
+  private updateTalkDot() {
+    const btn = this.hud?.talkBtn;
+    if (!btn) return;
+    const dot = btn.querySelector(".dot");
+    if (this.unread && !dot) btn.append(h("span", { class: "dot" }));
+    if (!this.unread && dot) dot.remove();
+  }
+
+  say(kind: "phrase" | "text" | "emote", body: string, to?: string) {
+    const s = this.state;
+    const p = this.sim.player;
+    const now = Date.now();
+    let text = body;
+    if (kind === "emote") {
+      const e = emoteById(body);
+      if (!e) return;
+      this.sim.emote(p, e.id, e.icon, e.id === "dance" ? 6000 : 3200);
+      if (e.id === "dance" && A.complete(s, "dance")) this.toast("Goal done: dance on the street. Claim it in Goals.", "ok");
+      if (e.id === "dance") this.sim.replyTo("haha", p);
+      track("emote_sent");
+    } else {
+      if (kind === "phrase") {
+        const ph = phraseById(body);
+        if (!ph) return;
+        text = ph.text;
+        if (body === "otya" && A.complete(s, "hello")) this.toast("Goal done: say hi on the street. Claim it in Goals.", "ok");
+      } else {
+        const r = checkFreeText(body, 80);
+        if (!r.ok || !r.value) {
+          this.toast(r.ok ? "Say something first." : r.reason, "bad");
+          return;
+        }
+        text = body = r.value;
+      }
+      this.sim.say(p, text, 5000);
+      sound.sfx("send");
+      sound.speak(text, "you");
+      this.addTalk({ key: `me:${now}`, whoId: "player", who: s.tag.name || "You", kind, text, at: now, mine: true });
+      if (kind === "phrase") this.sim.replyTo(body, p, (w, t) => this.residentSaid(w.id, w.resident?.name ?? "Neighbour", t));
+      track("talk_sent");
+    }
+    this.lastTalkAt = performance.now();
+    this.changed();
+    if (this.isOnline && s.tag.name) {
+      void this.api.talk(kind, body, { x: p.x, y: p.y }, to).then((r) => {
+        // a quick emote right after a message can hit the rate limit; that's fine to drop
+        if ("error" in r) { if (kind !== "emote") this.toast(r.error, "bad"); }
+        else this.talkSeen.add(r.id);
+      });
+    }
+  }
+
+  private residentSaid(id: string, name: string, text: string) {
+    this.addTalk({ key: `npc:${id}:${performance.now()}`, whoId: id, who: name, kind: "resident", text, at: Date.now(), mine: false });
+    sound.speak(text, id);
+  }
+
+  greetResident(id: string) {
+    const r = this.sim.resident(id);
+    if (!r?.resident) return;
+    const p = this.sim.player;
+    this.sim.say(p, `Oli otya, ${r.resident.name}!`, 3500);
+    this.sim.emote(p, "wave", "👋", 2200);
+    sound.speak(`Oli otya, ${r.resident.name}!`, "you");
+    this.addTalk({ key: `me:${Date.now()}`, whoId: "player", who: this.state.tag.name || "You", kind: "phrase", text: `Oli otya, ${r.resident.name}!`, at: Date.now(), mine: true });
+    if (A.complete(this.state, "hello")) this.toast("Goal done: say hi on the street. Claim it in Goals.", "ok");
+    this.sim.greetResident(id, (w, t) => this.residentSaid(w.id, r.resident!.name, t));
+    track("resident_greeted");
+    this.changed();
+  }
+
+  async sendVoice(blob: Blob, ms: number) {
+    if (!this.isOnline) {
+      this.toast("Voice hellos need a connection.", "bad");
+      return;
+    }
+    const p = this.sim.player;
+    const r = await this.api.voice(blob, ms, { x: p.x, y: p.y });
+    if ("error" in r) {
+      this.toast(r.error, "bad");
+      return;
+    }
+    this.talkSeen.add(r.id);
+    this.sim.say(p, "Voice hello", 8000, { voiceId: r.body });
+    sound.sfx("send");
+    this.addTalk({ key: `me:${Date.now()}`, talkId: r.id, whoId: "player", who: this.state.tag.name || "You", kind: "voice", text: "Voice hello", voiceId: r.body, at: Date.now(), mine: true });
+    if (A.complete(this.state, "hello")) this.toast("Goal done: say hi on the street. Claim it in Goals.", "ok");
+    this.changed();
+    track("voice_sent");
+  }
+
+  playVoice(voiceId: string) {
+    void sound.playUrl(this.api.voiceUrl(voiceId)).then((ok) => { if (!ok) this.toast("Couldn't play that voice hello. It may have expired.", "info"); });
+  }
+
+  reportTalk(e: TalkEntry) {
+    if (!e.talkId) return;
+    const id = e.talkId;
+    this.talk = this.talk.filter((x) => x.talkId !== id);
+    for (const w of this.sim.visitors) if (w.say?.talkId === id) w.say = undefined;
+    this.talkListeners.forEach((f) => f());
+    void this.api.reportTalk(id).then((ok) => this.toast(ok ? `Reported. Thanks. ${e.who}'s message is hidden for you, and our team will look at it.` : "Couldn't send the report. Try again with signal.", ok ? "ok" : "bad"));
+  }
+
+  openProfile(id: string) {
+    if (id === "player") return this.openSheet(S.tagSheet(this, false));
+    const v = this.visitors.find((x) => x.id === id);
+    if (v) return this.openSheet(S.visitorSheet(this, v));
+    if (this.sim.resident(id)) this.openSheet(S.residentSheet(this, id));
+  }
+
+  /** A message from a real player arrived. Fresh ones show as bubbles and can be heard. */
+  private receive(m: TalkMsg, fresh: boolean) {
+    const me = this.api.playerId;
+    const w = this.sim.walker(m.playerId);
+    const near = w ? Math.hypot(w.x - this.sim.player.x, w.y - this.sim.player.y) < 9 : false;
+    let text = m.body;
+    if (m.kind === "phrase") text = phraseById(m.body)?.text ?? "";
+    if (m.kind === "emote") {
+      const e = emoteById(m.body);
+      if (fresh && w && e) this.sim.emote(w, e.id, e.icon, e.id === "dance" ? 6000 : 3200);
+      return;
+    }
+    if (m.kind === "voice") text = "Voice hello";
+    if (!text) return;
+    const toMe = !!m.to && m.to === me;
+    this.addTalk({ key: m.id, talkId: m.id, whoId: m.playerId, who: m.name, kind: m.kind, text, voiceId: m.kind === "voice" ? m.body : undefined, at: m.at, mine: false, toMe });
+    if (!fresh) return;
+    if (w) this.sim.say(w, text, m.kind === "voice" ? 9000 : 5500, { talkId: m.id, voiceId: m.kind === "voice" ? m.body : undefined });
+    sound.sfx("pop");
+    if (toMe) this.toast(`${m.name}: ${text}`, "info");
+    if (m.kind === "voice" && this.state.settings.voiceAuto && near) this.playVoice(m.body);
+    if (m.kind === "phrase" && near) sound.speak(text, m.playerId, 0.9);
+  }
+
+  applySettings() {
+    const st = this.state.settings;
+    sound.setEnabled(st.sound !== false);
+    sound.musicOn = st.music !== false;
+    sound.voicesOn = st.voices !== false;
+    this.lite = !!st.lite;
+    sound.lite = this.lite;
+    this.renderer.maxDpr = this.lite ? 1 : 2;
+    this.renderer.resize();
+    this.renderer.invalidate();
+    // on slow phones fewer passers-by walk about
+    let extra = 0;
+    for (const r of this.sim.residents) {
+      if (!r.id.startsWith("pb-") || r.waving || this.state.ride?.passengerId === r.id) continue;
+      r.hidden = this.lite && extra++ >= 4;
+    }
+    const btn = this.hud?.soundBtn;
+    if (btn) {
+      btn.innerHTML = st.sound === false ? ICONS.mute : ICONS.sound;
+      btn.setAttribute("aria-label", st.sound === false ? "Turn sound on" : "Turn sound off");
+    }
+  }
+
+  /** Low memory, few cores or data saver: start in lite mode. */
+  private static slowPhone(): boolean {
+    const n = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
+    return (n.deviceMemory !== undefined && n.deviceMemory <= 2) || (n.hardwareConcurrency !== undefined && n.hardwareConcurrency <= 2) || n.connection?.saveData === true;
   }
 
   setRiding(on: boolean) {
@@ -274,13 +567,13 @@ export class Game implements S.GameApi {
   }
 
   private async refreshPlots() {
-    if (!this.online) return;
+    if (!this.isOnline) return;
     const list = await this.api.plots();
     if (list) this.plots = list;
   }
 
   private async claimServerRewards() {
-    if (!this.online) return;
+    if (!this.isOnline) return;
     const r = await this.api.rewards();
     if (!r) return;
     const now = Date.now();
@@ -389,6 +682,8 @@ export class Game implements S.GameApi {
     notes.forEach((n, i) => setTimeout(() => this.toast(n, "ok"), 400 + i * 900));
     const ev = eventForTime(Date.now());
     setTimeout(() => this.toast(`Today: ${ev.title}`, "info"), 400 + notes.length * 900);
+    setTimeout(() => this.toast(`🔥 Hot area today: ${hotArea(kampalaDateKey(Date.now())).name}. Land there pays double rent.`, "info"), 1400 + notes.length * 900);
+    if (this.state.land.length && !Land.rentCollected(this.state, Date.now())) setTimeout(() => this.actionToast("Your tenants paid rent.", "Collect", () => { this.result(Land.collectRent(this.state, Date.now())); this.changed(); }), 2600 + notes.length * 900);
     this.nextCustomerAt = performance.now() + 12000;
     // pick up a boda ride where it was left
     const ride = this.state.ride;
@@ -418,7 +713,7 @@ export class Game implements S.GameApi {
       return;
     }
     if (!(await this.api.ensureSession())) return;
-    this.online = true;
+    this.isOnline = true;
     await this.syncNow();
     void this.refreshVisitors();
     void this.refreshPlots();
@@ -427,7 +722,7 @@ export class Game implements S.GameApi {
   }
 
   private async syncNow() {
-    if (!this.online || this.syncing || !this.state.onboarded) return;
+    if (!this.isOnline || this.syncing || !this.state.onboarded) return;
     this.syncing = true;
     this.unsynced = false;
     try {
@@ -443,15 +738,38 @@ export class Game implements S.GameApi {
     }
   }
 
+  /** One call brings who's on the street and what they said, and tells the server where you are. */
   private async refreshVisitors() {
-    if (!this.online) return;
-    const list = await this.api.street();
-    this.visitors = list.filter((v) => v.id !== this.api.playerId);
-    this.sim.setVisitors(this.visitors, this.state.blocked);
+    if (!this.isOnline || this.polling) return;
+    this.polling = true;
+    try {
+      const s = this.state;
+      const r = await this.api.live(s.onboarded ? { x: s.pos.x, y: s.pos.y } : null, this.talkSince);
+      if (!r) return;
+      const me = this.api.playerId;
+      this.visitors = r.players.filter((v) => v.id !== me);
+      this.sim.setVisitors(this.visitors, s.blocked);
+      this.othersActive = this.visitors.some((v) => r.now - v.seen < 120_000);
+      for (const m of r.talk) {
+        this.talkSince = Math.max(this.talkSince, m.at);
+        if (this.talkSeen.has(m.id)) continue;
+        this.talkSeen.add(m.id);
+        if (m.playerId === me || s.blocked.includes(m.playerId)) continue;
+        this.receive(m, r.now - m.at < 20_000);
+      }
+    } finally {
+      this.polling = false;
+    }
+  }
+
+  /** Poll often while people are around or talking, rarely when the street is empty. */
+  private liveInterval(t: number) {
+    const talking = this.sheet?.spec.kind === "talk" || t - this.lastTalkAt < 90_000;
+    return talking ? 6_000 : this.othersActive ? 10_000 : 30_000;
   }
 
   private async uploadQueued() {
-    if (!this.online) return;
+    if (!this.isOnline) return;
     // support notes written while offline
     for (const t of this.state.tickets.filter((x) => x.status === "saved")) {
       if (!(await this.api.ticket(t.category, t.text))) break;
@@ -491,7 +809,7 @@ export class Game implements S.GameApi {
   /** The rooftop billboard shows a featured community snap, or your own latest one. */
   private async refreshBillboard() {
     let src: string | null = null, key = "";
-    const community = this.online ? await this.api.photos() : null;
+    const community = this.isOnline ? await this.api.photos() : null;
     const top = community?.photos[0];
     if (top) {
       src = this.api.photoUrl(top.id);
@@ -521,14 +839,17 @@ export class Game implements S.GameApi {
   }
 
   private netTick(t: number) {
-    if (!this.online) return;
+    if (!this.isOnline) return;
     if (this.unsynced && t > this.net.sync) {
       this.net.sync = t + 45_000;
       void this.syncNow();
     }
     if (t > this.net.street) {
-      this.net.street = t + 30_000;
+      this.net.street = t + this.liveInterval(t);
       void this.refreshVisitors();
+    }
+    if (t > this.net.plots) {
+      this.net.plots = t + 30_000;
       void this.refreshPlots();
     }
     if (t > this.net.track) {
@@ -582,6 +903,10 @@ export class Game implements S.GameApi {
     if (!this.running) return;
     requestAnimationFrame(this.frame);
     if (document.hidden) return;
+    // lite mode: about 30 frames a second is plenty and saves battery
+    if (this.lite && t - this.lastFrame < 30) return;
+    this.watchSpeed(t - this.lastFrame);
+    this.lastFrame = t;
     const dt = Math.min(0.05, (t - this.lastTick) / 1000);
     this.lastTick = t;
     const now = Date.now();
@@ -596,6 +921,10 @@ export class Game implements S.GameApi {
     }
     this.kioskCustomers(t);
     this.netTick(t);
+    if (t > this.nextAmb) {
+      this.nextAmb = t + 250;
+      this.ambience(now, t);
+    }
 
     if (this.follow) {
       const p = toScreen(this.sim.player.x, this.sim.player.y);
@@ -622,6 +951,54 @@ export class Game implements S.GameApi {
     }
     this.persist(false);
   };
+
+  /** If the phone keeps dropping frames, switch to lite mode once (unless the player chose). */
+  private watchSpeed(frameMs: number) {
+    const w = this.slowFrames;
+    if (this.lite || w.n > 400 || this.state.settings.lite === false && w.n === -1) return;
+    w.n++;
+    if (frameMs > 45) w.slow++;
+    if (w.n === 400 && w.slow > 160 && !this.state.settings.lite) {
+      this.state.settings.lite = true;
+      this.applySettings();
+      this.toast("Switched to lite mode so the street runs smoother. Change it in More → Sound and settings.", "info");
+      this.changed();
+    }
+  }
+
+  /** Feeds the sound engine what's near the camera, and lets the street call out now and then. */
+  private ambience(now: number, t: number) {
+    const c = toWorld(this.renderer.cam.x, this.renderer.cam.y);
+    const scene = this.scene(now);
+    let bodas = 0, matatus = 0;
+    for (const v of this.sim.vehicles) {
+      if (Math.abs(v.x - c.x) > 9 || v.speed < 0.3) continue;
+      if (v.kind === "boda") bodas++;
+      else if (v.kind === "matatu") matatus++;
+    }
+    const ev = eventForTime(now);
+    const hour = kampalaHour(now);
+    const studio = Math.max(0, 1 - Math.hypot(c.x - 17.5, c.y - 4) / 14);
+    const p = this.sim.player;
+    sound.update({
+      night: scene.night,
+      rain: scene.rain,
+      bodas: Math.min(1, bodas / 4),
+      matatus: Math.min(1, matatus / 2),
+      music: studio * (ev.id === "music" || hour >= 18 || hour < 1 ? 1 : 0.4),
+      crowd: Math.min(1, 0.4 + this.visitors.length * 0.1),
+      riding: p.vehicle ? (p.moving ? 1 : 0.3) : 0,
+    });
+    if (t > this.nextShout && this.state.onboarded) {
+      this.nextShout = t + 30_000 + Math.random() * 40_000;
+      const shout = STREET_SHOUTS.filter((x) => tileDistance(x.at, { x: Math.floor(p.x), y: Math.floor(p.y) }) < 9);
+      const pick = shout[Math.floor(Math.random() * shout.length)];
+      if (pick && !scene.night) {
+        this.sim.float(pick.text.split("!")[0] + "!", pick.at.x + 0.5, pick.at.y + 0.5, "#b4442a");
+        sound.speak(pick.text, pick.who, 0.75);
+      }
+    }
+  }
 
   private kioskCustomers(t: number) {
     const k = this.state.kiosk;
@@ -709,20 +1086,37 @@ export class Game implements S.GameApi {
     const boost = h("div", { class: "boost", hidden: true });
     const wallet = h("div", { class: "wallet" }, bal, h("div", { class: "lv" }, lvl, h("span", { class: "xpbar" }, xp)), boost, h("div", { class: "sim" }, "Game shillings · not real money"));
     const goalsBtn = btn(ICONS.goals, "Street goals", () => this.openSheet(S.goalsSheet(this)));
+    const soundBtn = btn(ICONS.sound, "Turn sound off", () => {
+      this.state.settings.sound = this.state.settings.sound === false;
+      this.applySettings();
+      this.changed();
+      this.toast(this.state.settings.sound ? "Sound on" : "Sound off", "info");
+    });
+    soundBtn.classList.add("small-round");
     const side = h("div", { class: "hud-side" },
       btn(ICONS.tag, "Your Ug Tag", () => this.openSheet(S.tagSheet(this, false))),
       goalsBtn,
       btn(ICONS.camera, "Street Snaps", () => this.openSheet(albumSheet(this))),
-      btn(ICONS.share, "Share your card", () => this.openSheet(S.shareSheet(this))),
-      btn(ICONS.help, "Help", () => this.openSheet(S.helpSheet(this))),
+      btn(ICONS.share, "Invite friends", () => this.openSheet(S.shareSheet(this))),
       btn(ICONS.locate, "Find me", () => { this.follow = true; }));
-    const boda = h("button", { class: "big-btn boda", type: "button", html: ICONS.boda + "<span>Boda</span>" });
-    boda.addEventListener("click", () => this.openSheet(bodaSheet(this, St.hasBoda(this.state, Date.now()) ? "work" : "ride")));
-    const jobs = h("button", { class: "big-btn", type: "button", html: ICONS.jobs + "<span>Jobs</span>" });
-    jobs.addEventListener("click", () => this.openSheet(S.jobsSheet(this)));
-    const bottomInfo = h("div", { style: "flex:1;min-width:0;display:flex" });
-    hud.append(h("div", { class: "hud-top" }, wallet, eventChip), side, h("div", { class: "hud-bottom" }, bottomInfo, h("div", { class: "big-btns" }, boda, jobs)));
-    this.hud = { bal, lvl, xp, eventChip, bottomInfo, goalsBtn, boost };
+    const nav = (icon: string, label: string, fn: () => void, cls = "") => {
+      const b = h("button", { class: `nav-btn ${cls}`, type: "button", html: icon + `<span>${label}</span>` });
+      b.addEventListener("click", () => {
+        sound.sfx("tap");
+        fn();
+      });
+      return b;
+    };
+    const talkBtn = nav(ICONS.talk, "Talk", () => this.openSheet(talkSheet(this)));
+    const bar = h("nav", { class: "nav-bar", "aria-label": "Main" },
+      nav(ICONS.go, "Go", () => this.openSheet(goSheet(this))),
+      nav(ICONS.boda, "Boda", () => this.openSheet(bodaSheet(this, St.hasBoda(this.state, Date.now()) ? "work" : "ride")), "boda"),
+      nav(ICONS.jobs, "Jobs", () => this.openSheet(S.jobsSheet(this))),
+      talkBtn,
+      nav(ICONS.more, "More", () => this.openSheet(moreSheet(this))));
+    const bottomInfo = h("div", { class: "bottom-info" });
+    hud.append(h("div", { class: "hud-top" }, wallet, h("div", { class: "top-right" }, eventChip, soundBtn)), side, h("div", { class: "hud-bottom" }, bottomInfo, bar));
+    this.hud = { bal, lvl, xp, eventChip, bottomInfo, goalsBtn, boost, soundBtn, talkBtn };
   }
 
   private updateHud() {
@@ -791,6 +1185,7 @@ export class Game implements S.GameApi {
     if (!g("boda")) return "Tap Boda to ride anywhere on the street, or rent one and earn carrying passengers.";
     if (!g("snap")) return "Snap a real Kampala street with the camera button. It becomes art on the street.";
     if (!g("landmarks")) return "Tap the buildings on the hills behind the street to discover Kampala landmarks.";
+    if (!g("land") && balanceOf(s.ledger) >= 3_000 && g("delivery")) return "Own a piece of Kampala: plots from UGX 3,000. Tap More, then Kampala land.";
     if (!g("build")) return "Build in your kiosk yard: chairs, string lights, a flag. Everyone sees it.";
     if (!g("share")) return "Share your Ug Tag card to WhatsApp Status.";
     return "";
@@ -864,10 +1259,43 @@ export class Game implements S.GameApi {
     });
   }
 
+  /** Long walk? Offer a boda with one tap. */
+  private offerBoda(tile: { x: number; y: number }, name: string, onArrive?: () => void) {
+    const s = this.state;
+    const p = this.sim.player;
+    if (p.vehicle || s.ride) return;
+    const d = tileDistance({ x: Math.floor(p.x), y: Math.floor(p.y) }, tile);
+    const fare = bodaFare(d);
+    if (d < 14 || balanceOf(s.ledger) < fare) return;
+    this.actionToast(`Long walk. Boda ${name === "there" ? "there" : `to ${name}`}?`, `Boda · UGX ${fare.toLocaleString()}`, () => {
+      track("boda_offer_taken");
+      this.rideTo(tile, name === "there" ? "your spot" : name, onArrive);
+    });
+  }
+
+  /** A toast with one button, for quick offers. */
+  private actionToast(msg: string, label: string, fn: () => void) {
+    const root = document.getElementById("toast-root")!;
+    root.querySelectorAll(".toast.action").forEach((t) => t.remove());
+    const b = h("button", { class: "btn small", type: "button" }, label);
+    const t = h("div", { class: "toast action", role: "status" }, h("span", {}, msg), b);
+    b.addEventListener("click", () => {
+      t.remove();
+      fn();
+    });
+    root.append(t);
+    setTimeout(() => t.remove(), 5000);
+  }
+
   private handleTap(x: number, y: number) {
     if (!this.state.onboarded || this.landing) return;
     const pick = this.renderer.pick(x, y, this.sim);
     switch (pick.type) {
+      case "bubble":
+        if (pick.voiceId) this.playVoice(pick.voiceId);
+        else if (pick.walkerId === "player") this.openSheet(talkSheet(this));
+        else this.openProfile(pick.walkerId);
+        return;
       case "player":
         this.openSheet(S.tagSheet(this, false));
         return;
@@ -915,11 +1343,13 @@ export class Game implements S.GameApi {
         this.walkTo(b.door, () => {
           if (!isStop) this.openSheet(S.buildingSheet(this, b));
         });
+        this.offerBoda(b.door, b.name, () => { if (!isStop) this.openSheet(S.buildingSheet(this, b)); });
         return;
       }
       case "ground":
         this.renderer.tap(x, y);
         this.walkTo({ x: pick.x, y: pick.y });
+        this.offerBoda({ x: pick.x, y: pick.y }, "there");
         return;
     }
   }

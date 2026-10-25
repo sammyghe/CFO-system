@@ -4,7 +4,7 @@ import { h } from "./dom";
 import { balanceOf } from "../game/ledger";
 import { formatUGX } from "../game/economy";
 import * as St from "../game/street";
-import { BODA, VENDORS, YARD_ITEMS, YARD_SLOTS } from "../content/catalog";
+import { BODA, SNACKS, VENDORS, YARD_ITEMS, YARD_SLOTS } from "../content/catalog";
 import { LANDMARKS, LANDMARKS_FOR_GOAL, LANDMARK_REWARD } from "../content/landmarks";
 import { PLACES, placeById } from "../world/map";
 import { tileDistance } from "../world/path";
@@ -117,6 +117,7 @@ export function vendorSheet(G: GameApi, id: string): SheetSpec {
       buy.addEventListener("click", () => {
         if (G.result(St.buyFood(s, v.id, G.now()))) {
           G.track(v.id === "rolex" ? "rolex_bought" : "food_bought");
+          G.sfx(v.id === "rolex" ? "sizzle" : "coin");
           G.changed();
         }
       });
@@ -128,9 +129,29 @@ export function vendorSheet(G: GameApi, id: string): SheetSpec {
           h("div", { class: "stat" }, h("b", {}, `+${v.boostPct}%`), h("span", {}, "pay on jobs and rides")),
           h("div", { class: "stat" }, h("b", {}, `${v.boostMinutes} min`), h("span", {}, "lasts"))),
         boost ? h("div", { class: "notice ok" }, `${boost.label}: +${boost.pct}% pay for ${Math.ceil((boost.until - now) / 60_000)} more min.`) : null,
-        buy);
+        buy,
+        snackMenu(G, v.id));
     },
   };
+}
+
+/** Cheap things on the menu at a cart or shop. */
+export function snackMenu(G: GameApi, where: string): HTMLElement | null {
+  const items = SNACKS.filter((x) => x.soldAt.includes(where));
+  if (!items.length) return null;
+  const grid = h("div", { class: "snacks" });
+  for (const sn of items) {
+    const b = h("button", { class: "snack", type: "button" }, h("span", { class: "snack-ico" }, sn.icon), h("b", {}, sn.name), h("span", { class: "muted small" }, `${formatUGX(sn.price)} · +${sn.boostPct}%`));
+    b.addEventListener("click", () => {
+      if (G.result(St.buySnack(G.state, sn.id, G.now()))) {
+        G.sfx("coin");
+        G.track("food_bought");
+        G.changed();
+      }
+    });
+    grid.append(b);
+  }
+  return h("div", { class: "field" }, h("label", {}, "Cheap bites"), grid);
 }
 
 // ---------- yard ----------

@@ -123,6 +123,7 @@ const VIEWS: Record<Tab, () => Promise<HTMLElement>> = {
       toggle("maintenance_mode", "Maintenance mode", "Pauses saving, sign-ups and uploads. Players keep playing offline."),
       toggle("uploads_enabled", "Snap uploads", "Turn off if moderation falls behind."),
       toggle("signups_enabled", "New players", "Turn off to stop sign-ups during an attack or overload."),
+      toggle("talk_enabled", "Street talk", "Turn off to pause messages, emotes and voice hellos (spam or abuse wave)."),
       h("div", { class: "field" }, h("label", { for: "ann" }, "Announcement"), ann, save));
   },
 
@@ -201,7 +202,27 @@ const VIEWS: Record<Tab, () => Promise<HTMLElement>> = {
         await api("POST", `reports/${r.id}`, {});
         void show("flags");
       });
-      return h("div", { class: "card" }, h("b", {}, r.target), h("p", {}, r.reason), done);
+      const row = h("div", { class: "row" });
+      // street talk reports: "talk:<message id>:<player id>"
+      const [kind, talkId, playerId] = r.target.split(":");
+      if (kind === "talk" && talkId) {
+        const hide = h("button", { class: "btn danger small", type: "button" }, "Hide message");
+        hide.addEventListener("click", async () => {
+          await api("POST", `talk/${talkId}`, { action: "hide" });
+          hide.textContent = "Hidden";
+        });
+        row.append(hide);
+        if (playerId) {
+          const freeze = h("button", { class: "btn danger small", type: "button" }, "Freeze player");
+          freeze.addEventListener("click", async () => {
+            await api("POST", `players/${playerId}`, { frozen: true });
+            freeze.textContent = "Frozen";
+          });
+          row.append(freeze);
+        }
+      }
+      row.append(done);
+      return h("div", { class: "card" }, h("b", {}, r.target), h("p", {}, r.reason), row);
     });
     return h("div", { class: "stack" },
       h("h2", {}, `Economy flags (${flags.length})`),
