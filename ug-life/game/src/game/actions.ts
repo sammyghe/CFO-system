@@ -3,6 +3,7 @@
 // changes state and returns ok, or changes nothing and returns a reason.
 
 import { balanceOf, post } from "./ledger";
+import { ENERGY_COST, sleep, spendEnergy, tiredMessage } from "./energy";
 import { eventForDate, eventForTime } from "./daily";
 import { kampalaDateKey, hashString, seededRandom, DAY_MS } from "./time";
 import {
@@ -41,6 +42,8 @@ export function visit(state: PlayerState, now: number): string[] {
   if (post(state.ledger, "welcome", WELCOME_GRANT, "Welcome to the street", now).ok) notes.push(`Welcome grant: UGX ${WELCOME_GRANT.toLocaleString()}`);
   if (state.lastVisitDate !== today) {
     const prev = state.lastVisitDate;
+    // a new day: you slept, so energy is full
+    sleep(state, now);
     state.stats.daysVisited += 1;
     if (prev && post(state.ledger, `daily:${today}`, DAILY_VISIT_BONUS, "Daily visit", now).ok) notes.push(`Daily visit bonus: UGX ${DAILY_VISIT_BONUS.toLocaleString()}`);
     const away = collectAway(state, prev, now);
@@ -122,8 +125,10 @@ export function acceptJob(state: PlayerState, offerId: string, now: number): Res
   if (state.job) return fail("Finish or drop your current delivery first.");
   if (state.ride) return fail("Drop off your boda passenger first.");
   if (jobsLeftToday(state, now) <= 0) return fail(`That's ${JOBS_PER_DAY} deliveries today. Come back tomorrow.`);
+  if (state.shift) return fail("Finish your shift first.");
   const offer = jobOffers(state, now).find((o) => o.id === offerId);
   if (!offer) return fail("That delivery isn't available any more.");
+  if (!spendEnergy(state, ENERGY_COST.delivery, now)) return fail(tiredMessage(ENERGY_COST.delivery));
   state.job = { id: offer.id, fromId: offer.fromId, toId: offer.toId, item: offer.item, pay: offer.pay, stage: "pickup", acceptedAt: now };
   return ok(`Pick up ${offer.item} at ${placeById(offer.fromId)?.name}.`);
 }

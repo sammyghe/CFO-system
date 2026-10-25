@@ -147,7 +147,11 @@ held by the server; invite links with server-confirmed rewards; goal rewards; co
 Phase 1.7 (2026-10-25): street talk (phrases in Luganda and English, text, emotes, voice hellos,
 reports and kill switch), sounds of Kampala made in code, bottom bar and Go list for phones, lite
 mode, Kampala land with a daily hot area, cheap snacks, leaderboard.
-Money stays game money: no cash-in, cash-out or betting (see §8 and Sammy's open decision).
+Money stays game money: no cash-out or betting (see §8).
+Phase 1.8 (2026-10-26): energy and shop shifts, Work screen, billboards (players and brands),
+ideas, votes and rallies, news and live events, share links to places and events, mobile money
+top-ups built and switched off until the business has a Flutterwave account. How Sammy steers it
+and how it grows: `GROWTH.md`.
 Not done yet: real-time multiplayer, social sign-in verification, Luganda/Swahili UI.
 
 ## 11. Open decisions for Sammy

@@ -36,6 +36,10 @@ everything drawn in code so the whole game is about 40 KB gzipped.
   a far tap offers a boda; lite mode for slow phones (turns on by itself)
 - Kampala land: cheap plots in 12 real neighbourhoods, build up to apartments, daily rent, one hot
   area a day, server-held ownership and prices; cheap snacks from UGX 200; leaderboard
+- Energy (food gives it, work uses it), shop shifts at 10 shops, a Work screen listing every way
+  to earn and spend with steps; billboards (player rentals, brand ads from the Control Room);
+  ideas, votes and rallies; What's new and live events with rewards; share links to places and
+  events; mobile money top-ups (built, off until a Flutterwave key is set). See `../GROWTH.md`
 - Online: anonymous accounts with a recovery code, saves checked against the money rules on
   the server (`src/game/validate.ts`), real players visible on the street, support tickets with
   replies, reports, daily event counts, and the Control Room (`/admin.html`)

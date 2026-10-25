@@ -17,9 +17,15 @@ import { renderShareCard } from "./sharecard";
 import { DAY_MS } from "../game/time";
 import type { Api, SharedPlot, Visitor } from "../net/api";
 import { snackMenu, yardSheet } from "./streetsheets";
+import { billboardSheet } from "./billboardsheet";
 import * as St from "../game/street";
 import type { SnapRecord } from "../snaps/store";
 import type { Destination } from "./gosheet";
+import type { BillboardAd } from "../content/billboards";
+import type { LiveEvent, Proposal } from "../content/community";
+import { shiftFor, shiftsToday } from "../game/shifts";
+import { levelForXp as lvFor } from "../game/economy";
+import { SHIFTS_PER_DAY } from "../content/catalog";
 import type { TalkEntry } from "./talksheet";
 import { talkSheet } from "./talksheet";
 import { bodaFare } from "../content/catalog";
@@ -79,6 +85,21 @@ export interface GameApi {
   sfx(name: "tap" | "coin" | "pop" | "send" | "horn" | "hoot" | "kick" | "sizzle" | "ok" | "bad" | "whoosh"): void;
   /** Asks the server for a plot of land in an area, then pays for it. */
   buyLand(area: string): Promise<boolean>;
+  openSnaps(): void;
+  topUpEnabled(): boolean;
+  openTopUp(): void;
+  /** Starts a mobile money payment and sends the player to the checkout page. */
+  startTopUp(pack: string): Promise<void>;
+  /** Billboard ads currently up (players' and brands'). */
+  billboards(): BillboardAd[];
+  rentBillboard(slot: string, o: { text: string; sub: string; color: string; days: number }): Promise<boolean>;
+  markNewsRead(at: number): void;
+  attendEvent(e: LiveEvent): Promise<boolean>;
+  /** Share a link to the game (with ?at=, ?event=…) via the phone's share sheet. */
+  shareLink(title: string, params: Record<string, string>): void;
+  /** Walk to the community board and hold up a placard for an idea. */
+  rally(p: Proposal): void;
+  startShift(shiftId: string): void;
   /** Apply sound settings after they change. */
   applySettings(): void;
 }
@@ -349,6 +370,9 @@ export function buildingSheet(G: GameApi, b: Building): SheetSpec {
         walk.addEventListener("click", () => { G.walkTo(b.door); G.closeSheet(); });
         actions.append(boda, walk);
       }
+      const share = h("button", { class: "btn ghost", type: "button" }, "Share");
+      share.addEventListener("click", () => G.shareLink(`Meet me at ${b.name} on Ug Life`, { at: b.id }));
+      actions.append(share);
       const jobs = h("button", { class: "btn ghost", type: "button" }, "Jobs");
       jobs.addEventListener("click", () => G.openSheet(jobsSheet(G)));
       actions.append(jobs);
@@ -357,8 +381,29 @@ export function buildingSheet(G: GameApi, b: Building): SheetSpec {
         hi.addEventListener("click", () => { G.greetResident(owner.id); G.closeSheet(); });
         actions.append(hi);
       }
+      const sh = shiftFor(b.id);
+      let shiftBox: HTMLElement | null = null;
+      if (sh) {
+        const atDoor = dist <= 2;
+        const lvOk = lvFor(s.xp) >= sh.minLevel;
+        const left = SHIFTS_PER_DAY - shiftsToday(s, G.now());
+        const start = h("button", { class: "btn small", type: "button", disabled: !lvOk || left <= 0 || !!s.shift }, !lvOk ? `Needs level ${sh.minLevel}` : atDoor ? "Start shift" : "Walk to the door");
+        start.addEventListener("click", () => {
+          if (!atDoor) { G.walkTo(b.door, () => G.openSheet(buildingSheet(G, b))); G.closeSheet(); return; }
+          G.startShift(sh.id);
+        });
+        shiftBox = h("div", { class: "work-card" }, h("div", { class: "work-head" }, h("span", { class: "work-ico" }, "🛠️"), h("div", {}, h("b", {}, "Work a shift here"), h("span", { class: "muted small" }, `${sh.title} · UGX ${sh.pay.toLocaleString()} · ⚡${sh.energy} · ${sh.seconds}s`)), start),
+          h("span", { class: "muted small" }, s.shift ? "You're already on a shift." : `${left} shifts left today. Stay at the door until the timer ends.`));
+      }
+      let roof: HTMLElement | null = null;
+      if (b.id === "pharmacy") {
+        roof = h("button", { class: "btn ghost", type: "button" }, "🪧 Rent the rooftop billboard");
+        roof.addEventListener("click", () => G.openSheet(billboardSheet(G, "pharmacy")));
+      }
       return h("div", { class: "sheet-body" },
         actions,
+        shiftBox,
+        roof,
         b.id === "chapati" ? snackMenu(G, "chapati") : null,
         b.id === "pharmacy" ? h("div", { class: "notice" }, "The billboard on this roof shows the featured Street Snap. Snap your street and it could be next.") : null,
         relevant ? h("div", { class: "notice ok" }, job!.stage === "pickup" && job!.fromId === b.id ? "Your pickup is here. Walk to the door." : "Your drop-off is here. Walk to the door.") : null,

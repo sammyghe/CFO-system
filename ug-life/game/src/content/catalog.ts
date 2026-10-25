@@ -42,6 +42,8 @@ export interface Vendor {
   /** Extra pay on deliveries and boda rides while you're full. */
   boostPct: number;
   boostMinutes: number;
+  /** Energy it gives back. */
+  energy: number;
   /** Tile the cart stands on, and the tile you walk to. */
   at: { x: number; y: number };
   stand: { x: number; y: number };
@@ -52,21 +54,49 @@ export const VENDORS: Vendor[] = [
   {
     id: "rolex", seller: "Musa", name: "Musa's Rolex", product: "Rolex",
     blurb: "Chapati rolled with eggs, tomato, onion and cabbage, cooked while you wait. Fills you up for a long shift.",
-    price: 2_000, boostPct: 20, boostMinutes: 30, at: { x: 7, y: 12 }, stand: { x: 7, y: 11 }, cart: "rolex",
+    price: 2_000, boostPct: 20, boostMinutes: 30, energy: 45, at: { x: 7, y: 12 }, stand: { x: 7, y: 11 }, cart: "rolex",
   },
   {
     id: "maize", seller: "Auntie Sarah", name: "Roasted maize", product: "Roasted maize",
     blurb: "Maize roasted on charcoal right by the road. A quick snack between jobs.",
-    price: 1_000, boostPct: 10, boostMinutes: 15, at: { x: 15, y: 12 }, stand: { x: 16, y: 11 }, cart: "maize",
+    price: 1_000, boostPct: 10, boostMinutes: 15, energy: 20, at: { x: 15, y: 12 }, stand: { x: 16, y: 11 }, cart: "maize",
   },
   {
     id: "fruit", seller: "Kizza", name: "Fresh fruit", product: "Pineapple slices",
     blurb: "Cold pineapple and watermelon slices on a hot day.",
-    price: 800, boostPct: 5, boostMinutes: 20, at: { x: 13, y: 14 }, stand: { x: 13, y: 15 }, cart: "fruit",
+    price: 800, boostPct: 5, boostMinutes: 20, energy: 15, at: { x: 13, y: 14 }, stand: { x: 13, y: 15 }, cart: "fruit",
   },
 ];
 
 // ---------- your yard (things you build around your kiosk) ----------
+
+// ---------- shifts: paid work inside the shops ----------
+
+export interface Shift {
+  id: string;
+  /** Building id in world/map.ts; you work at its door. */
+  building: string;
+  title: string;
+  pay: number;
+  seconds: number;
+  energy: number;
+  minLevel: number;
+}
+
+export const SHIFTS: Shift[] = [
+  { id: "chapati", building: "chapati", title: "Roll chapatis for Mama Rose", pay: 1_500, seconds: 40, energy: 12, minLevel: 1 },
+  { id: "salon", building: "salon", title: "Sweep and wash hair at Salon Nakato", pay: 1_500, seconds: 40, energy: 12, minLevel: 1 },
+  { id: "juice", building: "juice", title: "Squeeze passion fruit at the juice bar", pay: 1_600, seconds: 45, energy: 12, minLevel: 1 },
+  { id: "hostel", building: "hostel", title: "Clean rooms at Campus View Hostel", pay: 1_800, seconds: 50, energy: 15, minLevel: 2 },
+  { id: "pharmacy", building: "pharmacy", title: "Stack shelves at the pharmacy", pay: 1_800, seconds: 50, energy: 14, minLevel: 2 },
+  { id: "bakery", building: "bakery", title: "Bake bread at Sunrise Bakery", pay: 2_000, seconds: 55, energy: 16, minLevel: 2 },
+  { id: "hardware", building: "hardware", title: "Carry cement bags at Kikoni Hardware", pay: 2_400, seconds: 60, energy: 22, minLevel: 3 },
+  { id: "sacco", building: "sacco", title: "Count the day's savings at the boda sacco", pay: 2_200, seconds: 55, energy: 14, minLevel: 3 },
+  { id: "studio", building: "studio", title: "Run the mixing desk at Studio 256", pay: 2_800, seconds: 60, energy: 16, minLevel: 4 },
+  { id: "guesthouse", building: "guesthouse", title: "Work reception at the guest house", pay: 2_600, seconds: 60, energy: 14, minLevel: 4 },
+];
+
+export const SHIFTS_PER_DAY = 6;
 
 // ---------- cheap snacks (sold at the carts and Mama Rose's) ----------
 
@@ -76,22 +106,23 @@ export interface Snack {
   price: number;
   boostPct: number;
   boostMinutes: number;
+  energy: number;
   icon: string;
   /** Vendor ids from VENDORS, or "chapati" for Mama Rose's shop. */
   soldAt: string[];
 }
 
 export const SNACKS: Snack[] = [
-  { id: "mandazi", name: "Mandazi", price: 200, boostPct: 2, boostMinutes: 10, icon: "🍩", soldAt: ["chapati", "rolex"] },
-  { id: "chai", name: "Chai (spiced tea)", price: 300, boostPct: 3, boostMinutes: 10, icon: "🍵", soldAt: ["chapati"] },
-  { id: "water", name: "Bottle of water", price: 300, boostPct: 2, boostMinutes: 10, icon: "💧", soldAt: ["fruit", "maize"] },
-  { id: "sugarcane", name: "Sugarcane", price: 300, boostPct: 3, boostMinutes: 10, icon: "🎋", soldAt: ["fruit"] },
-  { id: "chapati", name: "Chapati", price: 500, boostPct: 6, boostMinutes: 15, icon: "🫓", soldAt: ["chapati", "rolex"] },
-  { id: "samosa", name: "Samosa", price: 500, boostPct: 5, boostMinutes: 15, icon: "🥟", soldAt: ["chapati", "maize"] },
-  { id: "gonja", name: "Roasted gonja", price: 500, boostPct: 5, boostMinutes: 15, icon: "🍌", soldAt: ["maize"] },
-  { id: "mango", name: "Mango", price: 500, boostPct: 4, boostMinutes: 15, icon: "🥭", soldAt: ["fruit"] },
-  { id: "soda", name: "Cold soda", price: 1_000, boostPct: 5, boostMinutes: 20, icon: "🥤", soldAt: ["chapati", "fruit"] },
-  { id: "kikomando", name: "Kikomando (chapati and beans)", price: 1_500, boostPct: 12, boostMinutes: 25, icon: "🫘", soldAt: ["rolex", "chapati"] },
+  { id: "mandazi", name: "Mandazi", price: 200, boostPct: 2, boostMinutes: 10, energy: 8, icon: "🍩", soldAt: ["chapati", "rolex"] },
+  { id: "chai", name: "Chai (spiced tea)", price: 300, boostPct: 3, boostMinutes: 10, energy: 10, icon: "🍵", soldAt: ["chapati"] },
+  { id: "water", name: "Bottle of water", price: 300, boostPct: 2, boostMinutes: 10, energy: 5, icon: "💧", soldAt: ["fruit", "maize"] },
+  { id: "sugarcane", name: "Sugarcane", price: 300, boostPct: 3, boostMinutes: 10, energy: 8, icon: "🎋", soldAt: ["fruit"] },
+  { id: "chapati", name: "Chapati", price: 500, boostPct: 6, boostMinutes: 15, energy: 15, icon: "🫓", soldAt: ["chapati", "rolex"] },
+  { id: "samosa", name: "Samosa", price: 500, boostPct: 5, boostMinutes: 15, energy: 12, icon: "🥟", soldAt: ["chapati", "maize"] },
+  { id: "gonja", name: "Roasted gonja", price: 500, boostPct: 5, boostMinutes: 15, energy: 15, icon: "🍌", soldAt: ["maize"] },
+  { id: "mango", name: "Mango", price: 500, boostPct: 4, boostMinutes: 15, energy: 10, icon: "🥭", soldAt: ["fruit"] },
+  { id: "soda", name: "Cold soda", price: 1_000, boostPct: 5, boostMinutes: 20, energy: 12, icon: "🥤", soldAt: ["chapati", "fruit"] },
+  { id: "kikomando", name: "Kikomando (chapati and beans)", price: 1_500, boostPct: 12, boostMinutes: 25, energy: 35, icon: "🫘", soldAt: ["rolex", "chapati"] },
 ];
 
 export interface YardItem {

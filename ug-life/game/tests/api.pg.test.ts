@@ -214,3 +214,93 @@ describe("street talk and land on Postgres", () => {
     expect(board.data.landlords[0]).toMatchObject({ name: "Landlord", plots: 1 });
   });
 });
+
+describe("billboards, community, events and top-ups on Postgres", () => {
+  async function player(name: string, cash = 0) {
+    const s = await call("POST", "session", { body: {} });
+    const save = newPlayer(Date.now(), name);
+    save.tag.name = name;
+    visit(save, Date.now());
+    for (let i = 0; i < cash; i++) save.ledger.entries.push({ key: `job:${name}:${i}`, amount: 3000, reason: "", at: Date.now() });
+    const p = { token: s.data.token as string, id: s.data.playerId as string, save, version: 0 };
+    p.version = (await call("PUT", "save", { token: p.token, body: { save: p.save, baseVersion: 0 } })).data.version;
+    return p;
+  }
+  const sync = async (p: Awaited<ReturnType<typeof player>>) => {
+    const r = await call("PUT", "save", { token: p.token, body: { save: p.save, baseVersion: p.version } });
+    if (r.data.version) p.version = r.data.version;
+    return r;
+  };
+
+  it("rents a billboard once, brands go on top, and the price is checked", async () => {
+    const { payBillboard } = await import("../src/game/money");
+    const a = await player("Advertiser", 3);
+    const b = await player("Rival", 3);
+    const rent = await call("POST", "billboards/stage/rent", { token: a.token, body: { text: "AMINA JUICE", sub: "Fresh passion", color: "#2f7a4b", days: 1 } });
+    expect(rent.status).toBe(200);
+    expect((await call("POST", "billboards/stage/rent", { token: b.token, body: { text: "MINE", days: 1 } })).status).toBe(409);
+    expect((await call("POST", "billboards/market/rent", { token: b.token, body: { text: "call 0772123456", days: 1 } })).status).toBe(400);
+    payBillboard(a.save, "stage", rent.data.day, 100, Date.now());
+    expect((await sync(a)).status).toBe(422); // underpaid
+    a.save.ledger.entries.pop();
+    payBillboard(a.save, "stage", rent.data.day, rent.data.price, Date.now());
+    expect((await sync(a)).status).toBe(200);
+    expect((await call("GET", "billboards")).data.ads).toEqual([expect.objectContaining({ slot: "stage", kind: "player", text: "AMINA JUICE" })]);
+    expect((await call("POST", "admin/billboards/stage", { token: ADMIN, body: { brand: "Rolex Republic", text: "ROLEX REPUBLIC", link: "https://example.com" } })).status).toBe(200);
+    const ads = (await call("GET", "billboards?x=1")).data.ads;
+    expect(ads.find((x: { slot: string }) => x.slot === "stage")).toMatchObject({ kind: "brand", owner: "Rolex Republic" });
+  });
+
+  it("ideas get votes once per player, reports hide them, the admin marks them done", async () => {
+    const a = await player("Ideas");
+    const b = await player("Voter");
+    const p = await call("POST", "proposals", { token: a.token, body: { title: "Street lights on the side road", body: "It's dark at night" } });
+    expect(p.status).toBe(200);
+    expect((await call("POST", `proposals/${p.data.id}/vote`, { token: b.token })).data.votes).toBe(2);
+    expect((await call("POST", `proposals/${p.data.id}/vote`, { token: b.token })).status).toBe(409);
+    expect((await call("POST", "talk", { token: b.token, body: { kind: "rally", body: p.data.id } })).status).toBe(200);
+    const c = await call("GET", "community", { token: b.token });
+    expect(c.data.proposals[0]).toMatchObject({ title: "Street lights on the side road", votes: 2, mine: true });
+    await call("POST", `admin/proposals/${p.data.id}`, { token: ADMIN, body: { status: "done", note: "Built!" } });
+    expect((await call("GET", "community")).data.done[0]).toMatchObject({ note: "Built!" });
+  });
+
+  it("pays an event reward only to players who are there while it's on", async () => {
+    const { claimEvent } = await import("../src/game/money");
+    const p = await player("Guest");
+    await call("POST", "admin/events", { token: ADMIN, body: { title: "Launch party", place: "studio", startsAt: Date.now() - 1000, endsAt: Date.now() + 3600_000, reward: 1500 } });
+    await call("POST", "admin/news", { token: ADMIN, body: { title: "Ug Life is live!" } });
+    const c = await call("GET", "community", { token: p.token });
+    expect(c.data.news[0].title).toBe("Ug Life is live!");
+    const ev = c.data.events[0];
+    await call("POST", "live", { token: p.token, body: { x: 30, y: 11 } }); // far away
+    expect((await call("POST", `events/${ev.id}/attend`, { token: p.token })).status).toBe(409);
+    await call("POST", "live", { token: p.token, body: { x: 17, y: 4.5 } }); // at Studio 256
+    const at = await call("POST", `events/${ev.id}/attend`, { token: p.token });
+    expect(at.data.reward).toBe(1500);
+    claimEvent(p.save, ev.id, 1500, ev.title, Date.now());
+    expect((await sync(p)).status).toBe(200);
+  });
+
+  it("credits a top-up only after the payment provider confirms it", async () => {
+    const { claimTopUp } = await import("../src/game/money");
+    let paid = false;
+    env.payments = { create: async (o) => `https://pay.example/${o.ref}`, verify: async () => paid };
+    const p = await player("Payer");
+    expect((await call("POST", "topup", { token: p.token, body: { pack: "p5" } })).status).toBe(503); // switch off
+    await call("POST", "admin/config", { token: ADMIN, body: { key: "topups_enabled", value: "true" } });
+    expect((await call("GET", "config")).data.topups).toBe(true);
+    const t = await call("POST", "topup", { token: p.token, body: { pack: "p5" } });
+    expect(t.data.link).toBe(`https://pay.example/${t.data.ref}`);
+    expect((await call("POST", `topup/${t.data.ref}/verify`, { token: p.token })).data.pending).toBe(true);
+    claimTopUp(p.save, t.data.ref, 5_500, Date.now());
+    expect((await sync(p)).status).toBe(422); // not paid yet
+    p.save.ledger.entries.pop();
+    paid = true;
+    expect((await call("POST", `topup/${t.data.ref}/verify`, { token: p.token })).data.credit).toBe(5_500);
+    claimTopUp(p.save, t.data.ref, 5_500, Date.now());
+    expect((await sync(p)).status).toBe(200);
+    expect((await call("GET", "rewards", { token: p.token })).data.topups).toEqual([{ ref: t.data.ref, credit: 5_500 }]);
+    env.payments = undefined;
+  });
+});

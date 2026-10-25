@@ -7,7 +7,7 @@ import type { PlayerState } from "./state";
 import { DAILY_VISIT_BONUS, JOB_MAX, KIOSK_BASE_INCOME, KIOSK_LEASE_PRICE, UPGRADES, WELCOME_GRANT, JOBS_PER_DAY } from "./economy";
 import { SNAP_REWARD } from "./snaps";
 import { GOAL_REWARDS, REFERRAL_REWARD, REFERRED_BONUS } from "./street";
-import { BODA, YARD_ITEMS, VENDORS } from "../content/catalog";
+import { BODA, SHIFTS, SHIFTS_PER_DAY, YARD_ITEMS, VENDORS } from "../content/catalog";
 import { LANDMARKS, LANDMARK_REWARD } from "../content/landmarks";
 import { kampalaDateKey } from "./time";
 import { LAND_LEVELS, MAX_LAND, rentFor } from "../content/land";
@@ -29,6 +29,12 @@ export interface ServerFacts {
   referred: boolean;
   /** "area:slot" → price, for every plot of land the server gave this player. */
   landClaims?: Map<string, number>;
+  /** Top-up ref → game shillings, for mobile money payments the provider confirmed. */
+  topups?: Map<string, number>;
+  /** Event id → reward, for events the server saw this player at. */
+  eventRewards?: Map<string, number>;
+  /** "slot:day" → price, for billboard rentals the server gave this player. */
+  billboardClaims?: Map<string, number>;
 }
 
 export interface Verdict {
@@ -59,7 +65,7 @@ export function validateSave(prev: PlayerState | null, next: PlayerState, now: n
   }
 
   const seen = new Set<string>();
-  const perDay = new Map<string, { jobs: number; sales: number; earned: number; snaps: number; rides: number }>();
+  const perDay = new Map<string, { jobs: number; sales: number; earned: number; snaps: number; rides: number; shifts: number }>();
   let balance = 0;
   for (let i = 0; i < entries.length; i++) {
     const e = entries[i];
@@ -77,12 +83,13 @@ export function validateSave(prev: PlayerState | null, next: PlayerState, now: n
       if (problem) errors.push(problem);
     }
     const day = kampalaDateKey(e.at);
-    const d = perDay.get(day) ?? { jobs: 0, sales: 0, earned: 0, snaps: 0, rides: 0 };
+    const d = perDay.get(day) ?? { jobs: 0, sales: 0, earned: 0, snaps: 0, rides: 0, shifts: 0 };
     if (e.key.startsWith("ride:")) d.rides++;
+    if (e.key.startsWith("shift:")) d.shifts++;
     if (e.key.startsWith("job:")) d.jobs++;
     if (e.key.startsWith("sale:")) d.sales++;
     if (e.key.startsWith("snap:")) d.snaps++;
-    if (e.amount > 0) d.earned += e.amount;
+    if (e.amount > 0 && !e.key.startsWith("topup:")) d.earned += e.amount;
     perDay.set(day, d);
   }
   // land in the save must be paid for and built in the ledger
@@ -97,6 +104,7 @@ export function validateSave(prev: PlayerState | null, next: PlayerState, now: n
     if (d.sales * 500 > MAX_KIOSK_DAY) errors.push(`kiosk sales above the daily cap on ${day}`);
     if (d.snaps > 1) errors.push(`more than one paid snap on ${day}`);
     if (d.rides > BODA.ridesPerDay) errors.push(`${d.rides} paid boda rides on ${day}`);
+    if (d.shifts > SHIFTS_PER_DAY) errors.push(`${d.shifts} paid shifts on ${day}`);
     if (d.earned > MAX_DAILY_EARN) warnings.push(`earned UGX ${d.earned} on ${day}`);
   }
   if (next.xp < (prev?.xp ?? 0)) warnings.push("xp went down");
@@ -126,10 +134,24 @@ function checkEntry(e: LedgerEntry, facts?: ServerFacts, next?: PlayerState): st
       if (e.key !== "referred" || a !== REFERRED_BONUS) return "bad referred bonus";
       return !facts || facts.referred ? null : "player wasn't referred";
     case "sale": return a === 500 ? null : "bad sale amount";
+    case "shift": return SHIFTS.some((sh) => sh.pay === a) ? null : `shift pay out of range: ${a}`;
     case "land": {
       if (a >= 0) return "land must cost something";
       const price = facts?.landClaims?.get(`${parts[1]}:${parts[2]}`);
       return !facts || price === -a ? null : "land not sold by the server at that price";
+    }
+    case "topup": {
+      const credit = facts?.topups?.get(parts[1]);
+      return a > 0 && (!facts || credit === a) ? null : "top-up not confirmed by the payment provider";
+    }
+    case "event": {
+      const reward = facts?.eventRewards?.get(parts[1]);
+      return a > 0 && (!facts || reward === a) ? null : "event reward not confirmed by the server";
+    }
+    case "billboard": {
+      if (a >= 0) return "a billboard must cost something";
+      const price = facts?.billboardClaims?.get(`${parts[1]}:${parts[2]}`);
+      return !facts || price === -a ? null : "billboard not rented from the server at that price";
     }
     case "landbuild": {
       const lv = LAND_LEVELS[Number(parts[3])];

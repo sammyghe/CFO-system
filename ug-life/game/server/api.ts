@@ -13,15 +13,22 @@ import { balanceOf } from "../src/game/ledger";
 import { levelForXp } from "../src/game/economy";
 import { kampalaDateKey } from "../src/game/time";
 import { TALK_MAX, VOICE_MAX_MS, emoteById, phraseById } from "../src/content/talk";
+import { BILLBOARD_COLORS, BILLBOARD_MAX_DAYS, BILLBOARD_SUB, BILLBOARD_TEXT, slotById } from "../src/content/billboards";
+import { EVENT_MAX_REWARD, PROPOSALS_PER_DAY, PROPOSAL_BODY, PROPOSAL_HIDE_REPORTS, PROPOSAL_TITLE } from "../src/content/community";
+import { placeById } from "../src/world/map";
 import { LAND_AREAS, LAND_LEVELS, MAX_LAND, areaById, hotArea, landPrice } from "../src/content/land";
 import type { PlayerState } from "../src/game/state";
 import type { PhotoStore } from "./photostore";
 import type { Db } from "./db";
+import type { PaymentProvider } from "./payments";
+import { TOPUP_DAILY_LIMIT, TOPUP_PACKS } from "../src/content/topup";
 
 export interface Env {
   db: Db;
   photos: PhotoStore;
   adminToken?: string;
+  /** Mobile money top-ups; absent = top-ups are off. */
+  payments?: PaymentProvider;
 }
 
 type Handler = (req: Request, env: Env, params: string[], ctx: Ctx) => Promise<Response>;
@@ -114,7 +121,7 @@ async function flag(env: Env, playerId: string, kind: string, detail: string, no
 const getConfig: Handler = async (_req, env) => {
   const c = await config(env);
   return json(
-    { maintenance: c.maintenance_mode === "true", uploads: c.uploads_enabled !== "false", signups: c.signups_enabled !== "false", announcement: c.announcement ?? "" },
+    { maintenance: c.maintenance_mode === "true", uploads: c.uploads_enabled !== "false", signups: c.signups_enabled !== "false", announcement: c.announcement ?? "", topups: !!env.payments && c.topups_enabled === "true" },
     200,
     { "cache-control": "public, max-age=30" },
   );
@@ -190,7 +197,13 @@ async function serverFacts(env: Env, me: PlayerRow): Promise<ServerFacts> {
   const claims = await env.db.prepare("SELECT plot_id, day FROM plot_claims WHERE player_id = ?").bind(me.id).all<{ plot_id: string; day: string }>();
   const refs = await env.db.prepare("SELECT referred_id FROM referrals WHERE referrer_id = ? AND qualified = 1").bind(me.id).all<{ referred_id: string }>();
   const land = await env.db.prepare("SELECT area, slot, price FROM land WHERE player_id = ?").bind(me.id).all<{ area: string; slot: number; price: number }>();
+  const boards = await env.db.prepare("SELECT slot, day, price FROM billboards WHERE owner_id = ? AND kind = 'player'").bind(me.id).all<{ slot: string; day: string; price: number }>();
+  const attended = await env.db.prepare("SELECT a.event_id AS id, e.reward FROM event_attendance a JOIN live_events e ON e.id = a.event_id WHERE a.player_id = ?").bind(me.id).all<{ id: string; reward: number }>();
+  const topups = await env.db.prepare("SELECT ref, credit FROM topups WHERE player_id = ? AND status = 'paid'").bind(me.id).all<{ ref: string; credit: number }>();
   return {
+    topups: new Map(topups.results.map((t) => [t.ref, t.credit])),
+    eventRewards: new Map(attended.results.map((a) => [a.id, a.reward])),
+    billboardClaims: new Map(boards.results.map((b) => [`${b.slot}:${b.day}`, b.price])),
     landClaims: new Map(land.results.map((l) => [`${l.area}:${l.slot}`, l.price])),
     plotClaims: new Set(claims.results.map((c) => `${c.plot_id}:${c.day}`)),
     referrals: new Set(refs.results.map((r) => r.referred_id)),
@@ -222,6 +235,11 @@ async function afterSave(env: Env, me: PlayerRow, next: PlayerState, now: number
     } else if (!bought && now - l.bought_at > 10 * 60_000) {
       await env.db.prepare("DELETE FROM land WHERE area = ? AND slot = ? AND player_id = ?").bind(l.area, l.slot, me.id).run();
     }
+  }
+  // billboards: a rental counts once its payment is in a save
+  const unpaid = await env.db.prepare("SELECT slot, day FROM billboards WHERE owner_id = ? AND kind = 'player' AND paid = 0").bind(me.id).all<{ slot: string; day: string }>();
+  for (const u of unpaid.results) {
+    if (next.ledger.entries.some((e) => e.key === `billboard:${u.slot}:${u.day}`)) await env.db.prepare("UPDATE billboards SET paid = 1 WHERE slot = ? AND kind = 'player'").bind(u.slot).run();
   }
   // a plot claimed but never paid for (10 minutes grace) goes back on the market
   const claims = await env.db.prepare("SELECT plot_id, day, created_at FROM plot_claims WHERE player_id = ? AND created_at < ?").bind(me.id, now - 10 * 60_000).all<{ plot_id: string; day: string; created_at: number }>();
@@ -273,6 +291,201 @@ const claimPlot: Handler = async (req, env, [plotId], { now }) => {
   return json({ ok: true, plotId, day, leasedUntil: row.leased_until, renewed: mine });
 };
 
+// ---------- community: proposals, votes, news, events ----------
+
+const community: Handler = async (req, env, _p, { now }) => {
+  const me = await auth(req, env);
+  const open = await env.db.prepare("SELECT id, player_id, name, title, body, votes, status, note, created_at FROM proposals WHERE status = 'open' ORDER BY votes DESC, created_at DESC LIMIT 30").all<Record<string, unknown>>();
+  const done = await env.db.prepare("SELECT id, player_id, name, title, body, votes, status, note, created_at FROM proposals WHERE status = 'done' ORDER BY created_at DESC LIMIT 5").all<Record<string, unknown>>();
+  const mine = me ? new Set((await env.db.prepare("SELECT proposal_id FROM votes WHERE player_id = ?").bind(me.id).all<{ proposal_id: string }>()).results.map((v) => v.proposal_id)) : new Set<string>();
+  const news = await env.db.prepare("SELECT id, title, body, created_at FROM news ORDER BY created_at DESC LIMIT 10").all<{ id: string; title: string; body: string; created_at: number }>();
+  const events = await env.db.prepare("SELECT * FROM live_events WHERE ends_at > ? ORDER BY starts_at ASC LIMIT 10").bind(now).all<{ id: string; title: string; body: string; place: string; starts_at: number; ends_at: number; reward: number }>();
+  const went = me ? new Set((await env.db.prepare("SELECT event_id FROM event_attendance WHERE player_id = ?").bind(me.id).all<{ event_id: string }>()).results.map((a) => a.event_id)) : new Set<string>();
+  const prop = (r: Record<string, unknown>) => ({ id: r.id, playerId: r.player_id, name: r.name, title: r.title, body: r.body, votes: r.votes, status: r.status, note: r.note, at: r.created_at, mine: mine.has(String(r.id)) });
+  return json({
+    now,
+    proposals: open.results.map(prop),
+    done: done.results.map(prop),
+    news: news.results.map((n) => ({ id: n.id, title: n.title, body: n.body, at: n.created_at })),
+    events: events.results.map((e) => ({ id: e.id, title: e.title, body: e.body, place: e.place, startsAt: e.starts_at, endsAt: e.ends_at, reward: e.reward, attended: went.has(e.id) })),
+  });
+};
+
+const createProposal: Handler = async (req, env, _p, { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Make your Ug Tag first.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  if (!me.name) return fail(400, "Make your Ug Tag first, so people know whose idea it is.");
+  const b = (await req.json().catch(() => null)) as { title?: string; body?: string } | null;
+  const title = checkFreeText(String(b?.title ?? ""), PROPOSAL_TITLE);
+  if (!title.ok) return fail(400, title.reason);
+  if (title.value.length < 6) return fail(400, "Say what you want in a few words, e.g. “Street lights on the side road”.");
+  const body = checkFreeText(String(b?.body ?? ""), PROPOSAL_BODY);
+  if (!body.ok) return fail(400, body.reason);
+  if (!(await take(env, me.id, "proposal", PROPOSALS_PER_DAY, now))) return fail(429, `That's ${PROPOSALS_PER_DAY} ideas today. Get people voting on them!`);
+  const pid = id("pr");
+  await env.db.prepare("INSERT INTO proposals (id, player_id, name, title, body, votes, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)").bind(pid, me.id, me.name, title.value, body.value, now).run();
+  await env.db.prepare("INSERT INTO votes (proposal_id, player_id, created_at) VALUES (?, ?, ?)").bind(pid, me.id, now).run();
+  return json({ id: pid });
+};
+
+const voteProposal: Handler = async (req, env, [pid], { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Make your Ug Tag first.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  const p = await env.db.prepare("SELECT status FROM proposals WHERE id = ?").bind(pid).first<{ status: string }>();
+  if (!p || p.status !== "open") return fail(404, "That idea is closed.");
+  const row = await env.db.prepare("INSERT INTO votes (proposal_id, player_id, created_at) VALUES (?, ?, ?) ON CONFLICT (proposal_id, player_id) DO NOTHING RETURNING proposal_id").bind(pid, me.id, now).first();
+  if (!row) return fail(409, "You already voted for this.");
+  const n = (await env.db.prepare("SELECT COUNT(*) AS n FROM votes WHERE proposal_id = ?").bind(pid).first<{ n: number }>())?.n ?? 1;
+  await env.db.prepare("UPDATE proposals SET votes = ? WHERE id = ?").bind(n, pid).run();
+  return json({ ok: true, votes: n });
+};
+
+const reportProposal: Handler = async (req, env, [pid], { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Not signed in.");
+  if (!(await take(env, me.id, "report", 20, now))) return fail(429, "Too many reports today.");
+  const p = await env.db.prepare("SELECT title, name, player_id FROM proposals WHERE id = ?").bind(pid).first<{ title: string; name: string; player_id: string }>();
+  if (!p) return fail(404, "Gone.");
+  const fresh = await env.db.prepare("INSERT INTO talk_reports (talk_id, reporter_id, created_at) VALUES (?, ?, ?) ON CONFLICT (talk_id, reporter_id) DO NOTHING RETURNING talk_id").bind(pid, me.id, now).first();
+  if (fresh) {
+    const n = (await env.db.prepare("SELECT COUNT(*) AS n FROM talk_reports WHERE talk_id = ?").bind(pid).first<{ n: number }>())?.n ?? 1;
+    await env.db.prepare("UPDATE proposals SET reports = ?, status = CASE WHEN ? >= ? THEN 'hidden' ELSE status END WHERE id = ?").bind(n, n, PROPOSAL_HIDE_REPORTS, pid).run();
+    await env.db.prepare("INSERT INTO reports (id, reporter_id, target, reason, created_at) VALUES (?, ?, ?, ?, ?)").bind(id("r"), me.id, `proposal:${pid}:${p.player_id}`, `Idea by ${p.name}: ${p.title}`, now).run();
+  }
+  return json({ ok: true });
+};
+
+/** You're at a live event: the server notes it once and you get the reward. */
+const attendEvent: Handler = async (req, env, [eid], { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Make your Ug Tag first.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  const e = await env.db.prepare("SELECT starts_at, ends_at, reward, place FROM live_events WHERE id = ?").bind(eid).first<{ starts_at: number; ends_at: number; reward: number; place: string }>();
+  if (!e) return fail(404, "No such event.");
+  if (now < e.starts_at) return fail(409, "It hasn't started yet. Come back when it starts.");
+  if (now > e.ends_at) return fail(409, "You missed this one. Watch What's new for the next.");
+  // you must actually be there: your last position on the street, sent by the game
+  const pos = await env.db.prepare("SELECT pos_x, pos_y FROM players WHERE id = ?").bind(me.id).first<{ pos_x: number; pos_y: number }>();
+  const place = placeById(e.place);
+  if (place && pos && Math.hypot(pos.pos_x - place.x, pos.pos_y - place.y) > 4) return fail(409, `Go to ${place.name} to join.`);
+  const row = await env.db.prepare("INSERT INTO event_attendance (event_id, player_id, created_at) VALUES (?, ?, ?) ON CONFLICT (event_id, player_id) DO NOTHING RETURNING event_id").bind(eid, me.id, now).first();
+  return json({ ok: true, reward: e.reward, already: !row });
+};
+
+const adminNews: Handler = async (req, env, [nid], { now }) => {
+  if (req.method === "DELETE") {
+    await env.db.prepare("DELETE FROM news WHERE id = ?").bind(nid).run();
+    return json({ ok: true });
+  }
+  const b = (await req.json().catch(() => null)) as { title?: string; body?: string } | null;
+  const title = String(b?.title ?? "").trim().slice(0, 80);
+  if (!title) return fail(400, "title is required");
+  await env.db.prepare("INSERT INTO news (id, title, body, created_at) VALUES (?, ?, ?, ?)").bind(id("n"), title, String(b?.body ?? "").slice(0, 1000), now).run();
+  return json({ ok: true });
+};
+
+const adminEvent: Handler = async (req, env, [eid], { now }) => {
+  if (req.method === "DELETE") {
+    await env.db.prepare("DELETE FROM live_events WHERE id = ?").bind(eid).run();
+    return json({ ok: true });
+  }
+  const b = (await req.json().catch(() => null)) as { title?: string; body?: string; place?: string; startsAt?: number; endsAt?: number; reward?: number } | null;
+  const title = String(b?.title ?? "").trim().slice(0, 80);
+  if (!title || !placeById(String(b?.place))) return fail(400, "title and a place id are required");
+  const startsAt = Number(b?.startsAt) || now;
+  const endsAt = Number(b?.endsAt) || startsAt + 3600_000;
+  if (endsAt <= startsAt || endsAt - startsAt > 7 * 24 * 3600_000) return fail(400, "an event lasts up to 7 days");
+  const reward = Math.max(0, Math.min(EVENT_MAX_REWARD, Math.round(Number(b?.reward) || 0)));
+  await env.db.prepare("INSERT INTO live_events (id, title, body, place, starts_at, ends_at, reward, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(id("ev"), title, String(b?.body ?? "").slice(0, 500), String(b!.place), startsAt, endsAt, reward, now).run();
+  return json({ ok: true });
+};
+
+const adminProposal: Handler = async (req, env, [pid]) => {
+  const b = (await req.json().catch(() => null)) as { status?: string; note?: string } | null;
+  if (!["open", "done", "hidden"].includes(String(b?.status))) return fail(400, "status must be open, done or hidden");
+  await env.db.prepare("UPDATE proposals SET status = ?, note = ? WHERE id = ?").bind(b!.status, String(b?.note ?? "").slice(0, 200), pid).run();
+  return json({ ok: true });
+};
+
+// ---------- billboards ----------
+
+interface BoardRow { slot: string; kind: string; owner_id: string | null; owner_name: string; text: string; sub: string; color: string; link: string | null; until: number; paid: number; created_at: number }
+
+async function activeBoards(env: Env, now: number) {
+  // rentals never paid for within 10 minutes are dropped
+  await env.db.prepare("DELETE FROM billboards WHERE kind = 'player' AND paid = 0 AND created_at < ?").bind(now - 10 * 60_000).run();
+  const { results } = await env.db.prepare("SELECT * FROM billboards WHERE until > ?").bind(now).all<BoardRow>();
+  return results;
+}
+
+const listBillboards: Handler = async (_req, env, _p, { now }) => {
+  const rows = await activeBoards(env, now);
+  // a brand booking shows over a player's rental on the same spot
+  const ads = new Map<string, BoardRow>();
+  for (const r of rows) if (!ads.has(r.slot) || r.kind === "brand") ads.set(r.slot, r);
+  return json({
+    ads: [...ads.values()].map((r) => ({ slot: r.slot, kind: r.kind, owner: r.owner_name, ownerId: r.owner_id ?? undefined, text: r.text, sub: r.sub, color: r.color, until: r.until, link: r.link ?? undefined })),
+  }, 200, { "cache-control": "public, max-age=20" });
+};
+
+/** Rents a billboard spot for 1-3 days. The player then pays for it in their save. */
+const rentBillboard: Handler = async (req, env, [slotId], { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Make your Ug Tag first.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  const slot = slotById(slotId);
+  if (!slot) return fail(404, "Unknown billboard.");
+  const b = (await req.json().catch(() => null)) as { text?: string; sub?: string; color?: string; days?: number } | null;
+  const text = checkFreeText(String(b?.text ?? ""), BILLBOARD_TEXT);
+  if (!text.ok) return fail(400, text.reason);
+  if (text.value.length < 2) return fail(400, "Write what the billboard says.");
+  const sub = checkFreeText(String(b?.sub ?? ""), BILLBOARD_SUB);
+  if (!sub.ok) return fail(400, sub.reason);
+  const color = (BILLBOARD_COLORS as readonly string[]).includes(String(b?.color)) ? String(b!.color) : BILLBOARD_COLORS[0];
+  const days = Math.max(1, Math.min(BILLBOARD_MAX_DAYS, Math.floor(Number(b?.days) || 1)));
+  const rows = await activeBoards(env, now);
+  const brand = rows.find((r) => r.slot === slot.id && r.kind === "brand");
+  if (brand) return fail(409, `${brand.owner_name || "A sponsor"} has this billboard booked. Try another one.`);
+  const taken = rows.find((r) => r.slot === slot.id && r.kind === "player");
+  if (taken && taken.owner_id !== me.id) return fail(409, `${taken.owner_name} has this billboard until ${new Date(taken.until).toLocaleString("en-GB", { timeZone: "Africa/Kampala", weekday: "short", hour: "2-digit", minute: "2-digit" })}.`);
+  if (taken) return fail(409, "You already have this billboard. Rent again when it ends.");
+  const price = slot.pricePerDay * days;
+  const bal = await env.db.prepare("SELECT balance FROM players WHERE id = ?").bind(me.id).first<{ balance: number }>();
+  if ((bal?.balance ?? 0) < price) return fail(402, `That costs UGX ${price.toLocaleString()}. Your saved balance is lower.`);
+  const day = kampalaDateKey(now);
+  const row = await env.db.prepare(
+    `INSERT INTO billboards (slot, kind, owner_id, owner_name, text, sub, color, price, day, until, created_at) VALUES (?, 'player', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (slot, kind) DO UPDATE SET owner_id = excluded.owner_id, owner_name = excluded.owner_name, text = excluded.text, sub = excluded.sub, color = excluded.color,
+       price = excluded.price, day = excluded.day, until = excluded.until, created_at = excluded.created_at, paid = 0
+     WHERE billboards.until < ? RETURNING owner_id`,
+  ).bind(slot.id, me.id, me.name, text.value, sub.value, color, price, day, now + days * 24 * 3600_000, now, now).first<{ owner_id: string }>();
+  if (!row || row.owner_id !== me.id) return fail(409, "Someone rented it a moment ago. Try another one.");
+  return json({ ok: true, slot: slot.id, day, price, until: now + days * 24 * 3600_000 });
+};
+
+const adminBillboard: Handler = async (req, env, [slotId], { now }) => {
+  const slot = slotById(slotId);
+  if (!slot) return fail(404, "Unknown billboard.");
+  const b = (await req.json().catch(() => null)) as { brand?: string; text?: string; sub?: string; color?: string; days?: number; link?: string; clear?: boolean } | null;
+  if (b?.clear) {
+    await env.db.prepare("DELETE FROM billboards WHERE slot = ? AND kind = 'brand'").bind(slot.id).run();
+    return json({ ok: true });
+  }
+  const text = String(b?.text ?? "").trim().slice(0, BILLBOARD_TEXT);
+  if (!text) return fail(400, "text is required");
+  const link = typeof b?.link === "string" && /^https:\/\/[^\s]{4,200}$/.test(b.link) ? b.link : null;
+  const days = Math.max(1, Math.min(90, Math.floor(Number(b?.days) || 7)));
+  const color = /^#[0-9a-f]{6}$/i.test(String(b?.color)) ? String(b!.color) : "#13202b";
+  await env.db.prepare(
+    `INSERT INTO billboards (slot, kind, owner_name, text, sub, color, link, paid, until, created_at) VALUES (?, 'brand', ?, ?, ?, ?, ?, 1, ?, ?)
+     ON CONFLICT (slot, kind) DO UPDATE SET owner_name = excluded.owner_name, text = excluded.text, sub = excluded.sub, color = excluded.color, link = excluded.link, until = excluded.until, created_at = excluded.created_at`,
+  ).bind(slot.id, String(b?.brand ?? "").slice(0, 40), text, String(b?.sub ?? "").slice(0, BILLBOARD_SUB), color, link, now + days * 24 * 3600_000, now).run();
+  return json({ ok: true });
+};
+
 // ---------- Kampala land ----------
 
 const listLand: Handler = async (_req, env, _p, { now }) => {
@@ -313,13 +526,47 @@ const claimLand: Handler = async (req, env, [areaId], { now }) => {
   return fail(409, "Someone bought that plot a moment ago. Try again.");
 };
 
+// ---------- mobile money top-ups ----------
+
+const startTopUp: Handler = async (req, env, _p, { now, url }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Make your Ug Tag first.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  const c = await config(env);
+  if (!env.payments || c.topups_enabled !== "true") return fail(503, "Top-ups aren't open yet.");
+  const b = (await req.json().catch(() => null)) as { pack?: string } | null;
+  const pack = TOPUP_PACKS.find((p) => p.id === b?.pack);
+  if (!pack) return fail(400, "Pick a pack.");
+  const today = await env.db.prepare("SELECT COALESCE(SUM(price), 0) AS n FROM topups WHERE player_id = ? AND status = 'paid' AND paid_at > ?").bind(me.id, now - 24 * 3600_000).first<{ n: number }>();
+  if ((today?.n ?? 0) + pack.price > TOPUP_DAILY_LIMIT) return fail(429, `You can top up at most UGX ${TOPUP_DAILY_LIMIT.toLocaleString()} a day.`);
+  const ref = id("tp");
+  await env.db.prepare("INSERT INTO topups (ref, player_id, pack, price, credit, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(ref, me.id, pack.id, pack.price, pack.credit, now).run();
+  const link = await env.payments.create({ ref, amount: pack.price, playerId: me.id, name: me.name, redirect: `${url.origin}/?topup=${ref}` });
+  if (!link) return fail(502, "The payment page didn't open. Try again in a minute.");
+  return json({ ref, link });
+};
+
+/** After paying, the game asks the server to check with the provider. Credited once. */
+const verifyTopUp: Handler = async (req, env, [ref], { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Not signed in.");
+  const t = await env.db.prepare("SELECT player_id, price, credit, status FROM topups WHERE ref = ?").bind(ref).first<{ player_id: string; price: number; credit: number; status: string }>();
+  if (!t || t.player_id !== me.id) return fail(404, "No such top-up.");
+  if (t.status === "paid") return json({ ok: true, credit: t.credit });
+  if (!env.payments) return fail(503, "Top-ups aren't open.");
+  if (!(await env.payments.verify(ref, t.price))) return json({ ok: false, pending: true });
+  await env.db.prepare("UPDATE topups SET status = 'paid', paid_at = ? WHERE ref = ? AND status = 'pending'").bind(now, ref).run();
+  return json({ ok: true, credit: t.credit });
+};
+
 const rewards: Handler = async (req, env) => {
   const me = await auth(req, env);
   if (!me) return fail(401, "Not signed in.");
   const { results } = await env.db.prepare(
     "SELECT r.referred_id AS id, p.name AS name FROM referrals r JOIN players p ON p.id = r.referred_id WHERE r.referrer_id = ? AND r.qualified = 1",
   ).bind(me.id).all<{ id: string; name: string }>();
-  return json({ referrals: results, referred: !!me.referred_by });
+  const topups = await env.db.prepare("SELECT ref, credit FROM topups WHERE player_id = ? AND status = 'paid'").bind(me.id).all<{ ref: string; credit: number }>();
+  return json({ referrals: results, referred: !!me.referred_by, topups: topups.results });
 };
 
 // ---------- street talk ----------
@@ -328,9 +575,9 @@ const TALK_WINDOW = 10 * 60_000;
 const VOICE_TTL = 24 * 3600_000;
 const MAX_VOICE_BYTES = 120_000;
 
-interface TalkRow { id: string; player_id: string; name: string; kind: string; body: string; to_id: string | null; x: number; y: number; created_at: number }
+interface TalkRow { id: string; player_id: string; name: string; kind: string; body: string; to_id: string | null; x: number; y: number; created_at: number; title?: string | null }
 
-const talkOut = (r: TalkRow) => ({ id: r.id, playerId: r.player_id, name: r.name, kind: r.kind, body: r.body, to: r.to_id, x: r.x, y: r.y, at: r.created_at });
+const talkOut = (r: TalkRow) => ({ id: r.id, playerId: r.player_id, name: r.name, kind: r.kind, body: r.body, to: r.to_id, x: r.x, y: r.y, at: r.created_at, ...(r.title ? { title: r.title } : {}) });
 
 function clampPos(v: unknown, max: number) {
   const n = Number(v);
@@ -349,8 +596,11 @@ const live: Handler = async (req, env, _p, { now }) => {
     `SELECT id, name, tag_json, look_json, level, pos_x, pos_y, kiosk_json, last_seen FROM players
      WHERE last_seen > ? AND ghost = 0 AND frozen = 0 AND name != '' ORDER BY last_seen DESC LIMIT 20`,
   ).bind(now - 15 * 60_000).all<{ id: string; name: string; tag_json: string; look_json: string; level: number; pos_x: number; pos_y: number; kiosk_json: string | null; last_seen: number }>();
-  const talk = await env.db.prepare("SELECT id, player_id, name, kind, body, to_id, x, y, created_at FROM talk WHERE created_at > ? AND hidden = 0 ORDER BY created_at DESC LIMIT 40")
-    .bind(since).all<TalkRow>();
+  const talk = await env.db.prepare(
+    `SELECT t.id, t.player_id, t.name, t.kind, t.body, t.to_id, t.x, t.y, t.created_at, p.title AS title FROM talk t
+     LEFT JOIN proposals p ON t.kind = 'rally' AND p.id = t.body
+     WHERE t.created_at > ? AND t.hidden = 0 ORDER BY t.created_at DESC LIMIT 40`,
+  ).bind(since).all<TalkRow>();
   return json({
     now,
     players: players.results.map((r) => ({ id: r.id, name: r.name, level: r.level, tag: JSON.parse(r.tag_json), look: JSON.parse(r.look_json), pos: { x: r.pos_x, y: r.pos_y }, kiosk: r.kiosk_json ? JSON.parse(r.kiosk_json) : null, seen: r.last_seen })),
@@ -380,12 +630,15 @@ const postTalk: Handler = async (req, env, _p, { now }) => {
     if (!phraseById(text)) return fail(400, "Unknown phrase.");
   } else if (kind === "emote") {
     if (!emoteById(text)) return fail(400, "Unknown emote.");
+  } else if (kind === "rally") {
+    const p = await env.db.prepare("SELECT status FROM proposals WHERE id = ?").bind(text).first<{ status: string }>();
+    if (!p || p.status !== "open") return fail(404, "That idea is closed.");
   } else if (kind === "text") {
     const r = checkFreeText(text, TALK_MAX);
     if (!r.ok) return fail(400, r.reason);
     if (!r.value) return fail(400, "Say something first.");
     text = r.value;
-  } else return fail(400, "kind must be phrase, text or emote");
+  } else return fail(400, "kind must be phrase, text, emote or rally");
   if (!(await take(env, me!.id, "talk", 500, now))) return fail(429, "That's a lot of talking today. Rest your voice until tomorrow.");
   const to = typeof b?.to === "string" && /^p_[a-z0-9]{6,40}$/.test(b.to) ? b.to : null;
   const talkId = id("k");
@@ -570,7 +823,7 @@ const createReport: Handler = async (req, env, _p, { now }) => {
   return json({ ok: true });
 };
 
-const KNOWN_EVENTS = new Set(["age_confirmed", "onboarded", "session_start", "job_accepted", "job_completed", "kiosk_leased", "kiosk_painted", "upgrade_bought", "pothole_reported", "card_shared", "ticket_saved", "snap_made", "snap_uploaded", "visitor_viewed", "boda_taken", "ride_done", "rolex_bought", "food_bought", "yard_built", "goal_claimed", "landmark_found", "talk_sent", "voice_sent", "emote_sent", "resident_greeted", "place_go", "sound_off", "leaderboard_viewed", "boda_offer_taken", "land_bought", "land_built", "rent_collected"]);
+const KNOWN_EVENTS = new Set(["age_confirmed", "onboarded", "session_start", "job_accepted", "job_completed", "kiosk_leased", "kiosk_painted", "upgrade_bought", "pothole_reported", "card_shared", "ticket_saved", "snap_made", "snap_uploaded", "visitor_viewed", "boda_taken", "ride_done", "rolex_bought", "food_bought", "yard_built", "goal_claimed", "landmark_found", "talk_sent", "voice_sent", "emote_sent", "resident_greeted", "place_go", "sound_off", "leaderboard_viewed", "boda_offer_taken", "land_bought", "land_built", "rent_collected", "billboard_rented", "shift_done", "proposal_made", "voted", "rally_joined", "event_attended", "news_read", "topup_started"]);
 
 /** Free, private analytics: daily counters only, no personal data. */
 const track: Handler = async (req, env, _p, { now }) => {
@@ -660,7 +913,7 @@ const adminPlayer: Handler = async (req, env, [playerId]) => {
 
 const adminConfig: Handler = async (req, env) => {
   const body = (await req.json().catch(() => null)) as { key?: string; value?: string } | null;
-  const allowed = ["maintenance_mode", "uploads_enabled", "signups_enabled", "talk_enabled", "announcement"];
+  const allowed = ["maintenance_mode", "uploads_enabled", "signups_enabled", "talk_enabled", "topups_enabled", "announcement"];
   if (!body?.key || !allowed.includes(body.key)) return fail(400, `key must be one of ${allowed.join(", ")}`);
   await env.db.prepare("INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").bind(body.key, String(body.value ?? "").slice(0, 280)).run();
   return json({ ok: true });
@@ -698,6 +951,15 @@ const routes: [string, RegExp, Handler, boolean][] = [
   ["GET", /^voice\/([\w]+)$/, serveVoice, false],
   ["GET", /^leaderboard$/, leaderboard, false],
   ["GET", /^land$/, listLand, false],
+  ["GET", /^billboards$/, listBillboards, false],
+  ["GET", /^community$/, community, false],
+  ["POST", /^topup$/, startTopUp, false],
+  ["POST", /^topup\/([\w]+)\/verify$/, verifyTopUp, false],
+  ["POST", /^proposals$/, createProposal, false],
+  ["POST", /^proposals\/([\w]+)\/vote$/, voteProposal, false],
+  ["POST", /^proposals\/([\w]+)\/report$/, reportProposal, false],
+  ["POST", /^events\/([\w]+)\/attend$/, attendEvent, false],
+  ["POST", /^billboards\/([\w]+)\/rent$/, rentBillboard, false],
   ["POST", /^land\/([\w]+)\/claim$/, claimLand, false],
   ["POST", /^track$/, track, false],
   ["GET", /^admin\/overview$/, adminOverview, true],
@@ -714,6 +976,12 @@ const routes: [string, RegExp, Handler, boolean][] = [
   ["POST", /^admin\/config$/, adminConfig, true],
   ["GET", /^admin\/metrics$/, adminMetrics, true],
   ["GET", /^admin\/talk$/, adminTalk, true],
+  ["POST", /^admin\/billboards\/([\w]+)$/, adminBillboard, true],
+  ["POST", /^admin\/news$/, adminNews, true],
+  ["DELETE", /^admin\/news\/([\w]+)$/, adminNews, true],
+  ["POST", /^admin\/events$/, adminEvent, true],
+  ["DELETE", /^admin\/events\/([\w]+)$/, adminEvent, true],
+  ["POST", /^admin\/proposals\/([\w]+)$/, adminProposal, true],
   ["POST", /^admin\/talk\/([\w]+)$/, adminTalkAction, true],
 ];
 

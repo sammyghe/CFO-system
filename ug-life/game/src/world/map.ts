@@ -39,6 +39,8 @@ export interface Prop {
   kind: "tree" | "lamp" | "stall" | "shelter" | "bench" | "billboard" | "wall" | "bush" | "parked" | "board" | "cart" | "bodaPark" | "gate";
   /** For carts: which vendor in content/catalog.ts. */
   vendor?: string;
+  /** For billboards: which slot in content/billboards.ts. */
+  slot?: string;
   x: number;
   y: number;
   variant?: number;
@@ -98,6 +100,8 @@ export const PROPS: Prop[] = [
   { kind: "lamp", x: 21, y: 4, blocks: true },
   { kind: "wall", x: 0, y: 16 },
   { kind: "board", x: 25, y: 12, blocks: true },
+  { kind: "billboard", x: 2, y: 15, slot: "stage", blocks: true },
+  { kind: "billboard", x: 31, y: 15, slot: "market", blocks: true },
   { kind: "cart", x: 7, y: 12, vendor: "rolex", blocks: true },
   { kind: "cart", x: 15, y: 12, vendor: "maize", blocks: true },
   { kind: "cart", x: 13, y: 14, vendor: "fruit", blocks: true },

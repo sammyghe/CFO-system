@@ -30,3 +30,8 @@ Living notes on how Sammy works, so any future session starts aligned. Update as
 - Wants real-money style economies (tokens pegged to UGX, betting-like games). Claude keeps the
   game money closed (no cash-in/out, no betting) because that needs gambling and e-money licences;
   explain the licensed path when it comes up rather than building it unasked.
+- Wants clear "levers": places to update the game whenever he likes (Control Room → Grow), and
+  ways for players to add to it (ideas, votes, billboards, land). Values: everything works, no
+  mock-ups; mobile first; easy to share; grows through events and real brands.
+- Explain money boundaries plainly: real money in (top-ups) is fine once the business is set up;
+  real money out or betting is not.
