@@ -42,6 +42,10 @@ Last updated: 24 Oct 2026.
 - **Usage limit:** on 23–24 Oct nearly every desk failed with USAGE_LIMIT_REACHED. **Sammy's decision (24 Oct, option C): leave every desk as it is and accept skipped days.** So every desk must be built to catch up: due dates come from the sheet, check Gmail Sent before any send (a half-finished run may have sent without logging), save after each step, inbox first. The Money Threads Watcher is the backup that catches replies.
 - Sends go from sammy@maji-safi.com, cc sammygedamua@gmail.com.
 
+## Structure Sammy set (25 Oct 2026)
+- The **Money Desk is the LEADER** of all Maji Safi money and keeps its own bank, DFI and grant work and rules.
+- **US$1M is Sammy's OWN separate project**, with its own sheet, its own rules (the "US$1M Rules" tab, which only Sammy changes), its own lessons and its own one-line update. The Money Desk carries it out daily but never mixes the two.
+
 ## How to attach a new system (lesson, 25 Oct)
 A scheduled task created from a coding chat gets no connectors, and Sammy couldn't find where to add them. Fix: add new work as a lane inside a desk that already has connectors (Money Desk, Watcher), and keep its rules in a Sheet tab.
 
