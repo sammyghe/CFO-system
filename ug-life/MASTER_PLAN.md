@@ -144,6 +144,10 @@ take a boda (fares) or rent one and carry passengers (paid rides); rolex, maize 
 with pay boosts; build in your kiosk yard; Kampala landmarks on the hills; one owner per plot
 held by the server; invite links with server-confirmed rewards; goal rewards; content guide
 (`game/CONTENT.md`); WhatsApp link preview image.
+Phase 1.7 (2026-10-25): street talk (phrases in Luganda and English, text, emotes, voice hellos,
+reports and kill switch), sounds of Kampala made in code, bottom bar and Go list for phones, lite
+mode, Kampala land with a daily hot area, cheap snacks, leaderboard.
+Money stays game money: no cash-in, cash-out or betting (see §8 and Sammy's open decision).
 Not done yet: real-time multiplayer, social sign-in verification, Luganda/Swahili UI.
 
 ## 11. Open decisions for Sammy

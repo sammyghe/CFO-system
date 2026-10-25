@@ -51,6 +51,7 @@ export type Pick =
   | { type: "building"; building: Building }
   | { type: "plot"; plotId: string }
   | { type: "pothole" }
+  | { type: "bubble"; walkerId: string; talkId?: string; voiceId?: string }
   | { type: "ground"; x: number; y: number };
 
 interface Sprite {
@@ -90,6 +91,9 @@ export class Renderer {
   private sprites = new Map<string, Sprite>();
   private rainDrops: { x: number; y: number; s: number }[] = [];
   private tagRects: { id: string; x0: number; y0: number; x1: number; y1: number }[] = [];
+  private bubbleRects: { walkerId: string; talkId?: string; voiceId?: string; x0: number; y0: number; x1: number; y1: number }[] = [];
+  /** Draw at most this many device pixels per CSS pixel (1 on slow phones). */
+  maxDpr = 2;
   private skyline: SkylineHit[] = [];
   private ripple: { x: number; y: number; t0: number } | null = null;
 
@@ -103,7 +107,7 @@ export class Renderer {
   }
 
   resize() {
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.dpr = Math.min(window.devicePixelRatio || 1, this.maxDpr);
     this.w = this.canvas.clientWidth || window.innerWidth;
     this.h = this.canvas.clientHeight || window.innerHeight;
     this.canvas.width = Math.round(this.w * this.dpr);
@@ -261,11 +265,23 @@ export class Renderer {
         });
         continue;
       }
+      const emote = w.emote && w.emote.until > now ? w.emote : null;
       items.push({
-        box, x0: p.sx - 12, x1: p.sx + 12, y0: p.sy - 50, y1: p.sy + 4,
+        box, x0: p.sx - 12, x1: p.sx + 12, y0: p.sy - 64, y1: p.sy + 4,
         draw: (g) => {
-          drawPerson(g, p.sx, p.sy, w.look, w.phase, w.moving, w.flip, 1, carrying);
+          if (emote?.id === "dance" && !scene.reducedMotion) {
+            // dance: hop to the beat and turn side to side
+            const beat = now / 260;
+            drawPerson(g, p.sx, p.sy - Math.abs(Math.sin(beat * Math.PI)) * 4, w.look, beat * 3, true, Math.floor(beat) % 2 === 0, 1, carrying);
+          } else drawPerson(g, p.sx, p.sy, w.look, w.phase, w.moving, w.flip, 1, carrying);
           if (w.waving) waveBubble(g, p.sx, p.sy - 50, now);
+          if (emote) {
+            const hop = scene.reducedMotion ? 0 : Math.sin(now / 150) * 2.5;
+            g.font = "18px system-ui, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
+            g.textAlign = "center";
+            g.fillText(emote.icon, p.sx + (w.flip ? -13 : 13), p.sy - 40 + hop);
+            g.textAlign = "left";
+          }
         },
       });
     }
@@ -290,6 +306,7 @@ export class Renderer {
     if (scene.rain && !scene.reducedMotion) this.drawRain(ctx, now);
 
     this.drawTags(ctx, sim, scene);
+    this.drawBubbles(ctx, sim, scene, now);
     this.drawFloaters(ctx, sim, now);
     this.drawRipple(ctx, now);
     this.drawMarkerArrow(ctx, scene, now);
@@ -501,6 +518,47 @@ export class Renderer {
     }
   }
 
+  /** Speech bubbles above heads, newest on top. Voice hellos show a play button. */
+  private drawBubbles(ctx: CanvasRenderingContext2D, sim: Sim, scene: SceneState, now: number) {
+    this.bubbleRects = [];
+    const all = [...sim.residents, ...sim.visitors, sim.player].filter((w) => w.say && w.say.until > now && !w.hidden && !scene.hiddenTags.includes(w.id));
+    all.sort((a, b) => a.say!.t0 - b.say!.t0);
+    for (const w of all) {
+      const sp = w.say!;
+      const s = this.worldPxToScreen(toScreen(w.x, w.y));
+      if (s.sx < -100 || s.sx > this.w + 100 || s.sy < -40 || s.sy > this.h + 160) continue;
+      const fade = Math.min(1, (sp.until - now) / 400, (now - sp.t0) / 150);
+      ctx.globalAlpha = Math.max(0, fade);
+      ctx.font = "600 13px system-ui, -apple-system, 'Segoe UI', Roboto, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif";
+      const text = sp.voiceId ? "▶  Voice hello" : sp.text;
+      const lines = wrap(ctx, text, 168).slice(0, 3);
+      const width = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 20;
+      const height = lines.length * 17 + 12;
+      const tagGap = this.tagRects.some((r) => r.id === w.id || (w === sim.player && r.id === "player")) ? 30 : 8;
+      const x0 = Math.max(6, Math.min(this.w - width - 6, s.sx - width / 2));
+      const y0 = s.sy - 52 * this.cam.zoom - tagGap - height - 6;
+      const mine = w === sim.player;
+      ctx.fillStyle = sp.voiceId ? "#1f4fd1" : mine ? "#fffbe6" : "#ffffff";
+      rounded(ctx, x0, y0, width, height, 12);
+      ctx.fill();
+      ctx.strokeStyle = mine ? "#f2d23c" : "rgba(19,32,43,0.18)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // tail towards the speaker
+      ctx.fillStyle = sp.voiceId ? "#1f4fd1" : mine ? "#fffbe6" : "#ffffff";
+      const tx = Math.max(x0 + 12, Math.min(x0 + width - 12, s.sx));
+      ctx.beginPath(); ctx.moveTo(tx - 6, y0 + height - 1); ctx.lineTo(tx + 6, y0 + height - 1); ctx.lineTo(tx, y0 + height + 7); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = sp.voiceId ? "#ffffff" : "#13202b";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      lines.forEach((l, i) => ctx.fillText(l, x0 + width / 2, y0 + 6 + 8.5 + i * 17));
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.globalAlpha = 1;
+      this.bubbleRects.push({ walkerId: w.id, talkId: sp.talkId, voiceId: sp.voiceId, x0, y0, x1: x0 + width, y1: y0 + height + 7 });
+    }
+  }
+
   private drawFloaters(ctx: CanvasRenderingContext2D, sim: Sim, now: number) {
     for (const f of sim.floaters) {
       const t = (now - f.t0) / 1600;
@@ -559,6 +617,10 @@ export class Renderer {
   }
 
   pick(px: number, py: number, sim: Sim): Pick {
+    for (let i = this.bubbleRects.length - 1; i >= 0; i--) {
+      const r = this.bubbleRects[i];
+      if (px >= r.x0 - 4 && px <= r.x1 + 4 && py >= r.y0 - 4 && py <= r.y1 + 4) return { type: "bubble", walkerId: r.walkerId, talkId: r.talkId, voiceId: r.voiceId };
+    }
     for (let i = this.tagRects.length - 1; i >= 0; i--) {
       const r = this.tagRects[i];
       if (px >= r.x0 - 4 && px <= r.x1 + 4 && py >= r.y0 - 4 && py <= r.y1 + 6) return r.id === "player" ? { type: "player" } : sim.visitors.some((v) => v.id === r.id) ? { type: "visitor", id: r.id } : { type: "resident", id: r.id };
@@ -625,6 +687,21 @@ function rounded(ctx: CanvasRenderingContext2D, x: number, y: number, w: number,
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+function wrap(ctx: CanvasRenderingContext2D, text: string, max: number): string[] {
+  const out: string[] = [];
+  let line = "";
+  for (const word of text.split(/\s+/)) {
+    const next = line ? line + " " + word : word;
+    if (ctx.measureText(next).width <= max || !line) line = next;
+    else {
+      out.push(line);
+      line = word;
+    }
+  }
+  if (line) out.push(line);
+  return out.map((l) => truncate(ctx, l, max));
 }
 
 function truncate(ctx: CanvasRenderingContext2D, s: string, max: number) {

@@ -16,9 +16,14 @@ import { drawPerson } from "../world/art";
 import { renderShareCard } from "./sharecard";
 import { DAY_MS } from "../game/time";
 import type { Api, SharedPlot, Visitor } from "../net/api";
-import { yardSheet } from "./streetsheets";
+import { snackMenu, yardSheet } from "./streetsheets";
 import * as St from "../game/street";
 import type { SnapRecord } from "../snaps/store";
+import type { Destination } from "./gosheet";
+import type { TalkEntry } from "./talksheet";
+import { talkSheet } from "./talksheet";
+import { bodaFare } from "../content/catalog";
+import { tileDistance } from "../world/path";
 
 export interface GameApi {
   state: PlayerState;
@@ -28,7 +33,7 @@ export interface GameApi {
   result(r: A.Result): boolean;
   openSheet(s: SheetSpec): void;
   closeSheet(): void;
-  walkTo(tile: { x: number; y: number }): void;
+  walkTo(tile: { x: number; y: number }, onArrive?: () => void): void;
   joinUrl(): string;
   finishOnboarding(): void;
   resetSave(): void;
@@ -54,6 +59,28 @@ export interface GameApi {
   cancelRide(): void;
   /** Shows a landmark, paying the first-visit reward. */
   showLandmark(id: string): void;
+  /** Walk (or ride a boda) to a place and open its panel on arrival. */
+  goTo(d: Destination, boda: boolean): void;
+  /** Connected to the server right now. */
+  online(): boolean;
+  /** Street talk: say a phrase, a short text or an emote. */
+  say(kind: "phrase" | "text" | "emote", body: string, to?: string): void;
+  sendVoice(blob: Blob, ms: number): Promise<void>;
+  playVoice(voiceId: string): void;
+  reportTalk(e: TalkEntry): void;
+  talkLog(): TalkEntry[];
+  /** Listen for new talk; returns a function that stops listening. */
+  onTalk(fn: () => void): () => void;
+  /** Open the card of whoever has this id (resident or player). */
+  openProfile(id: string): void;
+  /** Say hi to a resident: they answer out loud. */
+  greetResident(id: string): void;
+  /** Plays a sound effect. */
+  sfx(name: "tap" | "coin" | "pop" | "send" | "horn" | "hoot" | "kick" | "sizzle" | "ok" | "bad" | "whoosh"): void;
+  /** Asks the server for a plot of land in an area, then pays for it. */
+  buyLand(area: string): Promise<boolean>;
+  /** Apply sound settings after they change. */
+  applySettings(): void;
 }
 
 export interface SheetSpec {
@@ -281,8 +308,16 @@ export function residentSheet(G: GameApi, id: string): SheetSpec {
         G.toast(blocked ? `${r.name} unblocked` : `${r.name} blocked. You won't see their tag.`, "info");
         G.closeSheet();
       });
+      const hi = h("button", { class: "btn", type: "button" }, "👋 Say hi");
+      hi.addEventListener("click", () => {
+        G.greetResident(id);
+        G.closeSheet();
+      });
+      const talk = h("button", { class: "btn ghost", type: "button" }, "Talk");
+      talk.addEventListener("click", () => G.openSheet(talkSheet(G)));
       return h("div", { class: "sheet-body" },
         h("div", { class: "profile-head" }, avatarCanvas(r.look), h("div", { style: "display:grid;gap:6px" }, h("div", {}, h("span", { class: "badge" }, `Level ${r.level}`)), h("b", {}, r.role))),
+        h("div", { class: "row-btns" }, hi, talk),
         h("p", {}, r.bio),
         socials,
         h("p", { class: "muted small" }, "Street residents are characters in the game, not real people. Real players get the same card with their own work and socials."),
@@ -302,7 +337,29 @@ export function buildingSheet(G: GameApi, b: Building): SheetSpec {
       const job = G.state.job;
       const relevant = job && (job.fromId === b.id || job.toId === b.id);
       const owner = RESIDENTS.find((r) => r.start.x === b.door.x && r.start.y === b.door.y);
+      const s = G.state;
+      const from = { x: Math.floor(s.pos.x), y: Math.floor(s.pos.y) };
+      const dist = tileDistance(from, b.door);
+      const actions = h("div", { class: "row-btns" });
+      if (dist >= 3) {
+        const fare = bodaFare(dist);
+        const boda = h("button", { class: "btn", type: "button" }, `Boda here · UGX ${fare.toLocaleString()}`);
+        boda.addEventListener("click", () => G.goTo({ id: b.id, name: b.name, group: "Shops & places", detail: b.kind, tile: b.door }, true));
+        const walk = h("button", { class: "btn ghost", type: "button" }, "Walk here");
+        walk.addEventListener("click", () => { G.walkTo(b.door); G.closeSheet(); });
+        actions.append(boda, walk);
+      }
+      const jobs = h("button", { class: "btn ghost", type: "button" }, "Jobs");
+      jobs.addEventListener("click", () => G.openSheet(jobsSheet(G)));
+      actions.append(jobs);
+      if (owner) {
+        const hi = h("button", { class: "btn ghost", type: "button" }, `👋 Greet ${owner.name}`);
+        hi.addEventListener("click", () => { G.greetResident(owner.id); G.closeSheet(); });
+        actions.append(hi);
+      }
       return h("div", { class: "sheet-body" },
+        actions,
+        b.id === "chapati" ? snackMenu(G, "chapati") : null,
         b.id === "pharmacy" ? h("div", { class: "notice" }, "The billboard on this roof shows the featured Street Snap. Snap your street and it could be next.") : null,
         relevant ? h("div", { class: "notice ok" }, job!.stage === "pickup" && job!.fromId === b.id ? "Your pickup is here. Walk to the door." : "Your drop-off is here. Walk to the door.") : null,
         owner ? h("p", {}, `${owner.name} works here. ${owner.role}.`) : null,
@@ -588,8 +645,24 @@ export function helpSheet(G: GameApi, prefill = ""): SheetSpec {
       live.addEventListener("change", () => { s.settings.liveTime = live.checked; G.changed(); });
       const rm = h("input", { type: "checkbox", id: "set-rm", checked: s.settings.reducedMotion });
       rm.addEventListener("change", () => { s.settings.reducedMotion = rm.checked; G.changed(); });
+      const toggle = (id: string, key: "sound" | "music" | "voices" | "voiceAuto" | "lite", title: string, help: string, dflt: boolean) => {
+        const box = h("input", { type: "checkbox", id, checked: s.settings[key] ?? dflt });
+        box.addEventListener("change", () => {
+          s.settings[key] = box.checked;
+          G.changed();
+          G.applySettings();
+          if (key === "sound" && !box.checked) G.track("sound_off");
+        });
+        return h("label", { class: "toggle", for: id }, h("span", {}, h("b", {}, title), h("small", {}, help)), box);
+      };
       body.append(
+        h("h3", { style: "margin:6px 0 0;font-size:16px" }, "Sound"),
+        toggle("set-sound", "sound", "Street sounds", "Bodas, matatus, birds, rain and the game's own sounds.", true),
+        toggle("set-music", "music", "Music from Studio 256", "Afrobeat drifting down the street, louder at night.", true),
+        toggle("set-voices", "voices", "Street voices", "Conductors, vendors and residents call out loud using your phone's voice.", true),
+        toggle("set-voiceauto", "voiceAuto", "Play voice hellos by themselves", "Off: tap a voice bubble to hear it.", false),
         h("h3", { style: "margin:6px 0 0;font-size:16px" }, "Settings"),
+        toggle("set-lite", "lite", "Lite mode for slow phones", "Sharper on fast phones when off. Fewer people walking, simpler sound, smoother on older phones.", G.state.settings.lite ?? false),
         h("label", { class: "toggle", for: "set-live" }, h("span", {}, h("b", {}, "Follow Kampala time"), h("small", {}, "Night falls on the street after 7pm. Turn off to always play in daylight.")), live),
         h("label", { class: "toggle", for: "set-rm" }, h("span", {}, h("b", {}, "Reduce motion"), h("small", {}, "Stops rain animation and pulsing markers.")), rm));
       const install = G.installPrompt();
@@ -696,8 +769,20 @@ export function visitorSheet(G: GameApi, v: Visitor): SheetSpec {
         G.closeSheet();
       });
       G.track("visitor_viewed");
+      const hi = h("button", { class: "btn", type: "button" }, "👋 Say hi");
+      hi.addEventListener("click", () => {
+        G.say("phrase", "otya", v.id);
+        G.say("emote", "wave");
+        G.closeSheet();
+      });
+      const talk = h("button", { class: "btn ghost", type: "button" }, "Talk");
+      talk.addEventListener("click", () => G.openSheet(talkSheet(G, { id: v.id, name: v.name })));
+      const near = { x: Math.floor(v.pos.x), y: Math.floor(v.pos.y) };
+      const go = h("button", { class: "btn ghost", type: "button" }, "Go to them");
+      go.addEventListener("click", () => { G.walkTo(near); G.closeSheet(); });
       return h("div", { class: "sheet-body" },
         h("div", { class: "profile-head" }, avatarCanvas(v.look), h("div", { style: "display:grid;gap:6px" }, h("div", {}, h("span", { class: "badge", style: "background:#2f7a4b" }, `Level ${v.level}`)), h("b", {}, v.tag.status || "On the street"))),
+        blocked ? null : h("div", { class: "row-btns" }, hi, talk, go),
         v.kiosk ? h("div", { class: "notice" }, `Runs the kiosk ${v.kiosk.name}`) : null,
         socials,
         h("p", { class: "muted small" }, "A real player who was on the street in the last few minutes. Never send money or codes to anyone you meet here."),

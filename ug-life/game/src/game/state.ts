@@ -1,3 +1,4 @@
+import type { OwnedLand } from "../content/land";
 import { emptyLedger, type Ledger } from "./ledger";
 import { newPothole, type CivicIssue } from "./civic";
 import type { Platform } from "./moderation";
@@ -49,7 +50,7 @@ export interface Ticket {
   status: "saved" | "sent";
 }
 
-export type GoalId = "walk" | "delivery" | "earn25" | "kiosk" | "paint" | "share" | "pothole" | "profile" | "snap" | "boda" | "rider" | "rolex" | "build" | "landmarks";
+export type GoalId = "walk" | "delivery" | "earn25" | "kiosk" | "paint" | "share" | "pothole" | "profile" | "snap" | "boda" | "rider" | "rolex" | "build" | "landmarks" | "hello" | "dance" | "land" | "landlord";
 
 /** A passenger you're carrying as a boda rider. */
 export interface Ride {
@@ -84,7 +85,21 @@ export interface PlayerState {
   stats: { deliveries: number; earned: number; daysVisited: number };
   goals: GoalId[];
   lastVisitDate: string | null;
-  settings: { liveTime: boolean; reducedMotion: boolean };
+  /** Plots of land owned around Kampala. */
+  land: OwnedLand[];
+  settings: {
+    liveTime: boolean;
+    reducedMotion: boolean;
+    /** Older saves lack the fields below; missing means the default. */
+    sound?: boolean;
+    music?: boolean;
+    /** Speak street lines and chat aloud with the phone's voice. */
+    voices?: boolean;
+    /** Play other players' voice hellos without tapping. */
+    voiceAuto?: boolean;
+    /** Lighter graphics for slow phones; undefined = decide from the phone. */
+    lite?: boolean;
+  };
   /** Kampala date the player rented a boda for, or null. */
   bodaRent: string | null;
   ride: Ride | null;
@@ -119,7 +134,8 @@ export function newPlayer(now: number, id: string): PlayerState {
     stats: { deliveries: 0, earned: 0, daysVisited: 0 },
     goals: [],
     lastVisitDate: null,
-    settings: { liveTime: true, reducedMotion: false },
+    land: [],
+    settings: { liveTime: true, reducedMotion: false, sound: true, music: true, voices: true, voiceAuto: false },
     bodaRent: null,
     ride: null,
     ridesOffers: { date: "", seq: 0 },
@@ -131,6 +147,7 @@ export function newPlayer(now: number, id: string): PlayerState {
 
 export const GOALS: { id: GoalId; label: string }[] = [
   { id: "walk", label: "Walk down the street" },
+  { id: "hello", label: "Say “Oli otya?” on the street" },
   { id: "delivery", label: "Finish your first delivery" },
   { id: "pothole", label: "Report the pothole" },
   { id: "earn25", label: "Save UGX 25,000" },
@@ -142,6 +159,9 @@ export const GOALS: { id: GoalId; label: string }[] = [
   { id: "rider", label: "Carry a passenger on a boda" },
   { id: "build", label: "Build something in your kiosk yard" },
   { id: "landmarks", label: "Discover 5 Kampala landmarks" },
+  { id: "dance", label: "Dance on the street" },
+  { id: "land", label: "Buy a plot of land in Kampala" },
+  { id: "landlord", label: "Build a muzigo on your land" },
   { id: "snap", label: "Snap a real Kampala street" },
   { id: "share", label: "Share your card" },
 ];

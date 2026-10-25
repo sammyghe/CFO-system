@@ -25,3 +25,8 @@ Living notes on how Sammy works, so any future session starts aligned. Update as
   the server, with no way to claim twice. Prefers fewer real features to many fake ones.
 - Wants others to be able to add content easily (see `game/CONTENT.md`).
 - Asks "does it work, can I share it, is it saved": answer those plainly at the end of each round.
+- Thinks in "Kampala texture": Luganda greetings, boda culture, rolex, real neighbourhoods,
+  hot areas, landlords and rent. Wants the game to feel like the city and sound like it.
+- Wants real-money style economies (tokens pegged to UGX, betting-like games). Claude keeps the
+  game money closed (no cash-in/out, no betting) because that needs gambling and e-money licences;
+  explain the licensed path when it comes up rather than building it unasked.

@@ -25,6 +25,17 @@ everything drawn in code so the whole game is about 40 KB gzipped.
 - Shared street: one owner per kiosk plot, held by the server; everyone sees each other's
   kiosks and yards. Invite links pay UGX 3,000 to the inviter once the friend does a real job,
   and UGX 2,000 to the friend. Goals pay out when claimed
+- Street talk: one-tap Luganda and street phrases ("Oli otya?", "Gyebale ko!"), short typed
+  messages, emotes (wave, dance…) and 4-second voice hellos, shown as bubbles to everyone nearby.
+  Residents answer. Scam and phone-number filter, report (two reports hide a message), block,
+  and a `talk_enabled` kill switch
+- Sounds of Kampala, all made in code (`src/audio/sound.ts`, nothing to download): boda engines
+  and horns, matatu hoots, birds and the hadada ibis, crickets, rain, market murmur, afrobeat from
+  Studio 256, and conductors and vendors calling out with the phone's own voice
+- Mobile-first bottom bar (Go, Boda, Jobs, Talk, More); Go lists every place with Walk and Boda;
+  a far tap offers a boda; lite mode for slow phones (turns on by itself)
+- Kampala land: cheap plots in 12 real neighbourhoods, build up to apartments, daily rent, one hot
+  area a day, server-held ownership and prices; cheap snacks from UGX 200; leaderboard
 - Online: anonymous accounts with a recovery code, saves checked against the money rules on
   the server (`src/game/validate.ts`), real players visible on the street, support tickets with
   replies, reports, daily event counts, and the Control Room (`/admin.html`)

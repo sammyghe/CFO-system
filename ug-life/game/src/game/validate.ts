@@ -10,6 +10,7 @@ import { GOAL_REWARDS, REFERRAL_REWARD, REFERRED_BONUS } from "./street";
 import { BODA, YARD_ITEMS, VENDORS } from "../content/catalog";
 import { LANDMARKS, LANDMARK_REWARD } from "../content/landmarks";
 import { kampalaDateKey } from "./time";
+import { LAND_LEVELS, MAX_LAND, rentFor } from "../content/land";
 
 export const MAX_EVENT_BONUS = 1.3;
 /** Street event bonus times the biggest food boost. */
@@ -26,6 +27,8 @@ export interface ServerFacts {
   referrals: Set<string>;
   /** This player joined through a friend's link. */
   referred: boolean;
+  /** "area:slot" → price, for every plot of land the server gave this player. */
+  landClaims?: Map<string, number>;
 }
 
 export interface Verdict {
@@ -70,7 +73,7 @@ export function validateSave(prev: PlayerState | null, next: PlayerState, now: n
     if (balance < 0) errors.push(`balance went negative at ${e.key}`);
     if (i >= old.length) {
       if (e.at > now + 5 * 60_000) errors.push(`entry from the future: ${e.key}`);
-      const problem = checkEntry(e, facts);
+      const problem = checkEntry(e, facts, next);
       if (problem) errors.push(problem);
     }
     const day = kampalaDateKey(e.at);
@@ -81,6 +84,13 @@ export function validateSave(prev: PlayerState | null, next: PlayerState, now: n
     if (e.key.startsWith("snap:")) d.snaps++;
     if (e.amount > 0) d.earned += e.amount;
     perDay.set(day, d);
+  }
+  // land in the save must be paid for and built in the ledger
+  const land = Array.isArray(next.land) ? next.land : [];
+  if (land.length > MAX_LAND) errors.push("too many plots of land");
+  for (const l of land) {
+    if (!seen.has(`land:${l.area}:${l.slot}`)) errors.push(`land ${l.area}:${l.slot} was never bought`);
+    for (let lv = 1; lv <= l.level; lv++) if (!seen.has(`landbuild:${l.area}:${l.slot}:${lv}`)) { errors.push(`land ${l.area}:${l.slot} level ${lv} was never built`); break; }
   }
   for (const [day, d] of perDay) {
     if (d.jobs > JOBS_PER_DAY) errors.push(`${d.jobs} paid deliveries on ${day}`);
@@ -94,7 +104,7 @@ export function validateSave(prev: PlayerState | null, next: PlayerState, now: n
   return { ok: errors.length === 0, errors: [...new Set(errors)].slice(0, 10), warnings };
 }
 
-function checkEntry(e: LedgerEntry, facts?: ServerFacts): string | null {
+function checkEntry(e: LedgerEntry, facts?: ServerFacts, next?: PlayerState): string | null {
   const parts = e.key.split(":");
   const kind = parts[0];
   const a = e.amount;
@@ -116,6 +126,16 @@ function checkEntry(e: LedgerEntry, facts?: ServerFacts): string | null {
       if (e.key !== "referred" || a !== REFERRED_BONUS) return "bad referred bonus";
       return !facts || facts.referred ? null : "player wasn't referred";
     case "sale": return a === 500 ? null : "bad sale amount";
+    case "land": {
+      if (a >= 0) return "land must cost something";
+      const price = facts?.landClaims?.get(`${parts[1]}:${parts[2]}`);
+      return !facts || price === -a ? null : "land not sold by the server at that price";
+    }
+    case "landbuild": {
+      const lv = LAND_LEVELS[Number(parts[3])];
+      return lv && lv.level > 0 && a === -lv.cost ? null : "bad building cost";
+    }
+    case "rent": return a > 0 && a <= rentFor(Array.isArray(next?.land) ? next!.land : [], parts[1]) ? null : `rent out of range: ${a}`;
     case "away": return a > 0 && a <= MAX_KIOSK_DAY ? null : "kiosk away income out of range";
     case "snap": return a === SNAP_REWARD ? null : "bad snap reward";
     case "lease":

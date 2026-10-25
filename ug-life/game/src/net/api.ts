@@ -32,6 +32,36 @@ export interface SharedPlot {
   leasedUntil: number;
 }
 
+export interface TalkMsg {
+  id: string;
+  playerId: string;
+  name: string;
+  kind: "phrase" | "text" | "emote" | "voice";
+  body: string;
+  to: string | null;
+  x: number;
+  y: number;
+  at: number;
+}
+
+export interface LiveVisitor extends Visitor {
+  seen: number;
+}
+
+export interface Board {
+  rich: { id: string; name: string; level: number; balance: number }[];
+  levels: { id: string; name: string; level: number; balance: number }[];
+  snappers: { name: string; n: number }[];
+  talkers: { name: string; n: number }[];
+  landlords: { id: string; name: string; plots: number; levels: number }[];
+}
+
+export interface LandMarket {
+  day: string;
+  hot: string;
+  areas: { id: string; sold: number; price: number; owners: { slot: number; playerId: string; name: string; level: number }[] }[];
+}
+
 export interface CommunityPhoto {
   id: string;
   author: string;
@@ -190,6 +220,56 @@ export class Api {
   async street(): Promise<Visitor[]> {
     const r = await this.call<{ players: Visitor[] }>("GET", "street");
     return r?.ok ? r.data.players : [];
+  }
+
+  /** Marks you as on the street and fetches who's here and what they said since `since`. */
+  async live(pos: { x: number; y: number } | null, since: number): Promise<{ now: number; players: LiveVisitor[]; talk: TalkMsg[] } | null> {
+    const r = await this.call<{ now: number; players: LiveVisitor[]; talk: TalkMsg[] }>("POST", "live", { ...(pos ?? {}), since }, { auth: true, timeout: 7000 });
+    return r?.ok ? r.data : null;
+  }
+
+  async talk(kind: "phrase" | "text" | "emote", body: string, pos: { x: number; y: number }, to?: string): Promise<{ id: string; at: number; body: string } | { error: string }> {
+    const r = await this.call<{ id: string; at: number; body: string }>("POST", "talk", { kind, body, to, x: pos.x, y: pos.y }, { auth: true });
+    if (!r) return { error: "No connection. Street talk needs signal." };
+    return r.ok ? r.data : { error: r.data.error ?? "Couldn't send that." };
+  }
+
+  async voice(blob: Blob, ms: number, pos: { x: number; y: number }): Promise<{ id: string; at: number; body: string } | { error: string }> {
+    const form = new FormData();
+    form.set("audio", blob, "hello");
+    form.set("ms", String(Math.round(ms)));
+    form.set("x", String(pos.x));
+    form.set("y", String(pos.y));
+    const r = await this.call<{ id: string; at: number; body: string }>("POST", "talk/voice", undefined, { auth: true, form, timeout: 20000 });
+    if (!r) return { error: "No connection. Try again when you have signal." };
+    return r.ok ? r.data : { error: r.data.error ?? "Couldn't send your voice hello." };
+  }
+
+  voiceUrl(voiceId: string) {
+    return `/api/voice/${voiceId}`;
+  }
+
+  async reportTalk(talkId: string): Promise<boolean> {
+    const r = await this.call("POST", `talk/${talkId}/report`, {}, { auth: true });
+    return !!r?.ok;
+  }
+
+  /** fresh = skip the short cache (right after buying). */
+  async land(fresh = false): Promise<LandMarket | null> {
+    const r = await this.call<LandMarket>("GET", fresh ? `land?t=${Date.now()}` : "land");
+    return r?.ok ? r.data : null;
+  }
+
+  async claimLand(area: string): Promise<{ ok: true; slot: number; price: number } | { ok: false; message: string }> {
+    const r = await this.call<{ slot: number; price: number }>("POST", `land/${area}/claim`, {}, { auth: true });
+    if (!r) return { ok: false, message: "Buying land needs a connection, so two people can't buy the same plot." };
+    if (!r.ok) return { ok: false, message: r.data.error ?? "Couldn't buy that plot." };
+    return { ok: true, slot: r.data.slot, price: r.data.price };
+  }
+
+  async leaderboard(): Promise<Board | null> {
+    const r = await this.call<Board>("GET", "leaderboard");
+    return r?.ok ? r.data : null;
   }
 
   async photos(area?: string): Promise<{ photos: CommunityPhoto[]; areas: { area: string; n: number }[] } | null> {

@@ -8,7 +8,7 @@ import { eventForTime } from "./daily";
 import { kampalaDateKey, hashString, seededRandom } from "./time";
 import { complete, type Result } from "./actions";
 import type { GoalId, PlayerState, Ride } from "./state";
-import { BODA, VENDORS, YARD_ITEMS, YARD_SLOTS, bodaFare, ridePay } from "../content/catalog";
+import { BODA, SNACKS, VENDORS, YARD_ITEMS, YARD_SLOTS, bodaFare, ridePay } from "../content/catalog";
 import { RESIDENTS } from "../content/residents";
 import { PLACES, placeById } from "../world/map";
 import { LANDMARKS, LANDMARK_REWARD, LANDMARKS_FOR_GOAL } from "../content/landmarks";
@@ -26,14 +26,28 @@ export function boostMultiplier(state: PlayerState, now: number): number {
 export function buyFood(state: PlayerState, vendorId: string, now: number): Result {
   const v = VENDORS.find((x) => x.id === vendorId);
   if (!v) return fail("That vendor isn't here.");
-  const r = post(state.ledger, `food:${v.id}:${now}`, -v.price, v.product, now);
-  if (!r.ok) return fail(r.error === "insufficient" ? `You need UGX ${v.price.toLocaleString()}.` : "Already bought.");
-  const current = state.boost && now < state.boost.until ? state.boost : null;
-  // a better meal replaces a smaller one; the same or smaller meal adds time
-  if (!current || v.boostPct >= current.pct) state.boost = { until: Math.max(current?.until ?? now, now) + v.boostMinutes * 60_000, pct: v.boostPct, label: v.product };
-  else current.until += v.boostMinutes * 30_000;
+  const r = eat(state, v.id, v.product, v.price, v.boostPct, v.boostMinutes, now);
+  if (!r.ok) return r;
   if (v.id === "rolex") complete(state, "rolex");
   return ok(`${v.product} from ${v.seller}. +${v.boostPct}% pay on deliveries and rides for ${v.boostMinutes} min.`);
+}
+
+/** Cheap snacks: a few hundred shillings for a small, short boost. */
+export function buySnack(state: PlayerState, snackId: string, now: number): Result {
+  const sn = SNACKS.find((x) => x.id === snackId);
+  if (!sn) return fail("They don't sell that here.");
+  const r = eat(state, sn.id, sn.name, sn.price, sn.boostPct, sn.boostMinutes, now);
+  return r.ok ? ok(`${sn.icon} ${sn.name}. +${sn.boostPct}% pay for ${sn.boostMinutes} min.`) : r;
+}
+
+function eat(state: PlayerState, id: string, label: string, price: number, pct: number, minutes: number, now: number): Result {
+  const r = post(state.ledger, `food:${id}:${now}`, -price, label, now);
+  if (!r.ok) return fail(r.error === "insufficient" ? `You need UGX ${price.toLocaleString()}.` : "Already bought.");
+  const current = state.boost && now < state.boost.until ? state.boost : null;
+  // a better meal replaces a smaller one; the same or smaller meal adds time
+  if (!current || pct >= current.pct) state.boost = { until: Math.max(current?.until ?? now, now) + minutes * 60_000, pct, label };
+  else current.until += minutes * 30_000;
+  return ok("");
 }
 
 // ---------- boda: taking one ----------
@@ -47,8 +61,15 @@ export function fareTo(from: { x: number; y: number }, placeId: string): number 
 export function payFare(state: PlayerState, placeId: string, from: { x: number; y: number }, now: number): Result {
   const p = placeById(placeId);
   if (!p) return fail("Unknown place.");
-  if (tileDistance(from, p) < 3) return fail("That's just here. Walk it.");
-  const fare = fareTo(from, placeId);
+  return payFareTo(state, p, from, now);
+}
+
+/** Pays the fare to any spot on the street (a cart, a kiosk, a tapped tile). */
+export function payFareTo(state: PlayerState, to: { x: number; y: number; name: string }, from: { x: number; y: number }, now: number): Result {
+  const p = to;
+  const d = tileDistance(from, p);
+  if (d < 3) return fail("That's just here. Walk it.");
+  const fare = bodaFare(d);
   const r = post(state.ledger, `fare:${now}`, -fare, `Boda to ${p.name}`, now);
   if (!r.ok) return fail(r.error === "insufficient" ? `The fare is UGX ${fare.toLocaleString()}. You don't have enough.` : "Already paid.");
   complete(state, "boda");
@@ -179,7 +200,7 @@ export function clearYardSlot(state: PlayerState, slot: number): Result {
 
 export const GOAL_REWARDS: Record<GoalId, number> = {
   walk: 500, delivery: 1_000, pothole: 1_000, earn25: 2_000, kiosk: 2_000, paint: 500, profile: 500,
-  snap: 1_000, share: 1_500, boda: 500, rolex: 500, rider: 1_500, build: 1_000, landmarks: 2_000,
+  snap: 1_000, share: 1_500, boda: 500, rolex: 500, rider: 1_500, build: 1_000, landmarks: 2_000, hello: 500, dance: 500, land: 1_000, landlord: 3_000,
 };
 
 // ---------- landmarks ----------

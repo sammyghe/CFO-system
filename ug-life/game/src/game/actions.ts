@@ -173,13 +173,14 @@ export function plotIsFree(state: PlayerState, plotId: string): boolean {
   return !!plot && !plot.npcOwner && state.kiosk?.plotId !== plotId;
 }
 
-export function leaseKiosk(state: PlayerState, plotId: string, now: number): Result {
+/** day: the Kampala date the server recorded the claim on (so a wrong phone clock can't break it). */
+export function leaseKiosk(state: PlayerState, plotId: string, now: number, day = kampalaDateKey(now)): Result {
   expireKiosk(state, now);
   const plot = PLOTS.find((p) => p.id === plotId);
   if (!plot) return fail("That plot doesn't exist.");
   if (plot.npcOwner) return fail(`${plot.npcOwner.name} already runs this kiosk.`);
   if (state.kiosk) return fail("You already lease a kiosk.");
-  const r = post(state.ledger, `lease:${plotId}:${kampalaDateKey(now)}`, -KIOSK_LEASE_PRICE, "Kiosk lease (7 days)", now);
+  const r = post(state.ledger, `lease:${plotId}:${day}`, -KIOSK_LEASE_PRICE, "Kiosk lease (7 days)", now);
   if (!r.ok) return fail(r.error === "insufficient" ? `You need UGX ${KIOSK_LEASE_PRICE.toLocaleString()}. Do a few deliveries first.` : "You already paid for this lease today.");
   state.kiosk = {
     plotId,
@@ -195,10 +196,10 @@ export function leaseKiosk(state: PlayerState, plotId: string, now: number): Res
   return ok("The kiosk is yours for 7 days. Paint your sign.");
 }
 
-export function renewKiosk(state: PlayerState, now: number): Result {
+export function renewKiosk(state: PlayerState, now: number, day = kampalaDateKey(now)): Result {
   const k = state.kiosk;
   if (!k) return fail("You don't have a kiosk to renew.");
-  const r = post(state.ledger, `renew:${k.plotId}:${kampalaDateKey(now)}`, -KIOSK_LEASE_PRICE, "Kiosk lease renewal", now);
+  const r = post(state.ledger, `renew:${k.plotId}:${day}`, -KIOSK_LEASE_PRICE, "Kiosk lease renewal", now);
   if (!r.ok) return fail(r.error === "insufficient" ? "Not enough money to renew yet." : "You already renewed today.");
   k.leasedUntil = Math.max(k.leasedUntil, now) + KIOSK_LEASE_DAYS * DAY_MS;
   return ok("Lease extended by 7 days.");
