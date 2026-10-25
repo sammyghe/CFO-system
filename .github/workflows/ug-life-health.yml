@@ -35,11 +35,13 @@ jobs:
         run: |
           url="${{ steps.url.outputs.url }}"
           for i in 1 2 3 4; do
-            # the page, settings, and the database-backed land, leaderboard and street talk endpoints
+            # the page, settings, and the database-backed land, leaderboard, talk, community and billboard endpoints
             if curl -fsS -m 15 "$url/" -o /dev/null && curl -fsS -m 15 "$url/api/config" -o /dev/null \
               && curl -fsS -m 15 "$url/api/land" | jq -e '.areas | length > 0' >/dev/null \
               && curl -fsS -m 15 "$url/api/leaderboard" | jq -e '.landlords' >/dev/null \
-              && curl -fsS -m 15 -X POST -H 'content-type: application/json' -d '{}' "$url/api/live" | jq -e '.talk' >/dev/null; then
+              && curl -fsS -m 15 -X POST -H 'content-type: application/json' -d '{}' "$url/api/live" | jq -e '.talk' >/dev/null \
+              && curl -fsS -m 15 "$url/api/community" | jq -e '.events' >/dev/null \
+              && curl -fsS -m 15 "$url/api/billboards" | jq -e '.ads' >/dev/null; then
               echo "up=true" >> "$GITHUB_OUTPUT"; exit 0
             fi
             sleep 45
