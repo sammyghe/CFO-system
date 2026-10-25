@@ -36,11 +36,14 @@ Last updated: 24 Oct 2026.
 - Warm replies left waiting cost more than any new lead.
 
 ## Live systems (as of 24 Oct 2026)
-- **US$1M Desk**: daily 14:37 EAT (lands in US mornings). Sheet `1koGj-ZJPzxv3sPjLLTOotPEPQrtdwmVapw35WfGH3oc` with tabs Dashboard, Targets, Touches, Money Ladder, Experiments, Story Bank, Proof Ladder, Do Not Contact, Lessons, Money Projects, Run Log. Sends 3 asks/day for 10 business days, then 5. Reports by one push notification, no email.
+- **US$1M lane**: runs INSIDE the Money Desk (06:00 EAT daily) since 25 Oct 2026. The separate US$1M scheduled task could not get Gmail or Sheets attached, so it is disabled. Sheet `1koGj-ZJPzxv3sPjLLTOotPEPQrtdwmVapw35WfGH3oc`; its rules live in the sheet's "US$1M Rules" tab, so any desk with Sheets access can run them. Sends 3 asks/day for 10 business days, then 5. Sammy's update is the first line of the Money Desk email: "US$1M: $X in · N asks · N replies".
 - **Money Desk**: 06:00 EAT, sends knocks, Tracker `1ulIrKmanSSgf5-ApC7eO2yyTKzIlXYsTqgJKLNW3e9M`. Money Threads Watcher at 08:00 and 18:00.
 - Other desks: Water Desk, Uganda Desk, Content, Porchlight (USA, separate), Sammy HQ evening, Systems Builder (Thu), Sammy's Week (Sun).
 - **Usage limit:** on 23–24 Oct nearly every desk failed with USAGE_LIMIT_REACHED. **Sammy's decision (24 Oct, option C): leave every desk as it is and accept skipped days.** So every desk must be built to catch up: due dates come from the sheet, check Gmail Sent before any send (a half-finished run may have sent without logging), save after each step, inbox first. The Money Threads Watcher is the backup that catches replies.
 - Sends go from sammy@maji-safi.com, cc sammygedamua@gmail.com.
+
+## How to attach a new system (lesson, 25 Oct)
+A scheduled task created from a coding chat gets no connectors, and Sammy couldn't find where to add them. Fix: add new work as a lane inside a desk that already has connectors (Money Desk, Watcher), and keep its rules in a Sheet tab.
 
 ## Projects (money hub = "Money Projects" tab)
 Maji Safi / Safiflow (ACTIVE), Mela Venture, Green Solutions Africa, Godena, AMI, PRIME, Project HUNTER (all WAITING until Sammy sets a goal), Porchlight (USA, kept separate).
