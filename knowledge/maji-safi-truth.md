@@ -44,7 +44,8 @@ Last updated: 24 Oct 2026.
 
 ## Structure Sammy set (25 Oct 2026)
 - The **Money Desk is the LEADER** of all Maji Safi money and keeps its own bank, DFI and grant work and rules.
-- **US$1M is Sammy's OWN separate project**, with its own sheet, its own rules (the "US$1M Rules" tab, which only Sammy changes), its own lessons and its own one-line update. The Money Desk carries it out daily but never mixes the two.
+- **US$1M is Sammy's OWN separate project, on its OWN scheduled task** (14:37 EAT). The Money Desk creates it so it inherits access, then keeps hands off. Tiers now include **US$50M–99M** (25 Oct). Clear outcomes and expansion rules are in the sheet tab "Outcomes & Expansion"; ways of working are in "How We Work".
+- (earlier wording) **US$1M is Sammy's OWN separate project**, with its own sheet, its own rules (the "US$1M Rules" tab, which only Sammy changes), its own lessons and its own one-line update. The Money Desk carries it out daily but never mixes the two.
 
 ## How to attach a new system (lesson, 25 Oct)
 A scheduled task created from a coding chat gets no connectors, and Sammy couldn't find where to add them. Fix: add new work as a lane inside a desk that already has connectors (Money Desk, Watcher), and keep its rules in a Sheet tab.

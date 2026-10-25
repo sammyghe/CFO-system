@@ -61,7 +61,8 @@ Tier order decides **who gets researched first**. Fit and route decide **who get
 |---|---|---|
 | T1 | Personal net worth ≥ US$1B | Forbes and Bloomberg lists (dated), **Giving Pledge letters** (they state causes in the person's own words), foundation **IRS Form 990s** via ProPublica Nonprofit Explorer |
 | T2 | US$100M–999M | Exits and acquisitions press, founder lists, regional rich lists, angel network member pages, Form 990s |
-| T3 | Family offices | **SEC Form ADV** (registered family offices and RIAs, with named officers), UK Companies House officers, published family-office directories |
+| T3 | US$50M–99M (added by Sammy 25 Oct 2026). The ask is still US$1M; the "one of four, US$250k" variant may be tested here from the start | Regional rich lists, exit and acquisition news, angel network member pages |
+| T3b | Family offices | **SEC Form ADV** (registered family offices and RIAs, with named officers), UK Companies House officers, published family-office directories |
 | T4 | Large fund managers whose mandate fits | Fund pages, LP reports, Crunchbase free tier |
 | T5 | Strategic and institutional | Stays with the Money Desk; this lane only borrows its lessons |
 
@@ -349,6 +350,26 @@ Sammy's plan has one usage limit shared by about 11 desks, so some runs won't ha
 - **Catch-up is capped:** at most +2 asks in one run (7 max), and one message per person per run. Missed days are never all made up at once.
 - **A queue of 10 or more ASK-ready targets** is kept, so a good run can send even after a skipped one.
 - **Backup:** the Money Threads Watcher sweeps every human money reply twice a day.
+
+## 11c. Clear outcomes and expansion (Sammy, 25 Oct 2026)
+
+These live in the sheet's "Outcomes & Expansion" tab, and the desk fills in the "Actual" column on every run.
+
+**Targets:**
+- **Day 14:** 40 dossiers, 30 asks sent, bounces under 5%.
+- **Day 30:** 80 asks, 4 or more human replies, at least 1 call with a decision-maker, and the best wealth band named.
+- **Day 90:** US$1M+ in discussion and a first commitment of any size.
+
+**Expand** when three things are true at a Sunday review:
+1. Reply rate is 5% or more over 40+ asks.
+2. There has been a call with a decision-maker.
+3. Bounces are under 5% and there are no complaints.
+
+Then Sammy writes YES. Caps go from 5 to 10 a day, a new lane is added, and the method is offered to the next ACTIVE project (e.g. Godena).
+
+**Rethink** when, after 60 asks, there are zero replies, or any complaint, or bounces above 10%.
+
+**How it runs:** the desk is its own scheduled task at 14:37 EAT, created by the Money Desk (the leader) so it inherits Gmail and Sheets access. Its prompt is stored in the sheet's "Desk Prompt" tab.
 
 ## 12. Build order
 
