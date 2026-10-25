@@ -211,7 +211,7 @@ export function buildingBox(b: Building): Box {
   return { x: b.x, y: b.y, w: b.w, d: b.d, h: b.floors * FLOOR_H + 6 };
 }
 
-export function drawBuilding(ctx: Ctx, b: Building, night: boolean, billboard: string, billboardImage: CanvasImageSource | null = null) {
+export function drawBuilding(ctx: Ctx, b: Building, night: boolean, billboard: string, billboardImage: CanvasImageSource | null = null, billboardColor?: string) {
   const box = buildingBox(b);
   const r = rng(b.x * 97 + b.floors);
   const wall = b.wall;
@@ -321,7 +321,7 @@ export function drawBuilding(ctx: Ctx, b: Building, night: boolean, billboard: s
     }
   }
 
-  if (b.id === "pharmacy") drawRoofBillboard(ctx, box, billboard, night, billboardImage);
+  if (b.id === "pharmacy") drawRoofBillboard(ctx, box, billboard, night, billboardImage, billboardColor);
 }
 
 function imageSize(img: CanvasImageSource): { w: number; h: number } {
@@ -331,7 +331,7 @@ function imageSize(img: CanvasImageSource): { w: number; h: number } {
   return { w, h };
 }
 
-function drawRoofBillboard(ctx: Ctx, box: Box, text: string, night: boolean, image: CanvasImageSource | null) {
+function drawRoofBillboard(ctx: Ctx, box: Box, text: string, night: boolean, image: CanvasImageSource | null, color?: string) {
   const bb: Box = { x: box.x + 0.4, y: box.y + 1.6, w: box.w - 0.8, d: 0.05, h: 0 };
   const base = box.h + 8;
   // posts
@@ -339,8 +339,8 @@ function drawRoofBillboard(ctx: Ctx, box: Box, text: string, night: boolean, ima
   const v0 = base + 12, v1 = base + 60;
   quadY(ctx, bb, -0.05, bb.w + 0.05, v0 - 2, v1 + 2, "#1d1f22");
   const g = ctx.createLinearGradient(fy(bb, 0, v1).sx, fy(bb, 0, v1).sy, fy(bb, bb.w, v0).sx, fy(bb, bb.w, v0).sy);
-  g.addColorStop(0, "#1f4fd1");
-  g.addColorStop(1, "#163a9e");
+  g.addColorStop(0, color ?? "#1f4fd1");
+  g.addColorStop(1, color ? shade(color, -0.25) : "#163a9e");
   quadY(ctx, bb, 0, bb.w, v0, v1, g);
   // matatu checker strip
   const cells = 18;
@@ -385,6 +385,7 @@ export function propBox(p: Prop): Box {
     case "cart": return { x: p.x + 0.15, y: p.y + 0.3, w: 0.75, d: 0.5, h: 48 };
     case "bodaPark": return { x: p.x + 0.2, y: p.y + 0.3, w: 0.6, d: 0.4, h: 40 };
     case "gate": return { x: p.x, y: p.y + 0.35, w: 2, d: 0.3, h: 62 };
+    case "billboard": return { x: p.x, y: p.y + 0.45, w: 2, d: 0.1, h: 74 };
     case "wall": return { x: p.x, y: p.y + 0.3, w: 30, d: 0.4, h: 12 };
     default: return { x: p.x, y: p.y, w: 1, d: 1, h: 20 };
   }

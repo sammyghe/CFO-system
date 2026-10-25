@@ -3,6 +3,9 @@
 
 import "./admin.css";
 import { h } from "../ui/dom";
+import { BILLBOARD_SLOTS } from "../content/billboards";
+import { EVENT_MAX_REWARD, type LiveEvent, type NewsPost, type Proposal } from "../content/community";
+import { PLACES } from "../world/map";
 
 const KEY = "uglife.admin";
 let token = "";
@@ -61,6 +64,7 @@ const TABS = [
   ["photos", "Snaps"],
   ["tickets", "Support"],
   ["flags", "Flags"],
+  ["grow", "Grow"],
   ["metrics", "Numbers"],
 ] as const;
 type Tab = (typeof TABS)[number][0];
@@ -98,7 +102,8 @@ const VIEWS: Record<Tab, () => Promise<HTMLElement>> = {
     const o = await api<Overview>("GET", "overview");
     const stat = (n: number | string, label: string, alert = false) => h("div", { class: alert ? "stat alert" : "stat" }, h("b", {}, String(n)), h("span", {}, label));
     const toggle = (key: string, label: string, help: string, invert = false) => {
-      const on = o.config[key] === "true";
+      // maintenance and top-ups are off unless set; everything else is on unless set to "false"
+      const on = ["maintenance_mode", "topups_enabled"].includes(key) ? o.config[key] === "true" : o.config[key] !== "false";
       const cb = h("input", { type: "checkbox", checked: invert ? !on : on, id: `cfg-${key}` });
       cb.addEventListener("change", async () => {
         const value = invert ? !cb.checked : cb.checked;
@@ -124,6 +129,8 @@ const VIEWS: Record<Tab, () => Promise<HTMLElement>> = {
       toggle("uploads_enabled", "Snap uploads", "Turn off if moderation falls behind."),
       toggle("signups_enabled", "New players", "Turn off to stop sign-ups during an attack or overload."),
       toggle("talk_enabled", "Street talk", "Turn off to pause messages, emotes and voice hellos (spam or abuse wave)."),
+      h("p", { class: "muted" }, "Mobile money top-ups need the FLW_SECRET_KEY setting on Netlify first; then switch them on here."),
+      toggle("topups_enabled", "Mobile money top-ups", "Players pay real UGX for game shillings (no cash-out). Off by default."),
       h("div", { class: "field" }, h("label", { for: "ann" }, "Announcement"), ann, save));
   },
 
@@ -230,6 +237,78 @@ const VIEWS: Record<Tab, () => Promise<HTMLElement>> = {
       flagRows.length ? h("div", { class: "stack" }, flagRows) : h("p", { class: "muted" }, "No flags."),
       h("h2", {}, `Player reports (${reports.length})`),
       reportRows.length ? h("div", { class: "stack" }, reportRows) : h("p", { class: "muted" }, "No reports."));
+  },
+
+  async grow() {
+    const pub = async <T,>(path: string): Promise<T> => (await fetch(`/api/${path}`, { headers: { authorization: `Bearer ${token}` } })).json() as Promise<T>;
+    const c = await pub<{ now: number; proposals: Proposal[]; done: Proposal[]; news: NewsPost[]; events: LiveEvent[] }>(`community?t=${Date.now()}`);
+    const ads = await pub<{ ads: { slot: string; kind: string; owner: string; text: string; until: number }[] }>(`billboards?t=${Date.now()}`);
+    const reload = () => void show("grow");
+    const field = (label: string, el: HTMLElement) => h("div", { class: "field" }, h("label", {}, label), el);
+
+    // news
+    const nt = h("input", { placeholder: "Headline, e.g. New: Kampala land is open!", maxlength: "80" });
+    const nb = h("textarea", { placeholder: "A few lines for players (optional)", maxlength: "1000" });
+    const np = h("button", { class: "btn small", type: "button" }, "Post to What's new");
+    np.addEventListener("click", async () => { await api("POST", "news", { title: nt.value, body: nb.value }); reload(); });
+    const newsList = c.news.map((n) => {
+      const del = h("button", { class: "btn ghost small", type: "button" }, "Delete");
+      del.addEventListener("click", async () => { await api("DELETE", `news/${n.id}`); reload(); });
+      return h("div", { class: "card" }, h("b", {}, n.title), h("p", { class: "muted" }, new Date(n.at).toLocaleString()), del);
+    });
+
+    // events
+    const et = h("input", { placeholder: "Event name, e.g. Launch party at Studio 256", maxlength: "80" });
+    const eb = h("input", { placeholder: "What happens (optional)", maxlength: "500" });
+    const ep = h("select", {}, PLACES.map((p) => h("option", { value: p.id }, p.name)));
+    const es = h("input", { type: "datetime-local" });
+    const ed = h("input", { type: "number", value: "2", min: "1", max: "168" });
+    const er = h("input", { type: "number", value: "1000", min: "0", max: String(EVENT_MAX_REWARD), step: "100" });
+    const eg = h("button", { class: "btn small", type: "button" }, "Create event");
+    eg.addEventListener("click", async () => {
+      const start = es.value ? new Date(es.value).getTime() : Date.now();
+      await api("POST", "events", { title: et.value, body: eb.value, place: ep.value, startsAt: start, endsAt: start + Number(ed.value) * 3600_000, reward: Number(er.value) });
+      reload();
+    });
+    const eventList = c.events.map((e) => {
+      const del = h("button", { class: "btn ghost small", type: "button" }, "Cancel event");
+      del.addEventListener("click", async () => { await api("DELETE", `events/${e.id}`); reload(); });
+      return h("div", { class: "card" }, h("b", {}, e.title), h("p", { class: "muted" }, `${new Date(e.startsAt).toLocaleString()} → ${new Date(e.endsAt).toLocaleString()} · ${e.place} · UGX ${e.reward}`), del);
+    });
+
+    // brand billboards
+    const bs = h("select", {}, BILLBOARD_SLOTS.map((b) => h("option", { value: b.id }, b.name)));
+    const bn = h("input", { placeholder: "Brand name, e.g. Rolex Republic", maxlength: "40" });
+    const bt = h("input", { placeholder: "Big text (26 max)", maxlength: "26" });
+    const bsub = h("input", { placeholder: "Small text (40 max)", maxlength: "40" });
+    const bc = h("input", { type: "color", value: "#13202b" });
+    const bd = h("input", { type: "number", value: "7", min: "1", max: "90" });
+    const bl = h("input", { placeholder: "https:// link (optional)" });
+    const bg = h("button", { class: "btn small", type: "button" }, "Put brand on billboard");
+    bg.addEventListener("click", async () => { await api("POST", `billboards/${bs.value}`, { brand: bn.value, text: bt.value, sub: bsub.value, color: bc.value, days: Number(bd.value), link: bl.value }); reload(); });
+    const adList = ads.ads.map((a) => {
+      const clear = h("button", { class: "btn ghost small", type: "button" }, "Remove brand");
+      clear.addEventListener("click", async () => { await api("POST", `billboards/${a.slot}`, { clear: true }); reload(); });
+      return h("div", { class: "card" }, h("b", {}, `${a.slot}: ${a.text}`), h("p", { class: "muted" }, `${a.kind === "brand" ? "Brand" : "Player"} ${a.owner} until ${new Date(a.until).toLocaleString()}`), a.kind === "brand" ? clear : null);
+    });
+
+    // ideas
+    const ideas = c.proposals.map((p) => {
+      const done = h("button", { class: "btn small", type: "button" }, "Mark done");
+      const note = h("input", { placeholder: "Note shown to players, e.g. Built on 1 Nov!" });
+      done.addEventListener("click", async () => { await api("POST", `proposals/${p.id}`, { status: "done", note: note.value }); reload(); });
+      const hide = h("button", { class: "btn danger small", type: "button" }, "Hide");
+      hide.addEventListener("click", async () => { await api("POST", `proposals/${p.id}`, { status: "hidden" }); reload(); });
+      return h("div", { class: "card" }, h("b", {}, `${p.votes} votes · ${p.title}`), h("p", { class: "muted" }, `by ${p.name}${p.body ? ` · ${p.body}` : ""}`), note, h("div", { class: "row" }, done, hide));
+    });
+
+    return h("div", { class: "stack" },
+      h("h2", {}, "What's new"), h("div", { class: "card" }, field("Headline", nt), field("Text", nb), np), ...newsList,
+      h("h2", {}, "Events"), h("p", { class: "muted" }, "Players who come to the place while it's on get the reward once (up to UGX 5,000). Great for launches and real-world meetups."),
+      h("div", { class: "card" }, field("Name", et), field("Details", eb), field("Where", ep), field("Starts (empty = now)", es), field("Hours", ed), field("Reward (game UGX)", er), eg), ...eventList,
+      h("h2", {}, "Brand billboards"), h("p", { class: "muted" }, "For real local businesses who sponsor a billboard. A brand shows above a player's rental on the same spot."),
+      h("div", { class: "card" }, field("Billboard", bs), field("Brand", bn), field("Big text", bt), field("Small text", bsub), field("Colour", bc), field("Days", bd), field("Link", bl), bg), ...adList,
+      h("h2", {}, `Ideas from players (${c.proposals.length})`), ideas.length ? h("div", { class: "stack" }, ideas) : h("p", { class: "muted" }, "No ideas yet."));
   },
 
   async metrics() {

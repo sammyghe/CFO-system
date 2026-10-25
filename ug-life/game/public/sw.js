@@ -1,6 +1,6 @@
 // Offline shell: the game works on a weak connection after the first visit.
 // Bump VERSION on every release so phones pick up the new build.
-const VERSION = "ug-life-v4";
+const VERSION = "ug-life-v5";
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(["./", "./index.html", "./manifest.webmanifest", "./icon.svg"])).then(() => self.skipWaiting()));

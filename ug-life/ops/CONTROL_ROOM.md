@@ -38,3 +38,15 @@ Approving snaps stays with Sammy because approval publishes a photo of a real
 place. Batch-approving takes a minute in the Control Room. If the queue grows past
 what fits in the Monday review, the rule can be relaxed so that the moderation
 agent approves snaps with no people or vehicles in them; that change is Sammy's call.
+
+## Grow tab (2026-10-26)
+
+- **What's new**: post a headline (+ text). Players see a dot on More and read it in Street news.
+- **Events**: name, place, start, hours, reward (max UGX 5,000). Players at the place while it's
+  on get the reward once. Share the event link from the game.
+- **Brand billboards**: pick a billboard, brand, text, colour, days, optional https link. Shows
+  above any player's rental on that spot. Remove any time.
+- **Ideas**: the top player ideas by votes. Mark done (with a note players see) or hide.
+- Switch: **Mobile money top-ups** (Today tab) only works once `FLW_SECRET_KEY` is set on Netlify.
+- API: `POST /api/admin/news`, `DELETE /api/admin/news/:id`, `POST /api/admin/events`,
+  `DELETE /api/admin/events/:id`, `POST /api/admin/billboards/:slot`, `POST /api/admin/proposals/:id`.

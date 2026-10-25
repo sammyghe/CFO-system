@@ -4,6 +4,7 @@
 // the money checks in validate.ts on every save.
 
 import { post } from "./ledger";
+import { ENERGY_COST, gainEnergy, spendEnergy, tiredMessage } from "./energy";
 import { eventForTime } from "./daily";
 import { kampalaDateKey, hashString, seededRandom } from "./time";
 import { complete, type Result } from "./actions";
@@ -28,8 +29,9 @@ export function buyFood(state: PlayerState, vendorId: string, now: number): Resu
   if (!v) return fail("That vendor isn't here.");
   const r = eat(state, v.id, v.product, v.price, v.boostPct, v.boostMinutes, now);
   if (!r.ok) return r;
+  gainEnergy(state, v.energy, now);
   if (v.id === "rolex") complete(state, "rolex");
-  return ok(`${v.product} from ${v.seller}. +${v.boostPct}% pay on deliveries and rides for ${v.boostMinutes} min.`);
+  return ok(`${v.product} from ${v.seller}. ⚡+${v.energy} energy, +${v.boostPct}% pay for ${v.boostMinutes} min.`);
 }
 
 /** Cheap snacks: a few hundred shillings for a small, short boost. */
@@ -37,7 +39,9 @@ export function buySnack(state: PlayerState, snackId: string, now: number): Resu
   const sn = SNACKS.find((x) => x.id === snackId);
   if (!sn) return fail("They don't sell that here.");
   const r = eat(state, sn.id, sn.name, sn.price, sn.boostPct, sn.boostMinutes, now);
-  return r.ok ? ok(`${sn.icon} ${sn.name}. +${sn.boostPct}% pay for ${sn.boostMinutes} min.`) : r;
+  if (!r.ok) return r;
+  gainEnergy(state, sn.energy, now);
+  return ok(`${sn.icon} ${sn.name}. ⚡+${sn.energy} energy, +${sn.boostPct}% pay for ${sn.boostMinutes} min.`);
 }
 
 function eat(state: PlayerState, id: string, label: string, price: number, pct: number, minutes: number, now: number): Result {
@@ -131,6 +135,7 @@ export function acceptRide(state: PlayerState, offerId: string, now: number): Re
   if (ridesToday(state, now) >= BODA.ridesPerDay) return fail(`That's ${BODA.ridesPerDay} rides today. Rest, and ride again tomorrow.`);
   const o = rideOffers(state, now).find((x) => x.id === offerId);
   if (!o) return fail("That passenger found another boda.");
+  if (!spendEnergy(state, ENERGY_COST.ride, now)) return fail(tiredMessage(ENERGY_COST.ride));
   state.ride = { id: o.id, passengerId: o.passengerId, passenger: o.passenger, fromId: o.fromId, toId: o.toId, pay: o.pay, stage: "pickup", acceptedAt: now };
   return ok(`${o.passenger} is waiting at ${placeById(o.fromId)?.name}.`);
 }
@@ -200,7 +205,7 @@ export function clearYardSlot(state: PlayerState, slot: number): Result {
 
 export const GOAL_REWARDS: Record<GoalId, number> = {
   walk: 500, delivery: 1_000, pothole: 1_000, earn25: 2_000, kiosk: 2_000, paint: 500, profile: 500,
-  snap: 1_000, share: 1_500, boda: 500, rolex: 500, rider: 1_500, build: 1_000, landmarks: 2_000, hello: 500, dance: 500, land: 1_000, landlord: 3_000,
+  snap: 1_000, share: 1_500, boda: 500, rolex: 500, rider: 1_500, build: 1_000, landmarks: 2_000, hello: 500, dance: 500, land: 1_000, landlord: 3_000, shift: 500,
 };
 
 // ---------- landmarks ----------

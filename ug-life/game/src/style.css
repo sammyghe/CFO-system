@@ -283,3 +283,51 @@ ul.rules { margin: 6px 0 0; padding-left: 18px; line-height: 1.5; }
 .snack-ico { grid-row: span 2; font-size: 24px; text-align: center; }
 .snack b { font-size: 13.5px; line-height: 1.2; }
 .snack:active { background: var(--leaf-soft); transform: scale(.97); }
+
+/* ---------- energy, work, billboards, community ---------- */
+.en { display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 0; font-size: 11px; color: var(--muted); font-weight: 700; }
+.en-bar { flex: 1; height: 6px; background: var(--mist); border-radius: 3px; overflow: hidden; min-width: 60px; }
+.en-bar i { display: block; height: 100%; background: #e0a800; border-radius: 3px; transition: width .4s; }
+.en-bar i.low { background: var(--laterite); }
+.en-num { font-variant-numeric: tabular-nums; min-width: 22px; text-align: right; }
+.energy-row { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; background: #fff8e0; border-radius: 14px; padding: 10px 12px; }
+.energy-row .muted { grid-column: span 2; }
+.energy-label { font-weight: 800; font-size: 14px; }
+.energy-bar { height: 8px; background: #fff; border-radius: 4px; overflow: hidden; }
+.energy-bar i { display: block; height: 100%; background: #e0a800; }
+.work-card { display: grid; gap: 6px; padding: 12px; border: 1.5px solid var(--line); border-radius: 16px; }
+.work-head { display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; }
+.work-head > div { display: grid; gap: 2px; min-width: 0; }
+.work-ico { width: 40px; height: 40px; border-radius: 12px; background: var(--mist); display: grid; place-items: center; font-size: 22px; }
+.steps { margin: 0; padding-left: 20px; font-size: 13px; color: var(--muted); display: grid; gap: 2px; }
+.spend-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.spend { display: grid; gap: 4px; justify-items: start; text-align: left; border: 1.5px solid var(--line); background: #fff; border-radius: 14px; padding: 10px; }
+.steps-mini { display: flex; gap: 6px; font-size: 11px; font-weight: 700; color: var(--muted); }
+.steps-mini span { background: var(--mist); border-radius: 999px; padding: 2px 8px; }
+.steps-mini span.on { background: var(--blue-soft); color: var(--blue-deep); }
+.job-card.shift { border-left-color: #e0a800; }
+.shift-bar { display: block; height: 8px; background: var(--mist); border-radius: 4px; overflow: hidden; }
+.shift-bar i { display: block; height: 100%; background: #e0a800; transition: width .5s linear; }
+.board-card { display: grid; gap: 8px; padding: 12px; border: 1.5px solid var(--line); border-radius: 16px; }
+.board-card.focus { border-color: var(--blue); }
+.ad-preview { border-radius: 10px; padding: 12px; color: #fff; display: grid; gap: 2px; text-align: center; min-height: 64px; align-content: center; }
+.ad-preview b { font-size: 18px; text-transform: uppercase; letter-spacing: .02em; overflow-wrap: anywhere; }
+.ad-preview span { font-size: 12.5px; opacity: .9; }
+.rent-form { display: grid; gap: 8px; }
+.rent-form input, .propose input { font: inherit; font-size: 16px; padding: 11px 12px; border-radius: 12px; border: 1.5px solid var(--line); width: 100%; }
+.rent-form .bottom { display: flex; justify-content: space-between; align-items: center; }
+.rent-form .err:empty, .propose .err:empty { display: none; }
+.news { display: grid; gap: 4px; padding: 12px; background: var(--mist); border-radius: 14px; }
+.news b { font-size: 16px; }
+.event-card { display: grid; gap: 6px; padding: 12px; border: 1.5px solid var(--line); border-radius: 16px; }
+.event-card.live { border-color: var(--laterite); background: #fff6f3; }
+.idea { display: grid; grid-template-columns: 52px 1fr; gap: 10px; padding: 12px; border: 1.5px solid var(--line); border-radius: 16px; }
+.idea.done { grid-template-columns: 1fr; background: var(--leaf-soft); border-color: transparent; }
+.idea-votes { display: grid; place-items: center; align-content: center; background: var(--blue-soft); border-radius: 12px; color: var(--blue-deep); height: 52px; }
+.idea-votes b { font-size: 18px; }
+.idea-votes span { font-size: 10.5px; }
+.propose { display: grid; gap: 8px; padding: 12px; background: var(--mist); border-radius: 16px; }
+
+/* keep the bottom bar and sheet buttons clear of the host's badge in the corner */
+body.host-badge .hud-bottom { bottom: calc(12px + var(--safe-b) + 44px); }
+body.host-badge .sheet { padding-bottom: calc(var(--safe-b) + 48px); }

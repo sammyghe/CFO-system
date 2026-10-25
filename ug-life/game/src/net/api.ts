@@ -2,12 +2,15 @@
 // preview builds with no server) and the game carries on offline when it does.
 
 import type { PlayerState } from "../game/state";
+import type { BillboardAd } from "../content/billboards";
+import type { LiveEvent, NewsPost, Proposal } from "../content/community";
 
 const TOKEN_KEY = "uglife.token";
 const VERSION_KEY = "uglife.serverVersion";
 const PLAYER_KEY = "uglife.playerId";
 
 export interface ServerConfig {
+  topups?: boolean;
   maintenance: boolean;
   uploads: boolean;
   signups: boolean;
@@ -36,12 +39,14 @@ export interface TalkMsg {
   id: string;
   playerId: string;
   name: string;
-  kind: "phrase" | "text" | "emote" | "voice";
+  kind: "phrase" | "text" | "emote" | "voice" | "rally";
   body: string;
   to: string | null;
   x: number;
   y: number;
   at: number;
+  /** Rallies: the idea's title. */
+  title?: string;
 }
 
 export interface LiveVisitor extends Visitor {
@@ -207,8 +212,8 @@ export class Api {
     return { ok: true, day: r.data.day, renewed: r.data.renewed };
   }
 
-  async rewards(): Promise<{ referrals: { id: string; name: string }[]; referred: boolean } | null> {
-    const r = await this.call<{ referrals: { id: string; name: string }[]; referred: boolean }>("GET", "rewards", undefined, { auth: true });
+  async rewards(): Promise<{ referrals: { id: string; name: string }[]; referred: boolean; topups?: { ref: string; credit: number }[] } | null> {
+    const r = await this.call<{ referrals: { id: string; name: string }[]; referred: boolean; topups?: { ref: string; credit: number }[] }>("GET", "rewards", undefined, { auth: true });
     return r?.ok ? r.data : null;
   }
 
@@ -228,7 +233,7 @@ export class Api {
     return r?.ok ? r.data : null;
   }
 
-  async talk(kind: "phrase" | "text" | "emote", body: string, pos: { x: number; y: number }, to?: string): Promise<{ id: string; at: number; body: string } | { error: string }> {
+  async talk(kind: "phrase" | "text" | "emote" | "rally", body: string, pos: { x: number; y: number }, to?: string): Promise<{ id: string; at: number; body: string } | { error: string }> {
     const r = await this.call<{ id: string; at: number; body: string }>("POST", "talk", { kind, body, to, x: pos.x, y: pos.y }, { auth: true });
     if (!r) return { error: "No connection. Street talk needs signal." };
     return r.ok ? r.data : { error: r.data.error ?? "Couldn't send that." };
@@ -265,6 +270,57 @@ export class Api {
     if (!r) return { ok: false, message: "Buying land needs a connection, so two people can't buy the same plot." };
     if (!r.ok) return { ok: false, message: r.data.error ?? "Couldn't buy that plot." };
     return { ok: true, slot: r.data.slot, price: r.data.price };
+  }
+
+  async billboards(fresh = false): Promise<BillboardAd[] | null> {
+    const r = await this.call<{ ads: BillboardAd[] }>("GET", fresh ? `billboards?t=${Date.now()}` : "billboards");
+    return r?.ok ? r.data.ads : null;
+  }
+
+  async rentBillboard(slot: string, o: { text: string; sub: string; color: string; days: number }): Promise<{ ok: true; day: string; price: number } | { ok: false; message: string }> {
+    const r = await this.call<{ day: string; price: number }>("POST", `billboards/${slot}/rent`, o, { auth: true });
+    if (!r) return { ok: false, message: "Renting a billboard needs a connection." };
+    return r.ok ? { ok: true, day: r.data.day, price: r.data.price } : { ok: false, message: r.data.error ?? "Couldn't rent it." };
+  }
+
+  async community(): Promise<{ now: number; proposals: Proposal[]; done: Proposal[]; news: NewsPost[]; events: LiveEvent[] } | null> {
+    const r = await this.call<{ now: number; proposals: Proposal[]; done: Proposal[]; news: NewsPost[]; events: LiveEvent[] }>("GET", `community?t=${Math.floor(Date.now() / 15000)}`, undefined, { auth: true });
+    return r?.ok ? r.data : null;
+  }
+
+  async propose(title: string, body: string): Promise<{ ok: true } | { ok: false; message: string }> {
+    const r = await this.call("POST", "proposals", { title, body }, { auth: true });
+    if (!r) return { ok: false, message: "This needs a connection." };
+    return r.ok ? { ok: true } : { ok: false, message: (r.data as { error?: string }).error ?? "Couldn't post it." };
+  }
+
+  async vote(id: string): Promise<{ ok: true; votes: number } | { ok: false; message: string }> {
+    const r = await this.call<{ votes: number }>("POST", `proposals/${id}/vote`, {}, { auth: true });
+    if (!r) return { ok: false, message: "Voting needs a connection." };
+    return r.ok ? { ok: true, votes: r.data.votes } : { ok: false, message: r.data.error ?? "Couldn't vote." };
+  }
+
+  async reportProposal(id: string): Promise<boolean> {
+    const r = await this.call("POST", `proposals/${id}/report`, {}, { auth: true });
+    return !!r?.ok;
+  }
+
+  async attendEvent(id: string): Promise<{ ok: true; reward: number } | { ok: false; message: string }> {
+    const r = await this.call<{ reward: number }>("POST", `events/${id}/attend`, {}, { auth: true });
+    if (!r) return { ok: false, message: "Joining needs a connection." };
+    return r.ok ? { ok: true, reward: r.data.reward } : { ok: false, message: r.data.error ?? "Couldn't join." };
+  }
+
+  async topUp(pack: string): Promise<{ ok: true; link: string; ref: string } | { ok: false; message: string }> {
+    const r = await this.call<{ link: string; ref: string }>("POST", "topup", { pack }, { auth: true, timeout: 15000 });
+    if (!r) return { ok: false, message: "Top-up needs a connection." };
+    return r.ok ? { ok: true, link: r.data.link, ref: r.data.ref } : { ok: false, message: r.data.error ?? "Couldn't start the top-up." };
+  }
+
+  async verifyTopUp(ref: string): Promise<{ credit: number } | { pending: true } | null> {
+    const r = await this.call<{ ok: boolean; credit?: number; pending?: boolean }>("POST", `topup/${ref}/verify`, {}, { auth: true, timeout: 15000 });
+    if (!r?.ok) return null;
+    return r.data.ok && r.data.credit ? { credit: r.data.credit } : { pending: true };
   }
 
   async leaderboard(): Promise<Board | null> {

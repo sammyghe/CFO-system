@@ -50,7 +50,7 @@ export interface Ticket {
   status: "saved" | "sent";
 }
 
-export type GoalId = "walk" | "delivery" | "earn25" | "kiosk" | "paint" | "share" | "pothole" | "profile" | "snap" | "boda" | "rider" | "rolex" | "build" | "landmarks" | "hello" | "dance" | "land" | "landlord";
+export type GoalId = "walk" | "delivery" | "earn25" | "kiosk" | "paint" | "share" | "pothole" | "profile" | "snap" | "boda" | "rider" | "rolex" | "build" | "landmarks" | "hello" | "dance" | "land" | "landlord" | "shift";
 
 /** A passenger you're carrying as a boda rider. */
 export interface Ride {
@@ -85,6 +85,10 @@ export interface PlayerState {
   stats: { deliveries: number; earned: number; daysVisited: number };
   goals: GoalId[];
   lastVisitDate: string | null;
+  /** Energy and when it was last counted (it refills over time). */
+  energy?: { value: number; at: number };
+  /** A shift you're working right now. */
+  shift: { id: string; startedAt: number; endsAt: number } | null;
   /** Plots of land owned around Kampala. */
   land: OwnedLand[];
   settings: {
@@ -135,6 +139,7 @@ export function newPlayer(now: number, id: string): PlayerState {
     goals: [],
     lastVisitDate: null,
     land: [],
+    shift: null,
     settings: { liveTime: true, reducedMotion: false, sound: true, music: true, voices: true, voiceAuto: false },
     bodaRent: null,
     ride: null,
@@ -149,6 +154,7 @@ export const GOALS: { id: GoalId; label: string }[] = [
   { id: "walk", label: "Walk down the street" },
   { id: "hello", label: "Say “Oli otya?” on the street" },
   { id: "delivery", label: "Finish your first delivery" },
+  { id: "shift", label: "Work a shift in a shop" },
   { id: "pothole", label: "Report the pothole" },
   { id: "earn25", label: "Save UGX 25,000" },
   { id: "kiosk", label: "Lease a kiosk" },

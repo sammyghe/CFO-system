@@ -28,6 +28,9 @@ try {
   /* storage blocked */
 }
 
+// Netlify shows its badge in the bottom corner on *.netlify.app; keep our buttons above it.
+if (/\.netlify\.app$/.test(location.hostname) || new URLSearchParams(location.search).has("badge")) document.body.classList.add("host-badge");
+
 function boot() {
   const canvas = document.getElementById("world") as HTMLCanvasElement | null;
   if (!canvas || !canvas.getContext) {

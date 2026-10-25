@@ -5,7 +5,7 @@ import {
   drawProp, drawTile, kioskBox, propBox, type KioskLook,
 } from "./art";
 import { LANE_Y, LANE_DIR, type Sim, type Walker } from "./sim";
-import { drawYardItem, type SkylineHit } from "./streetart";
+import { drawStreetBillboard, drawYardItem, type SkylineHit } from "./streetart";
 import { yardTiles } from "../content/catalog";
 import { LANDMARKS } from "../content/landmarks";
 import type { CivicIssue } from "../game/civic";
@@ -26,6 +26,8 @@ export interface SceneState {
   billboard: string;
   billboardImage: CanvasImageSource | null;
   billboardKey: string;
+  /** Billboard ads by slot (players' rentals and brands). */
+  ads?: Record<string, { text: string; sub: string; color: string }>;
   /** Yard items per plot (yours from your save, others' from the server). */
   yards: Record<string, (string | null)[]>;
 }
@@ -51,6 +53,7 @@ export type Pick =
   | { type: "building"; building: Building }
   | { type: "plot"; plotId: string }
   | { type: "pothole" }
+  | { type: "billboard"; slot: string }
   | { type: "bubble"; walkerId: string; talkId?: string; voiceId?: string }
   | { type: "ground"; x: number; y: number };
 
@@ -210,12 +213,19 @@ export class Renderer {
       const bb = boxBounds(box, (BUILDING_EXTRA_TOP[b.id] ?? 0) + 22);
       const bounds = { x0: bb.x0 - 4, x1: bb.x1 + 4, y0: bb.y0, y1: bb.y1 + 4 };
       const bbKey = b.id === "pharmacy" ? scene.billboardKey : "";
-      items.push(this.spriteItem(`b:${b.id}:${nightKey}:${bbKey}`, box, bounds, scale, (g) => drawBuilding(g, b, scene.night, scene.billboard, b.id === "pharmacy" ? scene.billboardImage : null)));
+      const roofAd = b.id === "pharmacy" ? scene.ads?.pharmacy : undefined;
+      const roofKey = roofAd ? `ad:${roofAd.text}:${roofAd.color}` : bbKey;
+      items.push(this.spriteItem(`b:${b.id}:${nightKey}:${roofKey}`, box, bounds, scale, (g) => drawBuilding(g, b, scene.night, roofAd ? roofAd.text.toUpperCase() : scene.billboard, roofAd ? null : b.id === "pharmacy" ? scene.billboardImage : null, roofAd?.color)));
     }
     for (const p of PROPS) {
       const box = propBox(p);
       const bb = boxBounds(box, 20);
       const bounds = { x0: bb.x0 - 40, x1: bb.x1 + 40, y0: bb.y0 - 10, y1: bb.y1 + 16 };
+      if (p.kind === "billboard") {
+        const ad = scene.ads?.[p.slot ?? ""] ?? null;
+        items.push(this.spriteItem(`p:bb:${p.slot}:${nightKey}:${ad ? `${ad.text}:${ad.sub}:${ad.color}` : "free"}`, box, bounds, scale, (g) => drawStreetBillboard(g, box, ad, scene.night)));
+        continue;
+      }
       items.push(this.spriteItem(`p:${p.kind}:${p.x}:${p.y}:${nightKey}`, box, bounds, scale, (g) => drawProp(g, p, scene.night, 0)));
     }
     for (const plot of PLOTS) {
@@ -275,7 +285,26 @@ export class Renderer {
             drawPerson(g, p.sx, p.sy - Math.abs(Math.sin(beat * Math.PI)) * 4, w.look, beat * 3, true, Math.floor(beat) % 2 === 0, 1, carrying);
           } else drawPerson(g, p.sx, p.sy, w.look, w.phase, w.moving, w.flip, 1, carrying);
           if (w.waving) waveBubble(g, p.sx, p.sy - 50, now);
-          if (emote) {
+          if (emote?.id === "placard") {
+            // a protest placard held up on a stick
+            const lift = scene.reducedMotion ? 0 : Math.sin(now / 300) * 2;
+            g.font = "800 8px system-ui, sans-serif";
+            const tw = Math.min(110, g.measureText(emote.icon).width + 10);
+            g.fillStyle = "#6b4a2b";
+            // held high, above the name tag
+            g.fillRect(p.sx + 6, p.sy - 86 + lift, 2, 60);
+            g.fillStyle = "#fffbe6";
+            g.strokeStyle = "#13202b";
+            g.lineWidth = 1;
+            g.fillRect(p.sx + 7 - tw / 2, p.sy - 100 + lift, tw, 15);
+            g.strokeRect(p.sx + 7 - tw / 2, p.sy - 100 + lift, tw, 15);
+            g.fillStyle = "#b4442a";
+            g.textAlign = "center";
+            g.textBaseline = "middle";
+            g.fillText(emote.icon, p.sx + 7, p.sy - 92.5 + lift, tw - 6);
+            g.textAlign = "left";
+            g.textBaseline = "alphabetic";
+          } else if (emote) {
             const hop = scene.reducedMotion ? 0 : Math.sin(now / 150) * 2.5;
             g.font = "18px system-ui, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
             g.textAlign = "center";
@@ -640,6 +669,7 @@ export class Renderer {
     const hitProp = (p: (typeof PROPS)[number]) => pointInPoly(wp.sx, wp.sy, boxSilhouette(propBox(p), 0)) || (tx === p.x && ty === p.y);
     for (const p of PROPS) {
       if (p.kind === "board" && hitProp(p)) return { type: "board" };
+      if (p.kind === "billboard" && p.slot && (hitProp(p) || (ty === p.y && tx >= p.x && tx <= p.x + 1))) return { type: "billboard", slot: p.slot };
       if (p.kind === "cart" && p.vendor && hitProp(p)) return { type: "vendor", id: p.vendor };
       if (p.kind === "bodaPark" && hitProp(p)) return { type: "bodaStage" };
       if (p.kind === "gate" && (hitProp(p) || (ty <= 0 && tx >= p.x && tx <= p.x + 1))) return { type: "landmark", id: "makerere-gate" };

@@ -7,6 +7,9 @@ import * as S from "./sheets";
 import { albumSheet } from "../snaps/ui";
 import type { GameApi, SheetSpec } from "./sheets";
 import { landSheet } from "./landsheet";
+import { communitySheet } from "./communitysheet";
+import { workSheet } from "./worksheet";
+import { billboardSheet } from "./billboardsheet";
 
 export function moreSheet(G: GameApi): SheetSpec {
   return {
@@ -23,7 +26,11 @@ export function moreSheet(G: GameApi): SheetSpec {
         h("div", { class: "menu" },
           row(ICONS.tag, "Your Ug Tag", "Name, look, status and socials", () => G.openSheet(S.tagSheet(G, false))),
           row(ICONS.goals, "Street goals", "Things to do, with rewards to claim", () => G.openSheet(S.goalsSheet(G))),
+          row(ICONS.news, "Street news", "What's new, events with rewards, ideas to vote on", () => G.openSheet(communitySheet(G))),
+          row(ICONS.jobs, "Work", "Every way to earn, step by step", () => G.openSheet(workSheet(G))),
           row(ICONS.land, "Kampala land", "Buy cheap plots, build, collect rent. One area is hot today", () => G.openSheet(landSheet(G))),
+          row(ICONS.billboard, "Billboards", "Put your kiosk or message up for the whole street", () => G.openSheet(billboardSheet(G))),
+          row(ICONS.wallet, "Top up", G.topUpEnabled() ? "Game shillings with mobile money" : "Mobile money top-ups: coming soon", () => G.openTopUp()),
           row(ICONS.trophy, "Top of the street", "Richest, highest level, best snappers", () => G.openSheet(leaderboardSheet(G))),
           row(ICONS.camera, "Street Snaps", "Turn a real street photo into art", () => G.openSheet(albumSheet(G))),
           row(ICONS.share, "Invite friends", "Share your card; you both get UGX when they join", () => G.openSheet(S.shareSheet(G))),

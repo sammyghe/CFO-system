@@ -5,6 +5,7 @@ import pg from "pg";
 import { handle } from "../../server/api";
 import { PgDb } from "../../server/db";
 import { BlobsPhotoStore } from "../../server/photostore";
+import { Flutterwave } from "../../server/payments";
 
 // Postgres returns 64-bit integers and sums as strings; the game uses plain numbers.
 pg.types.setTypeParser(20, (v) => Number(v));
@@ -28,6 +29,7 @@ export default async (req: Request) => {
     db: database,
     photos: new BlobsPhotoStore(getStore({ name: "ug-life-photos", consistency: "strong" })),
     adminToken: Netlify.env.get("ADMIN_TOKEN"),
+    payments: Netlify.env.get("FLW_SECRET_KEY") ? new Flutterwave(Netlify.env.get("FLW_SECRET_KEY")!) : undefined,
   });
 };
 

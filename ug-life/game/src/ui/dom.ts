@@ -41,6 +41,9 @@ export const ICONS = {
   go: svg('<path d="M12 22s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>'),
   talk: svg('<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>'),
   land: svg('<path d="M3 21h18M5 21V10l7-5 7 5v11"/><path d="M9 21v-6h6v6"/>'),
+  news: svg('<path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 8h3v9a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/>'),
+  billboard: svg('<rect x="3" y="4" width="18" height="10" rx="1"/><path d="M8 14v6M16 14v6M7 9h10"/>'),
+  wallet: svg('<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14h2"/>'),
   more: svg('<path d="M4 6h16M4 12h16M4 18h16"/>'),
   rain: svg('<path d="M20 15a4 4 0 0 0-4-6 6 6 0 0 0-11.5 2A3.5 3.5 0 0 0 5 18h11"/><path d="M8 20l-1 2M12 20l-1 2M16 20l-1 2"/>'),
 };

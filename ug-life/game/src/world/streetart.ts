@@ -301,3 +301,26 @@ export function drawSkylineLandmark(ctx: Ctx, lm: Landmark, x: number, y: number
   ctx.restore();
   return { id: lm.id, x0: x - (w / 2) * s - 6, y0: y - h * s - 6, x1: x + (w / 2) * s + 6, y1: y + 6 };
 }
+
+/** A street billboard on two posts: a player's rental, a brand, or "rent me". */
+export function drawStreetBillboard(ctx: Ctx, box: Box, ad: { text: string; sub: string; color: string } | null, night: boolean) {
+  const base = toScreen(box.x + box.w / 2, box.y + box.d / 2);
+  shadow(ctx, base, 40, 9);
+  for (const u of [0.25, box.w - 0.3]) quadY(ctx, box, u, u + 0.06, 0, 40, "#2b2b2b");
+  quadY(ctx, box, -0.06, box.w + 0.06, 34, 76, "#1d1f22");
+  const color = ad?.color ?? "#5b6873";
+  quadY(ctx, box, 0, box.w, 36, 74, color);
+  quadY(ctx, box, 0, box.w, 36, 40, shade(color, -0.3));
+  if (ad) {
+    signTextY(ctx, box, 0.06, box.w - 0.06, 52, 72, ad.text.toUpperCase(), "#ffffff", 900);
+    if (ad.sub) signTextY(ctx, box, 0.1, box.w - 0.1, 41, 51, ad.sub, "rgba(255,255,255,0.9)", 600);
+  } else {
+    signTextY(ctx, box, 0.06, box.w - 0.06, 54, 72, "YOUR AD HERE", "#ffffff", 900);
+    signTextY(ctx, box, 0.1, box.w - 0.1, 41, 52, "Tap to rent · UG LIFE", "rgba(255,255,255,0.85)", 600);
+  }
+  if (night) {
+    ctx.fillStyle = "rgba(255,240,200,0.14)";
+    const c = toScreen(box.x + box.w / 2, box.y);
+    ctx.beginPath(); ctx.ellipse(c.sx, c.sy - 55, 50, 26, 0, 0, Math.PI * 2); ctx.fill();
+  }
+}
