@@ -148,3 +148,7 @@ Sammy's rule on logos: **stop asking for logos.** Find them or use clean name ma
 - Artifacts: Sammy HQ, Maji Safi Water Treatment Technology, Maji Safi Plant, Launch Desk, Capital Terminal, Year One, Finance Office.
 - No Belize document exists yet in Drive or Gmail (checked 24 Oct 2026).
 - Claude chat history on claude.ai is not readable from this session. Context from it reaches here only when pasted.
+
+### Product images rule (26 Oct 2026)
+- Sammy wants **real product photos, not drawn mockups**, for products we already make (20 L jar, PET bottle). Source: Drive folder "edited files" (studio photo `products-group`, light-blue background). Cutouts saved in `knowledge/belize-report/mockups/real-jar-20l.png` and `real-bottle-5l.png` (background removed, transparent).
+- The real PET studio bottle is **5 L**, not 500 ml. A 500 ml studio photo does not exist yet. Drawn mockups are fine only for products that don't exist yet (the Belize cans), and must be labelled "concept".
