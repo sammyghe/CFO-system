@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:Bebas;src:url(../fonts/bebas-neue-latin-400-normal.woff2)}
+@font-face{font-family:Oswald;src:url(../fonts/oswald-latin-700-normal.woff2);font-weight:700}
+@font-face{font-family:Sans3;src:url(../fonts/source-sans-3-latin-wght-normal.woff2);font-weight:200 900}
+body{margin:0;background:transparent;font-family:Sans3,Arial,sans-serif}
+.item{display:inline-block;padding:30px 40px 50px;vertical-align:top}
+/* CAN */
+.can{position:relative;width:300px;height:800px}
+.can .lid{position:absolute;left:22px;top:0;width:256px;height:34px;border-radius:50%;background:radial-gradient(ellipse at 50% 40%,#f4f6f8 0%,#c9cfd5 45%,#8d959d 70%,#d9dde1 85%,#7d858d 100%);box-shadow:inset 0 -3px 4px rgba(0,0,0,.25)}
+.can .tab{position:absolute;left:118px;top:6px;width:64px;height:20px;border-radius:12px;border:3px solid #9aa2aa;background:linear-gradient(#e6e9ec,#b7bec5)}
+.can .neck{position:absolute;left:0;top:17px;width:300px;height:44px;clip-path:polygon(7.5% 0,92.5% 0,100% 100%,0 100%);background:linear-gradient(90deg,#6f777f 0%,#c3c9cf 18%,#f2f4f6 30%,#b9c0c6 50%,#9aa2a9 75%,#6b737b 100%)}
+.can .body{position:absolute;left:0;top:60px;width:300px;height:700px;overflow:hidden}
+.can .shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.55) 0%,rgba(0,0,0,.18) 9%,rgba(255,255,255,.30) 21%,rgba(255,255,255,.08) 30%,rgba(255,255,255,0) 45%,rgba(0,0,0,.08) 65%,rgba(0,0,0,.25) 85%,rgba(0,0,0,.6) 100%);pointer-events:none}
+.can .base{position:absolute;left:0;top:756px;width:300px;height:30px;border-radius:0 0 50% 50% / 0 0 100% 100%;background:linear-gradient(90deg,#5f676f 0%,#b9c0c6 20%,#eef1f3 32%,#aab1b8 55%,#8a929a 78%,#5b636b 100%)}
+.can .shadow{position:absolute;left:10px;top:770px;width:280px;height:34px;border-radius:50%;background:rgba(10,25,40,.28);filter:blur(10px);z-index:-1}
+.vert{position:absolute;white-space:nowrap;transform-origin:left top;transform:rotate(-90deg)}
+/* JAR text */
+.jarwrap{position:relative;width:520px;height:800px}
+</style></head><body>
+<div class="item" id="fb-blue"><div class="can"><div class="shadow"></div><div class="lid"></div><div class="tab"></div><div class="neck"></div>
+ <div class="body" style="background:linear-gradient(180deg,#0E2F55 0%,#0B4C86 50%,#0077B6 100%)">
+  <div style="position:absolute;left:0;top:70px;width:300px;text-align:center;font-family:Oswald;font-weight:700;font-size:17px;letter-spacing:8px;color:#7EC8E3">NATURAL</div>
+  <div style="position:absolute;left:0;top:230px;width:300px;text-align:center;font-family:Bebas;font-size:118px;line-height:.9;letter-spacing:3px;color:#FFFFFF">BELIZE</div>
+  <div style="position:absolute;left:0;top:340px;width:300px;text-align:center;font-family:Oswald;font-weight:700;font-size:27px;letter-spacing:7px;color:#8FCBE6">SPRING WATER</div>
+  <svg style="position:absolute;left:0;top:420px" width="300" height="120" viewBox="0 0 300 120"><g fill="none" stroke-width="6"><path d="M0 30 Q37 10 75 30 T150 30 T225 30 T300 30" stroke="#7EC8E3"/><path d="M0 62 Q37 42 75 62 T150 62 T225 62 T300 62" stroke="#FFFFFF"/></g></svg>
+  <div style="position:absolute;left:0;bottom:44px;width:300px;text-align:center;font-family:Oswald;font-weight:700;font-size:15px;letter-spacing:5px;color:#DCEFF9">STILL · 355 ML</div><div class="shade"></div></div>
+ <div class="base"></div></div></div>
+<div class="item" id="fb-white"><div class="can"><div class="shadow"></div><div class="lid"></div><div class="tab"></div><div class="neck"></div>
+ <div class="body" style="background:linear-gradient(180deg,#FFFFFF 0%,#F1F7FB 60%,#DDEEF8 100%)">
+  <div style="position:absolute;left:0;top:70px;width:300px;text-align:center;font-family:Oswald;font-weight:700;font-size:17px;letter-spacing:8px;color:#0077B6">NATURAL</div>
+  <div style="position:absolute;left:0;top:230px;width:300px;text-align:center;font-family:Bebas;font-size:118px;line-height:.9;letter-spacing:3px;color:#0E2F55">BELIZE</div>
+  <div style="position:absolute;left:0;top:340px;width:300px;text-align:center;font-family:Oswald;font-weight:700;font-size:27px;letter-spacing:7px;color:#0077B6">SPRING WATER</div>
+  <svg style="position:absolute;left:0;top:420px" width="300" height="120" viewBox="0 0 300 120"><g fill="none" stroke-width="6"><path d="M0 30 Q37 10 75 30 T150 30 T225 30 T300 30" stroke="#0077B6"/><path d="M0 62 Q37 42 75 62 T150 62 T225 62 T300 62" stroke="#7EC8E3"/></g></svg>
+  <div style="position:absolute;left:0;bottom:44px;width:300px;text-align:center;font-family:Oswald;font-weight:700;font-size:15px;letter-spacing:5px;color:#0E2F55">STILL · 355 ML</div><div class="shade"></div></div>
+ <div class="base"></div></div></div>
+<div class="item" id="fb-sky"><div class="can"><div class="shadow"></div><div class="lid"></div><div class="tab"></div><div class="neck"></div>
+ <div class="body" style="background:linear-gradient(180deg,#5FB6E2 0%,#7EC8E3 45%,#B9E2F4 100%)">
+  <div style="position:absolute;left:0;top:70px;width:300px;text-align:center;font-family:Oswald;font-weight:700;font-size:17px;letter-spacing:8px;color:#0E2F55">NATURAL</div>
+  <div style="position:absolute;left:0;top:230px;width:300px;text-align:center;font-family:Bebas;font-size:118px;line-height:.9;letter-spacing:3px;color:#0E2F55">BELIZE</div>
+  <div style="position:absolute;left:0;top:340px;width:300px;text-align:center;font-family:Oswald;font-weight:700;font-size:27px;letter-spacing:7px;color:#FFFFFF">SPRING WATER</div>
+  <svg style="position:absolute;left:0;top:420px" width="300" height="120" viewBox="0 0 300 120"><g fill="none" stroke-width="6"><path d="M0 30 Q37 10 75 30 T150 30 T225 30 T300 30" stroke="#FFFFFF"/><path d="M0 62 Q37 42 75 62 T150 62 T225 62 T300 62" stroke="#0E2F55"/></g></svg>
+  <div style="position:absolute;left:0;bottom:44px;width:300px;text-align:center;font-family:Oswald;font-weight:700;font-size:15px;letter-spacing:5px;color:#0E2F55">STILL · 355 ML</div><div class="shade"></div></div>
+ <div class="base"></div></div></div>
+</body></html>
