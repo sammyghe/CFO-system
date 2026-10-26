@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#EAF3F9}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script></head><body>
+<script type="module">
+import * as THREE from 'three';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+const W=900,H=1500;
+const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+r.setPixelRatio(2);r.setSize(W,H);r.toneMapping=THREE.ACESFilmicToneMapping;r.toneMappingExposure=1.05;r.outputColorSpace=THREE.SRGBColorSpace;
+r.shadowMap.enabled=true;document.body.appendChild(r.domElement);
+const sc=new THREE.Scene();sc.background=new THREE.Color(0xEAF3F9);
+const pm=new THREE.PMREMGenerator(r);sc.environment=pm.fromScene(new RoomEnvironment(),0.04).texture;
+const cam=new THREE.PerspectiveCamera(18,W/H,1,500);cam.position.set(0,13,80);cam.lookAt(0,10.6,0);
+// bottle profile (cm)
+const P=[];const add=(x,y)=>P.push(new THREE.Vector2(x,y));
+add(0.001,0.35);add(1.6,0.25);add(2.6,0.05);add(3.1,0.25);add(3.3,0.7);
+for(let y=0.9;y<=5.6;y+=0.05){const k=(y>1.5&&y<5.2)?0.12*Math.pow(Math.max(0,Math.sin((y-1.5)/3.7*Math.PI*4)),6):0;add(3.3-k,y);}
+for(let y=5.7;y<=13;y+=0.25)add(3.3,y);
+for(let i=1;i<=40;i++){const t=i/40;const y=13+t*5.5;const rad=1.35+(3.3-1.35)*(0.5+0.5*Math.cos(Math.PI*t));add(rad,y);}
+add(1.35,19.0);add(1.68,19.05);add(1.68,19.3);add(1.4,19.35);add(1.4,19.55);add(0.001,19.55);
+const pet=new THREE.MeshPhysicalMaterial({color:0x6fbde8,metalness:0,roughness:0.03,transparent:true,opacity:0.30,depthWrite:false,clearcoat:1,clearcoatRoughness:0.02,envMapIntensity:2.2,side:THREE.DoubleSide});
+const bottle=new THREE.Mesh(new THREE.LatheGeometry(P,160),pet);sc.add(bottle);
+// water (inner, to 17.2 cm)
+const Q=P.filter(p=>p.y>0.5&&p.y<17.2).map(p=>new THREE.Vector2(p.x*0.965,p.y));Q.unshift(new THREE.Vector2(0.001,0.55));
+const topR=Q[Q.length-1].x;Q.push(new THREE.Vector2(0.001,Q[Q.length-1].y));
+const water=new THREE.Mesh(new THREE.LatheGeometry(Q,160),new THREE.MeshPhysicalMaterial({color:0x2f93d4,metalness:0,roughness:0.02,transparent:true,opacity:0.50,depthWrite:false,envMapIntensity:1.0}));
+water.renderOrder=1;bottle.renderOrder=3;sc.add(water);
+// label
+const tex=new THREE.TextureLoader().load('lab-bottle.png',()=>{tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=8;go();});
+const lab=new THREE.Mesh(new THREE.CylinderGeometry(3.335,3.335,6.0,200,1,true),new THREE.MeshPhysicalMaterial({map:tex,roughness:0.42,clearcoat:0.3,clearcoatRoughness:0.3}));
+lab.position.y=9.4;lab.renderOrder=2;lab.rotation.y=Math.PI;sc.add(lab);
+// cap with ridges
+const cg=new THREE.CylinderGeometry(1.56,1.56,2.15,240,1,false);const pos=cg.attributes.position;
+for(let i=0;i<pos.count;i++){const x=pos.getX(i),z=pos.getZ(i),y=pos.getY(i);if(Math.abs(y)<1.07){const a=Math.atan2(x,z);const s=1+0.022*(Math.sin(a*48)>0?1:0);pos.setX(i,x*s);pos.setZ(i,z*s);}}
+cg.computeVertexNormals();
+const cap=new THREE.Mesh(cg,new THREE.MeshPhysicalMaterial({color:0x0b3d8c,roughness:0.35,clearcoat:0.6}));cap.position.y=19.55+1.07;cap.castShadow=true;sc.add(cap);
+const ring=new THREE.Mesh(new THREE.TorusGeometry(1.5,0.12,16,120),cap.material);ring.rotation.x=Math.PI/2;ring.position.y=19.5;sc.add(ring);
+// lights
+const key=new THREE.DirectionalLight(0xffffff,1.6);key.position.set(-30,40,40);sc.add(key);
+const rim=new THREE.DirectionalLight(0xffffff,1.2);rim.position.set(40,20,-30);sc.add(rim);
+// floor shadow
+const fl=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.ShadowMaterial({opacity:0.12}));fl.rotation.x=-Math.PI/2;fl.receiveShadow=true;sc.add(fl);
+key.castShadow=true;bottle.castShadow=true;
+function go(){r.render(sc,cam);document.title='done';}
+</script></body></html>

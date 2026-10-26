@@ -151,4 +151,7 @@ Sammy's rule on logos: **stop asking for logos.** Find them or use clean name ma
 
 ### Product images rule (26 Oct 2026)
 - Sammy wants **real product photos, not drawn mockups**, for products we already make (20 L jar, PET bottle). Source: Drive folder "edited files" (studio photo `products-group`, light-blue background). Cutouts saved in `knowledge/belize-report/mockups/real-jar-20l.png` and `real-bottle-5l.png` (background removed, transparent).
-- The real PET studio bottle is **5 L**, not 500 ml. A 500 ml studio photo does not exist yet. Drawn mockups are fine only for products that don't exist yet (the Belize cans), and must be labelled "concept".
+- For Belize: **our real studio jar with a Belize Spring Water label** (never the Maji Safi label on Belize products). File: `real-jar-20l-belize.png` (label design in `labels.html`).
+- The small bottle for Belize is **500 ml (or 1 L)**, never the 5 L. No real 500 ml photo exists in Drive, so it is a 3D studio render (`belize-bottle-500ml.png`, source `bottle-500ml-3d.html`), labelled as a concept render.
+- Sammy wants PDFs easy to **view and download in chat**: publish a viewer artifact (pages as images + Download PDF button) as well as sending the file. Belize doc viewer: https://claude.ai/artifact/9MVzVxEViYrY7rS2bFwwxf
+- Lesson: read the whole ask. "Real jars" + "Belize label" + "small bottle" were all in the brief; I delivered only the first. Check every part before sending.
