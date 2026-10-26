@@ -111,6 +111,9 @@ Logos: company websites, Wikimedia and Clearbit are all blocked from this worksp
 Economics shown (market sales, NOT our costs): home jar market ≈ BZ$51M a year (82,264 homes × 2 jars a week × 52 × BZ$6); 5% share ≈ 428k jars ≈ BZ$2.6M; cans: 5% of 4.97M visitor-days at ~BZ$4 ≈ 248k cans ≈ BZ$1.0M; together ≈ BZ$3.6M ≈ US$1.8M a year at shelf prices, before costs. Set-up cost estimate comes from Mike.
 Mockups: no Maji Safi logo on the products (Sammy's comment). One Belize spring jar and 4 cans: Jungle, Flag blue, Reef white, Night black (`mockups/mockups2.html`).
 
+**7-page approach document, 26 Oct 2026:** `knowledge/belize-doc/Maji-Safi-in-Belize-Approach.pdf` (source belize-approach.html), for Amanuel, Mike and Sammy. Pages: 1 approach on one page · 2 country and economy (GDP ~US$3.6B 2024, tourism = 60% of foreign currency) · 3 how Belize drinks + market size · 4 players and partner ideas · 5 who we are + all Safi Treatment systems (S/M/L/Containerised) · 6 products (20 L jars + cans first, PET optional; Option A Maji Safi blue, Option B Belize spring name) · 7 deal (a North American company handles deals: Sammy's thinking, terms open), moving parts (investment, tests, cost analysis with Mike, logistics, permits), social impact stories (school taps: only 58.3% of schools have drinking water; refill not plastic; ~20 villages; jobs), next steps. Every number lives in `knowledge/belize-doc/belize-data-notes.md`.
+Sammy's decisions: 20 L jar = the same as the 5-gal (no change, just new labels); show all treatment systems; partner with existing jar and can players; brand A vs B decided later; US/North American entity shown as his idea with nothing fixed.
+
 **Still open:** spring location and title, water test, dry-season flow, landowner terms, who owns BrandCo, brand lead.
 
 ## 5. How Sammy thinks (working style)
