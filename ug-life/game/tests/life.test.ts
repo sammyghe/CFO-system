@@ -100,3 +100,41 @@ describe("people", () => {
     expect(weekKey(Date.parse("2026-10-27T09:00:00Z"))).toBe("2026-W44");
   });
 });
+
+describe("crypto top-ups and load", () => {
+  it("reads TronGrid's answer: only incoming USDT to our address", async () => {
+    const { parseTronGrid, isTronAddress, USDT_TRC20 } = await import("../server/crypto");
+    const me = "TNXoiAJ3dct8Fjg4M9fkLFh9S2v9TXc32G";
+    expect(isTronAddress(me)).toBe(true);
+    expect(isTronAddress("0x1234")).toBe(false);
+    expect(isTronAddress("TNXoiAJ3dct8Fjg4M9fkLFh9S2v9TXc3l")).toBe(false); // l isn't base58
+    const list = parseTronGrid({
+      success: true,
+      data: [
+        { transaction_id: "a", token_info: { address: USDT_TRC20, decimals: 6 }, block_timestamp: 1, to: me, value: "5037100" },
+        { transaction_id: "b", token_info: { address: "TFakeToken", decimals: 6 }, block_timestamp: 2, to: me, value: "5037100" },
+        { transaction_id: "c", token_info: { address: USDT_TRC20, decimals: 6 }, block_timestamp: 3, to: "TSomeoneElse", value: "9" },
+        { transaction_id: "d", token_info: { address: USDT_TRC20, decimals: 6 }, block_timestamp: 4, to: me, value: "nonsense" },
+      ],
+    }, me);
+    expect(list).toEqual([{ txId: "a", micro: 5_037_100, at: 1, to: me }]);
+  });
+
+  it("prices packs and shows amounts with 4 decimals", async () => {
+    const { CRYPTO_PACKS, cryptoCredit } = await import("../src/content/topup");
+    const { usdtText } = await import("../src/ui/topupsheet");
+    expect(cryptoCredit(CRYPTO_PACKS[0], 3600)).toEqual({ price: 7_200, credit: 7_200 });
+    expect(cryptoCredit(CRYPTO_PACKS[2], 3600)).toEqual({ price: 36_000, credit: 43_200 });
+    expect(usdtText(5_037_100)).toBe("5.0371");
+    expect(usdtText(2_000_100)).toBe("2.0001");
+  });
+
+  it("slows everyone's polling as the game gets busy", async () => {
+    const { pollFor } = await import("../server/api");
+    expect(pollFor(50, 0)).toBe(0);
+    expect(pollFor(5_000, 0)).toBe(20_000);
+    expect(pollFor(20_000, 0)).toBe(45_000);
+    expect(pollFor(500_000, 0)).toBe(90_000);
+    expect(pollFor(10, 60_000)).toBe(60_000);
+  });
+});

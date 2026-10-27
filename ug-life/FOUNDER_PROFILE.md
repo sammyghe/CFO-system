@@ -44,3 +44,10 @@ Living notes on how Sammy works, so any future session starts aligned. Update as
 - Wants control over the experience (e.g. mute sounds): give settings, not one-size defaults.
 - Wants his projects organised on GitHub (Ug Life in its own repo, beside his other projects).
   Repo creation needs him once: the GitHub app can't create repos for him.
+- Thinks big ("if a million people join today, would it hold?"): give the honest limit, what
+  breaks first, what it costs, and what's already built to survive it. Prefers built safeguards
+  plus a clear upgrade switch over paying early.
+- Wants real money in through the simplest rail he can control (crypto wallet he owns, USDT
+  on TRON: what Ugandans already use via Binance P2P). Keep it one way (no cash-out, no betting).
+- Expects Claude to handle GitHub fully. Repo creation is blocked for the Claude app (403); the
+  one-time fix is him creating the empty repo and giving the app access.

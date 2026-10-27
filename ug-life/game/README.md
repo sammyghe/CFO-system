@@ -43,6 +43,9 @@ everything drawn in code so the whole game is about 40 KB gzipped.
 - Needs like Lagos Life (food, clean, fun, friends), rooms to rent by the week, washrooms and
   venues; friends and private messages between players; befriend, treat and date characters;
   Nepo or Hustler start; sound settings (all, volume, street, effects, music, voices)
+- Wallet: add real money as game shillings with crypto (USDT on TRON, unique amount per player,
+  read from the blockchain, credited once; `server/crypto.ts`) or mobile money (Flutterwave).
+  One way only. Load protection: server-paced polling, CDN-cached public reads, Busy day lever
 - Energy (food gives it, work uses it), shop shifts at 25 shops, a Work screen listing every way
   to earn and spend with steps; billboards (player rentals, brand ads from the Control Room);
   ideas, votes and rallies; What's new and live events with rewards; share links to places and

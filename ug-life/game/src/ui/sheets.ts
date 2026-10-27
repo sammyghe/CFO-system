@@ -90,6 +90,8 @@ export interface GameApi {
   buyLand(area: string): Promise<boolean>;
   openSnaps(): void;
   topUpEnabled(): boolean;
+  cryptoEnabled(): boolean;
+  creditTopUp(ref: string, credit: number): void;
   openTopUp(): void;
   /** Starts a mobile money payment and sends the player to the checkout page. */
   startTopUp(pack: string): Promise<void>;

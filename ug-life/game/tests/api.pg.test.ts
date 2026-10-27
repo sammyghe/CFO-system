@@ -303,6 +303,58 @@ describe("billboards, community, events and top-ups on Postgres", () => {
     expect((await call("GET", "rewards", { token: p.token })).data.topups).toEqual([{ ref: t.data.ref, credit: 5_500 }]);
     env.payments = undefined;
   });
+
+  it("credits a crypto top-up only when the exact USDT amount lands, and each transfer once", async () => {
+    const { claimTopUp } = await import("../src/game/money");
+    const ADDR = "TNXoiAJ3dct8Fjg4M9fkLFh9S2v9TXc32G";
+    const chain: { txId: string; micro: number; at: number; to: string }[] = [];
+    env.chain = { transfersTo: async (_a, since) => chain.filter((t) => t.at >= since) };
+    const p = await player("CryptoPayer");
+    const q = await player("CryptoThief");
+    expect((await call("POST", "crypto", { token: p.token, body: { pack: "c5" } })).status).toBe(503); // off
+    expect((await call("POST", "admin/config", { token: ADMIN, body: { key: "crypto_enabled", value: "true" } })).status).toBe(400); // no address yet
+    expect((await call("POST", "admin/config", { token: ADMIN, body: { key: "crypto_address", value: "0xnot-tron" } })).status).toBe(400);
+    await call("POST", "admin/config", { token: ADMIN, body: { key: "crypto_address", value: ADDR } });
+    await call("POST", "admin/config", { token: ADMIN, body: { key: "usd_ugx", value: "3700" } });
+    await call("POST", "admin/config", { token: ADMIN, body: { key: "crypto_enabled", value: "true" } });
+    expect((await call("GET", "config")).data).toMatchObject({ crypto: true, usdUgx: 3700 });
+
+    const d = await call("POST", "crypto", { token: p.token, body: { pack: "c5" } });
+    expect(d.data.address).toBe(ADDR);
+    expect(d.data.credit).toBe(20_400); // $5 × 3,700 = 18,500 + 10% bonus, rounded to 100
+    expect(d.data.micro).toBeGreaterThan(5_000_000);
+    expect(d.data.micro).toBeLessThan(5_100_000);
+    expect((await call("POST", "crypto", { token: p.token, body: { pack: "c5" } })).data.ref).toBe(d.data.ref); // same open deposit
+    const other = await call("POST", "crypto", { token: q.token, body: { pack: "c5" } });
+    expect(other.data.micro).not.toBe(d.data.micro);
+
+    // Not there yet; then a near-miss amount; neither credits.
+    expect((await call("POST", `crypto/${d.data.ref}/check`, { token: p.token })).data.pending).toBe(true);
+    chain.push({ txId: "tx_wrong", micro: 5_000_000, at: Date.now(), to: ADDR });
+    expect((await call("POST", `crypto/${d.data.ref}/check`, { token: p.token })).data.pending).toBe(true);
+    claimTopUp(p.save, d.data.ref, 20_400, Date.now());
+    expect((await sync(p)).status).toBe(422);
+    p.save.ledger.entries.pop();
+
+    // The exact amount lands: credited once; nobody else can use that transfer.
+    chain.push({ txId: "tx_right", micro: d.data.micro, at: Date.now(), to: ADDR });
+    expect((await call("POST", `crypto/${other.data.ref}/check`, { token: q.token })).data.pending).toBe(true);
+    expect((await call("POST", `crypto/${d.data.ref}/check`, { token: q.token })).status).toBe(404);
+    const ok = await call("POST", `crypto/${d.data.ref}/check`, { token: p.token });
+    expect(ok.data).toMatchObject({ ok: true, credit: 20_400, tx: "tx_right" });
+    expect((await call("POST", `crypto/${d.data.ref}/check`, { token: p.token })).data.credit).toBe(20_400);
+    claimTopUp(p.save, d.data.ref, 20_400, Date.now());
+    expect((await sync(p)).status).toBe(200);
+    expect((await call("GET", "rewards", { token: p.token })).data.topups).toEqual([{ ref: d.data.ref, credit: 20_400 }]);
+    const o = await call("GET", "admin/overview", { token: ADMIN });
+    expect(o.data.money.crypto24h).toBe(d.data.micro);
+
+    // The daily cap counts crypto too: $10 more would pass UGX 50,000? 18,500 + 37,000 > 50,000.
+    expect((await call("POST", "crypto", { token: p.token, body: { pack: "c10" } })).status).toBe(429);
+    await call("POST", "admin/config", { token: ADMIN, body: { key: "crypto_enabled", value: "false" } });
+    expect((await call("GET", "config")).data.crypto).toBe(false);
+    env.chain = undefined;
+  });
 });
 
 describe("areas, friends, messages, elections and the start on Postgres", () => {
