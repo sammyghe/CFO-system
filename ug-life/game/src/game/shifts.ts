@@ -6,6 +6,7 @@ import { kampalaDateKey } from "./time";
 import { complete, type Result } from "./actions";
 import { levelForXp } from "./economy";
 import { spendEnergy, tiredMessage } from "./energy";
+import { cantWork } from "./needs";
 import type { PlayerState } from "./state";
 import { SHIFTS, SHIFTS_PER_DAY } from "../content/catalog";
 
@@ -28,6 +29,8 @@ export function startShift(state: PlayerState, shiftId: string, now: number): Re
   if (state.job || state.ride) return fail("Finish your delivery or ride first.");
   if (levelForXp(state.xp) < sh.minLevel) return fail(`This job needs level ${sh.minLevel}. Do deliveries to level up.`);
   if (shiftsToday(state, now) >= SHIFTS_PER_DAY) return fail(`That's ${SHIFTS_PER_DAY} shifts today. Rest and come back tomorrow.`);
+  const notReady = cantWork(state, now, true);
+  if (notReady) return fail(notReady);
   if (!spendEnergy(state, sh.energy, now)) return fail(tiredMessage(sh.energy));
   state.shift = { id: sh.id, startedAt: now, endsAt: now + sh.seconds * 1000 };
   return ok(`Shift started: ${sh.title}. Stay here for ${sh.seconds} seconds.`);

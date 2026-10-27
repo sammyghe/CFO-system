@@ -7,6 +7,7 @@ import * as S from "./sheets";
 import { albumSheet } from "../snaps/ui";
 import type { GameApi, SheetSpec } from "./sheets";
 import { landSheet } from "./landsheet";
+import { electionSheet, friendsSheet } from "./peoplesheet";
 import { communitySheet } from "./communitysheet";
 import { workSheet } from "./worksheet";
 import { billboardSheet } from "./billboardsheet";
@@ -26,6 +27,8 @@ export function moreSheet(G: GameApi): SheetSpec {
         h("div", { class: "menu" },
           row(ICONS.tag, "Your Ug Tag", "Name, look, status and socials", () => G.openSheet(S.tagSheet(G, false))),
           row(ICONS.goals, "Street goals", "Things to do, with rewards to claim", () => G.openSheet(S.goalsSheet(G))),
+          row(ICONS.talk, "Friends and messages", G.social().dm || G.social().requests ? `${G.social().dm} new messages · ${G.social().requests} requests` : "Private chat with friends you've made", () => G.openSheet(friendsSheet(G))),
+          row(ICONS.trophy, "Street chairperson", "Weekly vote in each area. Winner wears the 👑", () => G.openSheet(electionSheet(G))),
           row(ICONS.news, "Street news", "What's new, events with rewards, ideas to vote on", () => G.openSheet(communitySheet(G))),
           row(ICONS.jobs, "Work", "Every way to earn, step by step", () => G.openSheet(workSheet(G))),
           row(ICONS.land, "Kampala land", "Buy cheap plots, build, collect rent. One area is hot today", () => G.openSheet(landSheet(G))),

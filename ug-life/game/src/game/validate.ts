@@ -11,6 +11,7 @@ import { BODA, SHIFTS, SHIFTS_PER_DAY, YARD_ITEMS, VENDORS } from "../content/ca
 import { LANDMARKS, LANDMARK_REWARD } from "../content/landmarks";
 import { kampalaDateKey } from "./time";
 import { LAND_LEVELS, MAX_LAND, rentFor } from "../content/land";
+import { NEPO_GIFT } from "./money";
 
 export const MAX_EVENT_BONUS = 1.3;
 /** Street event bonus times the biggest food boost. */
@@ -29,6 +30,8 @@ export interface ServerFacts {
   referred: boolean;
   /** "area:slot" → price, for every plot of land the server gave this player. */
   landClaims?: Map<string, number>;
+  /** How this player's life started ("nepo" gets the family money). */
+  start?: string;
   /** Top-up ref → game shillings, for mobile money payments the provider confirmed. */
   topups?: Map<string, number>;
   /** Event id → reward, for events the server saw this player at. */
@@ -140,6 +143,9 @@ function checkEntry(e: LedgerEntry, facts?: ServerFacts, next?: PlayerState): st
       const price = facts?.landClaims?.get(`${parts[1]}:${parts[2]}`);
       return !facts || price === -a ? null : "land not sold by the server at that price";
     }
+    case "start":
+      if (e.key !== "start:nepo" || a !== NEPO_GIFT) return "bad starting money";
+      return !facts || facts.start === "nepo" ? null : "starting money not given by the server";
     case "topup": {
       const credit = facts?.topups?.get(parts[1]);
       return a > 0 && (!facts || credit === a) ? null : "top-up not confirmed by the payment provider";

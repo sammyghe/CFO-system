@@ -15,7 +15,14 @@ Everything below is live in the game today, not a plan, except where marked **Ne
   its own and fully each new day. Higher levels hold more. This is what makes cheap food matter.
 - **Ways to earn** (all in **Work**, with steps): deliveries, boda rider, shop shifts (10 shops,
   better ones unlock by level), kiosk, landlord (rent), Street Snaps, goals, invites, events.
-- **Ways to spend**: food, boda rides, kiosk and yard, land and buildings, billboards, top-ups.
+- **Needs** (Lagos Life style): food, clean, fun and friends go down slowly. Eat, shower (your
+  room or a washroom), go out (Club 256, the lounge, the gym, events) and talk to people.
+  Out of food or too dirty means no work until you fix it.
+- **Places**: Wandegeya, Makerere University, Owino Market and Kabalagala. Matatu UGX 1,000,
+  boda UGX 3,000, or walk for free with energy. Each area has its own shops, shifts, carts,
+  billboards, people and its own weekly chairperson.
+- **People**: befriend real players and message them; befriend characters, treat them, date them.
+- **Ways to spend**: rooms, travel, nights out, gifts, food, boda rides, kiosk and yard, land and buildings, billboards, top-ups.
 - Every shilling earned is checked by the server, and nothing can be claimed twice.
 
 ## 2. How Sammy updates it (whenever you want)
@@ -94,7 +101,10 @@ business). The billboard can link to their page.
 | Mobile money top-up | Built and tested with a stand-in provider; off until steps in §4 |
 | Brand billboards | Live (you sell them offline, book them in the Control Room) |
 | Sign in with phone number | **Next** (SMS costs money; recovery code works for now) |
-| More streets (Kikoni, Kalerwe market…) reached by matatu | **Next**: the engine is ready for a second map; build the one the snaps race and votes pick |
+| Four areas (Wandegeya, Makerere, Owino, Kabalagala) by matatu, boda or walking | Live |
+| Needs (food, clean, fun, friends), rooms, washrooms, venues | Live |
+| Friends, private messages, dating characters, weekly chairperson vote | Live |
+| More areas (Kikoni, Ntinda, Kalerwe…) | **Next**: one file each (`game/CONTENT.md` → Areas); build the one the votes pick |
 | Real-time movement (others move live, not every few seconds) | **Next**, when there are enough players to need it |
 
 ## 7. Hosting and cost

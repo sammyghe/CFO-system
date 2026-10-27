@@ -212,6 +212,14 @@ const VIEWS: Record<Tab, () => Promise<HTMLElement>> = {
       const row = h("div", { class: "row" });
       // street talk reports: "talk:<message id>:<player id>"
       const [kind, talkId, playerId] = r.target.split(":");
+      if ((kind === "dm" || kind === "proposal") && playerId) {
+        const freeze = h("button", { class: "btn danger small", type: "button" }, "Freeze sender");
+        freeze.addEventListener("click", async () => {
+          await api("POST", `players/${playerId}`, { frozen: true });
+          freeze.textContent = "Frozen";
+        });
+        row.append(freeze);
+      }
       if (kind === "talk" && talkId) {
         const hide = h("button", { class: "btn danger small", type: "button" }, "Hide message");
         hide.addEventListener("click", async () => {

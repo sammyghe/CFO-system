@@ -36,7 +36,14 @@ everything drawn in code so the whole game is about 40 KB gzipped.
   a far tap offers a boda; lite mode for slow phones (turns on by itself)
 - Kampala land: cheap plots in 12 real neighbourhoods, build up to apartments, daily rent, one hot
   area a day, server-held ownership and prices; cheap snacks from UGX 200; leaderboard
-- Energy (food gives it, work uses it), shop shifts at 10 shops, a Work screen listing every way
+- Four areas of Kampala: Wandegeya, Makerere University (clock tower, library, Lumumba Hall,
+  Freedom Square), Owino Market (stalls, mivumba, fabric) and Kabalagala (club, pork joint,
+  lounge, gym). Travel by matatu, boda or on foot; each area has its own people, shifts, carts,
+  billboards and weekly chairperson (`src/world/areas.ts`, how to add one in `CONTENT.md`)
+- Needs like Lagos Life (food, clean, fun, friends), rooms to rent by the week, washrooms and
+  venues; friends and private messages between players; befriend, treat and date characters;
+  Nepo or Hustler start; sound settings (all, volume, street, effects, music, voices)
+- Energy (food gives it, work uses it), shop shifts at 25 shops, a Work screen listing every way
   to earn and spend with steps; billboards (player rentals, brand ads from the Control Room);
   ideas, votes and rallies; What's new and live events with rewards; share links to places and
   events; mobile money top-ups (built, off until a Flutterwave key is set). See `../GROWTH.md`

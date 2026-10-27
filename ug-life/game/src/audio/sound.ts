@@ -36,6 +36,12 @@ export class Sound {
   private voice: SpeechSynthesisVoice | null = null;
   enabled = true;
   musicOn = true;
+  /** Clicks, coins, horns you cause. */
+  effectsOn = true;
+  /** Background: engines, birds, rain, crowd. */
+  ambienceOn = true;
+  /** Master volume 0..1. */
+  volume = 0.9;
   voicesOn = true;
   /** Fewer background layers on slow phones. */
   lite = false;
@@ -59,8 +65,17 @@ export class Sound {
   setEnabled(on: boolean) {
     this.enabled = on;
     if (on) this.unlock();
-    if (this.master && this.ctx) this.master.gain.setTargetAtTime(on ? 0.9 : 0, this.ctx.currentTime, 0.05);
+    if (this.master && this.ctx) this.master.gain.setTargetAtTime(on ? this.volume : 0, this.ctx.currentTime, 0.05);
     if (!on && "speechSynthesis" in window) speechSynthesis.cancel();
+  }
+
+  /** Applies the effects / street sounds switches and the volume. */
+  mix() {
+    if (!this.ctx || !this.master) return;
+    const t = this.ctx.currentTime;
+    this.master.gain.setTargetAtTime(this.enabled ? this.volume : 0, t, 0.05);
+    this.sfxBus.gain.setTargetAtTime(this.effectsOn ? 0.8 : 0, t, 0.05);
+    this.ambBus.gain.setTargetAtTime(this.ambienceOn ? 0.9 : 0, t, 0.05);
   }
 
   suspend(hidden: boolean) {
@@ -75,11 +90,11 @@ export class Sound {
     const ctx = new Ctx();
     this.ctx = ctx;
     this.master = ctx.createGain();
-    this.master.gain.value = this.enabled ? 0.9 : 0;
+    this.master.gain.value = this.enabled ? this.volume : 0;
     const comp = ctx.createDynamicsCompressor();
     this.master.connect(comp).connect(ctx.destination);
-    this.sfxBus = this.gain(0.8, this.master);
-    this.ambBus = this.gain(0.9, this.master);
+    this.sfxBus = this.gain(this.effectsOn ? 0.8 : 0, this.master);
+    this.ambBus = this.gain(this.ambienceOn ? 0.9 : 0, this.master);
     this.musicBus = this.gain(0, this.master);
     // two seconds of brown-ish noise for murmur, rain, sizzle and shakers
     const len = ctx.sampleRate * 2;

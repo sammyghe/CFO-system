@@ -89,6 +89,18 @@ export interface PlayerState {
   energy?: { value: number; at: number };
   /** A shift you're working right now. */
   shift: { id: string; startedAt: number; endsAt: number } | null;
+  /** Hunger, hygiene, fun, social (0..100) and when they were last counted. */
+  needs?: { hunger: number; hygiene: number; fun: number; social: number; at: number };
+  /** How well you know each character: points 0..100, last day you greeted them. */
+  friendships?: Record<string, { points: number; greeted: string }>;
+  /** How your life started: "nepo" (born rich) or "hustler". */
+  start?: string;
+  /** The character you're dating, if any. */
+  partner?: string | null;
+  /** A room you rent by the week. */
+  home?: { area: string; building: string; until: number } | null;
+  /** The Kampala area you're in (world/areas.ts). */
+  area: string;
   /** Plots of land owned around Kampala. */
   land: OwnedLand[];
   settings: {
@@ -99,6 +111,11 @@ export interface PlayerState {
     music?: boolean;
     /** Speak street lines and chat aloud with the phone's voice. */
     voices?: boolean;
+    /** Game effects (clicks, coins) and street sounds (engines, birds, crowd). */
+    effects?: boolean;
+    ambience?: boolean;
+    /** Master volume 0..100. */
+    volume?: number;
     /** Play other players' voice hellos without tapping. */
     voiceAuto?: boolean;
     /** Lighter graphics for slow phones; undefined = decide from the phone. */
@@ -140,6 +157,8 @@ export function newPlayer(now: number, id: string): PlayerState {
     lastVisitDate: null,
     land: [],
     shift: null,
+    needs: { hunger: 80, hygiene: 80, fun: 70, social: 60, at: now },
+    area: "wandegeya",
     settings: { liveTime: true, reducedMotion: false, sound: true, music: true, voices: true, voiceAuto: false },
     bodaRent: null,
     ride: null,

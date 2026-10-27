@@ -1,5 +1,7 @@
-// The authored street: a Wandegeya/Kikoni-style block near campus.
-// x runs along the main road, y runs across it. Tile (0,0) is the back-left corner.
+// The map engine for whichever Kampala area you're in (areas are authored in
+// areas.ts). x runs along the main road, y runs across it; tile (0,0) is the
+// back-left corner. BUILDINGS, PLOTS, PROPS and PLACES are live bindings: they
+// change when you travel (setArea), and every importer sees the new area.
 
 export const MAP_W = 40;
 export const MAP_H = 17;
@@ -47,92 +49,98 @@ export interface Prop {
   blocks?: boolean;
 }
 
-export const BUILDINGS: Building[] = [
-  { id: "hardware", name: "Kikoni Hardware", x: 0, y: 0, w: 4, d: 4, floors: 2, wall: "#d9c9a8", trim: "#8a6f45", roof: "iron", sign: "KIKONI HARDWARE", signBg: "#d9a400", signFg: "#13202b", door: { x: 2, y: 4 }, face: "front", kind: "Hardware shop" },
-  { id: "chapati", name: "Mama Rose Chapati", x: 4, y: 1, w: 3, d: 3, floors: 1, wall: "#e9e2cf", trim: "#2f7a4b", roof: "iron", sign: "MAMA ROSE CHAPATI", signBg: "#2f7a4b", signFg: "#ffffff", door: { x: 5, y: 4 }, face: "front", kind: "Food stall" },
-  { id: "money", name: "Mobile Money Agent", x: 7, y: 0, w: 3, d: 4, floors: 3, wall: "#f2d23c", trim: "#13202b", roof: "flat", sign: "MOBILE MONEY", signBg: "#13202b", signFg: "#f2d23c", door: { x: 8, y: 4 }, face: "front", kind: "Mobile money agent" },
-  { id: "pharmacy", name: "Wandegeya Pharmacy", x: 10, y: 0, w: 4, d: 4, floors: 4, wall: "#e8eef0", trim: "#2f7a4b", roof: "tank", sign: "WANDEGEYA PHARMACY", signBg: "#2f7a4b", signFg: "#ffffff", door: { x: 12, y: 4 }, face: "front", kind: "Pharmacy" },
-  { id: "studio", name: "Studio 256", x: 16, y: 0, w: 3, d: 4, floors: 2, wall: "#3b3f4a", trim: "#e0457b", roof: "flat", sign: "STUDIO 256", signBg: "#e0457b", signFg: "#ffffff", door: { x: 17, y: 4 }, face: "front", kind: "Music studio" },
-  { id: "salon", name: "Salon Nakato", x: 19, y: 1, w: 3, d: 3, floors: 1, wall: "#f0c6d4", trim: "#7a2fa8", roof: "iron", sign: "SALON NAKATO", signBg: "#7a2fa8", signFg: "#ffffff", door: { x: 20, y: 4 }, face: "front", kind: "Salon" },
-  { id: "hostel", name: "Campus View Hostel", x: 22, y: 0, w: 4, d: 4, floors: 5, wall: "#c96f4a", trim: "#f4efe4", roof: "tank", sign: "CAMPUS VIEW HOSTEL", signBg: "#f4efe4", signFg: "#b4442a", door: { x: 24, y: 4 }, face: "front", kind: "Student hostel" },
-  { id: "juice", name: "Fresh Juice Bar", x: 26, y: 1, w: 4, d: 3, floors: 2, wall: "#ffb347", trim: "#2f7a4b", roof: "flat", sign: "FRESH JUICE", signBg: "#2f7a4b", signFg: "#ffe9a8", door: { x: 28, y: 4 }, face: "front", kind: "Juice bar" },
-  { id: "sacco", name: "Kikoni Boda Sacco", x: 30, y: 1, w: 3, d: 3, floors: 1, wall: "#2f7a4b", trim: "#f2d23c", roof: "iron", sign: "KIKONI BODA SACCO", signBg: "#f2d23c", signFg: "#13202b", door: { x: 31, y: 4 }, face: "front", kind: "Boda riders' savings group" },
-  { id: "bakery", name: "Sunrise Bakery", x: 33, y: 0, w: 3, d: 4, floors: 2, wall: "#f4e3c1", trim: "#b4442a", roof: "flat", sign: "SUNRISE BAKERY", signBg: "#b4442a", signFg: "#ffffff", door: { x: 34, y: 4 }, face: "front", kind: "Bakery" },
-  { id: "guesthouse", name: "Makerere Guest House", x: 36, y: 0, w: 4, d: 4, floors: 3, wall: "#9fc4d8", trim: "#13202b", roof: "tank", sign: "MAKERERE GUEST HOUSE", signBg: "#13202b", signFg: "#ffffff", door: { x: 38, y: 4 }, face: "front", kind: "Guest house" },
-];
 
-export const PLOTS: Plot[] = [
-  { id: "plot-a", x: 16, y: 12, npcOwner: null },
-  { id: "plot-b", x: 19, y: 12, npcOwner: { name: "Ssali", sign: "SSALI PHONE FIX", color: "#1f4fd1", product: "Phone repair" } },
-  { id: "plot-c", x: 22, y: 12, npcOwner: null },
-  { id: "plot-d", x: 30, y: 12, npcOwner: null },
-  { id: "plot-e", x: 33, y: 12, npcOwner: null },
-  { id: "plot-f", x: 36, y: 12, npcOwner: null },
-];
+export interface Place {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+}
 
-export const POTHOLE = { x: 12, y: 7 };
+export interface AreaDef {
+  id: string;
+  name: string;
+  blurb: string;
+  road: string;
+  /** A side road running up between the shops. */
+  sideRoad: { x0: number; x1: number } | null;
+  /** Drain slabs: the only places to step over the roadside drains. */
+  slabs: number[];
+  /** Where matatus drop you (arrival tile). */
+  stage: { x: number; y: number };
+  bodaStage: { x: number; y: number };
+  /** Wandegeya's famous pothole (the civic loop) lives in one area. */
+  pothole: { x: number; y: number } | null;
+  /** The Street Snaps community board, if this area has it. */
+  board: { x: number; y: number } | null;
+  buildings: Building[];
+  plots: Plot[];
+  props: Prop[];
+  /** Extra places for deliveries and rides, besides shop doors. */
+  places: Place[];
+  /** The open ground also covers row 15 (otherwise it's plain earth). */
+  row15?: boolean;
+  /** Ground on the open rows 12-15. */
+  south(this: AreaDef, x: number, y: number): Ground;
+}
 
-export const STAGE_DOOR = { x: 3, y: 11 };
+import { AREAS } from "./areas";
+export { AREAS };
 
-/** Where bodas wait for passengers, next to the taxi stage. */
-export const BODA_STAGE = { x: 3, y: 13 };
+export let AREA: AreaDef = AREAS[0];
+export let BUILDINGS: Building[] = AREA.buildings;
+export let PLOTS: Plot[] = AREA.plots;
+export let PROPS: Prop[] = AREA.props;
+export let PLACES: Place[] = placesOf(AREA);
+/** Wandegeya's pothole position (other areas have none; check AREA.pothole). */
+export const POTHOLE = AREAS[0].pothole!;
+export let BODA_STAGE = AREA.bodaStage;
+export let STAGE_DOOR = AREA.stage;
 
-/** The Street Snaps community board by the benches. */
-export const SNAP_BOARD = { x: 25, y: 12 };
+/** Every kiosk plot in every area (the server leases them all). */
+export const ALL_PLOTS: Plot[] = AREAS.flatMap((a) => a.plots);
 
-export const PROPS: Prop[] = [
-  { kind: "shelter", x: 1, y: 12, blocks: true },
-  { kind: "parked", x: 4, y: 13, blocks: true },
-  { kind: "stall", x: 8, y: 12, variant: 0, blocks: true },
-  { kind: "stall", x: 10, y: 12, variant: 1, blocks: true },
-  { kind: "stall", x: 12, y: 12, variant: 2, blocks: true },
-  { kind: "tree", x: 14, y: 13, variant: 0, blocks: true },
-  { kind: "tree", x: 26, y: 13, variant: 1, blocks: true },
-  { kind: "bench", x: 27, y: 12, blocks: true },
-  { kind: "bench", x: 28, y: 14, blocks: true },
-  { kind: "tree", x: 29, y: 12, variant: 2, blocks: true },
-  { kind: "bush", x: 25, y: 15 },
-  { kind: "bush", x: 7, y: 15 },
-  { kind: "lamp", x: 6, y: 11, blocks: true },
-  { kind: "lamp", x: 15, y: 11, blocks: true },
-  { kind: "lamp", x: 25, y: 11, blocks: true },
-  { kind: "lamp", x: 9, y: 4, blocks: true },
-  { kind: "lamp", x: 21, y: 4, blocks: true },
-  { kind: "wall", x: 0, y: 16 },
-  { kind: "board", x: 25, y: 12, blocks: true },
-  { kind: "billboard", x: 2, y: 15, slot: "stage", blocks: true },
-  { kind: "billboard", x: 31, y: 15, slot: "market", blocks: true },
-  { kind: "cart", x: 7, y: 12, vendor: "rolex", blocks: true },
-  { kind: "cart", x: 15, y: 12, vendor: "maize", blocks: true },
-  { kind: "cart", x: 13, y: 14, vendor: "fruit", blocks: true },
-  { kind: "bodaPark", x: 1, y: 14, variant: 0 },
-  { kind: "bodaPark", x: 2, y: 14, variant: 1 },
-  { kind: "bodaPark", x: 4, y: 14, variant: 2 },
-  { kind: "bodaPark", x: 5, y: 14, variant: 3 },
-  { kind: "bodaPark", x: 6, y: 13, variant: 4 },
-  { kind: "lamp", x: 32, y: 4, blocks: true },
-  { kind: "lamp", x: 39, y: 11, blocks: true },
-  { kind: "tree", x: 39, y: 13, variant: 0, blocks: true },
-  { kind: "bush", x: 34, y: 15 },
-  { kind: "gate", x: 14, y: 0 },
-];
+function placesOf(a: AreaDef): Place[] {
+  return [...a.buildings.map((b) => ({ id: b.id, name: b.name, x: b.door.x, y: b.door.y })), ...a.places];
+}
 
-/** Drain slabs: the only places to step over the roadside drains. */
-const SLABS_X = [3, 8, 12, 14, 15, 17, 24, 28, 31, 34, 38];
+export function areaById(id: string | undefined | null): AreaDef | undefined {
+  return AREAS.find((a) => a.id === id);
+}
+
+/** Switches the whole map to another area. Returns false for an unknown id. */
+export function setArea(id: string): boolean {
+  const a = areaById(id);
+  if (!a) return false;
+  AREA = a;
+  BUILDINGS = a.buildings;
+  PLOTS = a.plots;
+  PROPS = a.props;
+  PLACES = placesOf(a);
+  BODA_STAGE = a.bodaStage;
+  STAGE_DOOR = a.stage;
+  walkCache = null;
+  return true;
+}
+
+/** A place in any area, for things that span areas (events, shared links). */
+export function findPlace(id: string): { area: AreaDef; place: Place } | undefined {
+  for (const a of AREAS) {
+    const place = placesOf(a).find((p) => p.id === id);
+    if (place) return { area: a, place };
+  }
+  return undefined;
+}
 
 export function groundAt(x: number, y: number): Ground {
-  if (x >= 14 && x <= 15 && y <= 4) return "road"; // side road up the hill
+  const a = AREA;
+  if (a.sideRoad && x >= a.sideRoad.x0 && x <= a.sideRoad.x1 && y <= 4) return "road";
   if (y <= 3) return "earth";
   if (y === 4 || y === 11) return "pave";
-  if (y === 5 || y === 10) return SLABS_X.includes(x) ? "slab" : "drain";
+  if (y === 5 || y === 10) return a.slabs.includes(x) ? "slab" : "drain";
   if (y >= 6 && y <= 9) return "road";
-  if (y >= 12 && y <= 14) {
-    if (x <= 6) return "stage";
-    if (x >= 8 && x <= 13) return "market";
-    if (x >= 16 && PLOTS.some((p) => x >= p.x && x <= p.x + 1 && y >= p.y && y <= p.y + 1)) return "lot";
-    if (x >= 26 && x <= 29) return "grass";
-    return "earth";
-  }
+  if (y >= 12 && y <= 14) return a.south(x, y);
+  if (y === 15) return a.row15 ? a.south(x, y) : "earth";
   return y === 16 ? "grass" : "earth";
 }
 
@@ -192,23 +200,6 @@ function occupies(p: Prop, x: number, y: number): boolean {
   const f = propFootprint(p);
   return x >= p.x && x < p.x + f.w && y >= p.y && y < p.y + f.d;
 }
-
-/** Places a job can start or end: shop doors, the taxi stage and the kiosk lots. */
-export interface Place {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-}
-
-export const PLACES: Place[] = [
-  ...BUILDINGS.map((b) => ({ id: b.id, name: b.name, x: b.door.x, y: b.door.y })),
-  { id: "stage", name: "Wandegeya taxi stage", x: STAGE_DOOR.x, y: STAGE_DOOR.y },
-  { id: "market", name: "Market stalls", x: 10, y: 11 },
-  { id: "plot-b", name: "Ssali Phone Fix", x: 19, y: 11 },
-  { id: "benches", name: "The benches", x: 27, y: 13 },
-  { id: "bodastage", name: "Boda stage", x: BODA_STAGE.x, y: BODA_STAGE.y },
-];
 
 export function placeById(id: string): Place | undefined {
   return PLACES.find((p) => p.id === id);

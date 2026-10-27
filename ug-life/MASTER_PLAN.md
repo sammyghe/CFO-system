@@ -152,6 +152,12 @@ Phase 1.8 (2026-10-26): energy and shop shifts, Work screen, billboards (players
 ideas, votes and rallies, news and live events, share links to places and events, mobile money
 top-ups built and switched off until the business has a Flutterwave account. How Sammy steers it
 and how it grows: `GROWTH.md`.
+Phase 1.9 (2026-10-27): four areas of Kampala (Wandegeya, Makerere University, Owino Market,
+Kabalagala) reached by matatu, boda or on foot; Lagos-Life-style needs (food, clean, fun, friends),
+rooms to rent, washrooms and venues; residents in every area to befriend, treat and date (friendly,
+nothing explicit); player friends and private messages with filters and reports; weekly street
+chairperson vote per area; Nepo/Hustler start; seven billboard spots; full sound controls (all,
+volume, street, effects, music, voices).
 Not done yet: real-time multiplayer, social sign-in verification, Luganda/Swahili UI.
 
 ## 11. Open decisions for Sammy

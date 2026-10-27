@@ -9,7 +9,7 @@ import { eventForTime } from "../game/daily";
 import { OFFICE_NAME, secondsToNextStage, type IssueStatus } from "../game/civic";
 import { PLATFORMS, checkDisplayName, checkFreeText, profileUrl, type Platform } from "../game/moderation";
 import { GOALS, type Look, type PlayerState } from "../game/state";
-import { PLOTS, placeById, type Building } from "../world/map";
+import { AREA, PLOTS, placeById, type Building } from "../world/map";
 import { RESIDENTS } from "../content/residents";
 import { FAQ } from "../content/faq";
 import { drawPerson } from "../world/art";
@@ -18,6 +18,9 @@ import { DAY_MS } from "../game/time";
 import type { Api, SharedPlot, Visitor } from "../net/api";
 import { snackMenu, yardSheet } from "./streetsheets";
 import { billboardSheet } from "./billboardsheet";
+import * as Needs from "../game/needs";
+import * as People from "../game/people";
+import { homeAt } from "../game/needs";
 import * as St from "../game/street";
 import type { SnapRecord } from "../snaps/store";
 import type { Destination } from "./gosheet";
@@ -100,6 +103,16 @@ export interface GameApi {
   /** Walk to the community board and hold up a placard for an idea. */
   rally(p: Proposal): void;
   startShift(shiftId: string): void;
+  /** Travel to another Kampala area. */
+  travel(area: string, mode: "matatu" | "boda" | "walk"): void;
+  /** Players online per area (from the server). */
+  areaCounts(): Record<string, number>;
+  /** Saves to the server now (before actions the server checks, like standing for election). */
+  saveNow(): Promise<void>;
+  /** Unread private messages and friend requests. */
+  social(): { dm: number; requests: number };
+  /** Your character dances for a few seconds. */
+  dance(): void;
   /** Apply sound settings after they change. */
   applySettings(): void;
 }
@@ -336,9 +349,27 @@ export function residentSheet(G: GameApi, id: string): SheetSpec {
       });
       const talk = h("button", { class: "btn ghost", type: "button" }, "Talk");
       talk.addEventListener("click", () => G.openSheet(talkSheet(G)));
+      // friendship: greet daily, treat them, ask them out when you're close
+      const pts = People.friendship(s, id);
+      const treat = h("button", { class: "btn ghost", type: "button" }, `🥙 Treat · UGX ${People.GIFT_COST.toLocaleString()}`);
+      treat.addEventListener("click", () => {
+        if (G.result(People.giveGift(s, id, r.name, G.now()))) { G.track("gift"); G.sfx("coin"); G.changed(); G.openSheet(residentSheet(G, id)); }
+      });
+      const dating = s.partner === id;
+      const date = h("button", { class: "btn", type: "button", disabled: pts < 50 }, dating ? `💞 Date night · UGX ${People.DATE_COST.toLocaleString()}` : pts < 50 ? "💞 Ask out (be close friends first)" : `💞 Ask ${r.name} out · UGX ${People.DATE_COST.toLocaleString()}`);
+      date.addEventListener("click", () => {
+        if (G.result(People.goOnDate(s, id, r.name, G.now()))) { G.track("date"); G.dance(); G.sfx("ok"); G.changed(); G.openSheet(residentSheet(G, id)); }
+      });
+      const part = h("button", { class: "btn ghost small", type: "button" }, "Part ways");
+      part.addEventListener("click", () => { G.result(People.breakUp(s)); G.changed(); G.openSheet(residentSheet(G, id)); });
       return h("div", { class: "sheet-body" },
         h("div", { class: "profile-head" }, avatarCanvas(r.look), h("div", { style: "display:grid;gap:6px" }, h("div", {}, h("span", { class: "badge" }, `Level ${r.level}`)), h("b", {}, r.role))),
         h("div", { class: "row-btns" }, hi, talk),
+        h("div", { class: "friend-meter" }, h("div", { class: "need-top" }, h("b", {}, dating ? `💞 Dating ${r.name}` : People.friendshipLabel(pts)), h("span", { class: "muted small" }, `${pts}/100`)),
+          h("span", { class: "energy-bar" }, h("i", { style: `width:${pts}%;background:#e0457b` })),
+          h("span", { class: "muted small" }, "Say hi every day (+5), treat them (+12). Close friends (50) can go on dates.")),
+        h("div", { class: "row-btns" }, treat, date),
+        dating ? part : null,
         h("p", {}, r.bio),
         socials,
         h("p", { class: "muted small" }, "Street residents are characters in the game, not real people. Real players get the same card with their own work and socials."),
@@ -357,7 +388,7 @@ export function buildingSheet(G: GameApi, b: Building): SheetSpec {
     body: () => {
       const job = G.state.job;
       const relevant = job && (job.fromId === b.id || job.toId === b.id);
-      const owner = RESIDENTS.find((r) => r.start.x === b.door.x && r.start.y === b.door.y);
+      const owner = RESIDENTS.find((r) => (r.area ?? "wandegeya") === AREA.id && r.start.x === b.door.x && r.start.y === b.door.y);
       const s = G.state;
       const from = { x: Math.floor(s.pos.x), y: Math.floor(s.pos.y) };
       const dist = tileDistance(from, b.door);
@@ -400,8 +431,37 @@ export function buildingSheet(G: GameApi, b: Building): SheetSpec {
         roof = h("button", { class: "btn ghost", type: "button" }, "🪧 Rent the rooftop billboard");
         roof.addEventListener("click", () => G.openSheet(billboardSheet(G, "pharmacy")));
       }
+      // a room to rent, a shower, a night out
+      const life = h("div", { class: "row-btns" });
+      const now = G.now();
+      const home = homeAt(b.id);
+      const mine = home && s.home && s.home.building === b.id && s.home.until > now;
+      const act = (label: string, fn: () => A.Result, cls = "btn") => {
+        const btn = h("button", { class: cls, type: "button" }, label);
+        btn.addEventListener("click", () => {
+          if (dist > 2) { G.walkTo(b.door, () => G.openSheet(buildingSheet(G, b))); G.closeSheet(); return; }
+          if (G.result(fn())) { G.sfx("ok"); G.changed(); G.openSheet(buildingSheet(G, b)); }
+        });
+        life.append(btn);
+      };
+      if (home) {
+        if (mine) {
+          act("😴 Sleep (full energy)", () => Needs.sleepAtHome(s, b.id, G.now()));
+          act("🚿 Shower", () => Needs.shower(s, b.id, G.now()), "btn ghost");
+          act(`Pay another week · UGX ${home.pricePerWeek.toLocaleString()}`, () => Needs.rentHome(s, b.id, G.now()), "btn ghost");
+        } else act(`🏠 Rent: ${home.name} · UGX ${home.pricePerWeek.toLocaleString()}/week`, () => Needs.rentHome(s, b.id, G.now()));
+      }
+      if (Needs.WASHROOMS[b.id] && !mine) act(`🚿 Shower · UGX ${Needs.WASHROOMS[b.id]}`, () => Needs.shower(s, b.id, G.now()));
+      const venue = Needs.VENUES[b.id];
+      if (venue) act(`🎉 ${venue.label}${venue.fee ? ` · UGX ${venue.fee.toLocaleString()}` : ""}`, () => {
+        const r = Needs.enjoyVenue(s, b.id, G.now());
+        if (r.ok) G.dance();
+        return r;
+      });
       return h("div", { class: "sheet-body" },
         actions,
+        life.childElementCount ? life : null,
+        life.childElementCount && dist > 2 ? h("p", { class: "muted small" }, "Tap a button to walk to the door first.") : null,
         shiftBox,
         roof,
         b.id === "chapati" ? snackMenu(G, "chapati") : null,
@@ -690,7 +750,7 @@ export function helpSheet(G: GameApi, prefill = ""): SheetSpec {
       live.addEventListener("change", () => { s.settings.liveTime = live.checked; G.changed(); });
       const rm = h("input", { type: "checkbox", id: "set-rm", checked: s.settings.reducedMotion });
       rm.addEventListener("change", () => { s.settings.reducedMotion = rm.checked; G.changed(); });
-      const toggle = (id: string, key: "sound" | "music" | "voices" | "voiceAuto" | "lite", title: string, help: string, dflt: boolean) => {
+      const toggle = (id: string, key: "sound" | "music" | "voices" | "voiceAuto" | "lite" | "effects" | "ambience", title: string, help: string, dflt: boolean) => {
         const box = h("input", { type: "checkbox", id, checked: s.settings[key] ?? dflt });
         box.addEventListener("change", () => {
           s.settings[key] = box.checked;
@@ -700,10 +760,19 @@ export function helpSheet(G: GameApi, prefill = ""): SheetSpec {
         });
         return h("label", { class: "toggle", for: id }, h("span", {}, h("b", {}, title), h("small", {}, help)), box);
       };
+      const volumeSlider = () => {
+        const r = h("input", { type: "range", id: "set-volume", min: "0", max: "100", step: "5", value: String(s.settings.volume ?? 90), "aria-label": "Volume" });
+        r.addEventListener("input", () => { s.settings.volume = Number(r.value); G.applySettings(); });
+        r.addEventListener("change", () => G.changed());
+        return h("label", { class: "toggle", for: "set-volume" }, h("span", {}, h("b", {}, "Volume")), r);
+      };
       body.append(
         h("h3", { style: "margin:6px 0 0;font-size:16px" }, "Sound"),
-        toggle("set-sound", "sound", "Street sounds", "Bodas, matatus, birds, rain and the game's own sounds.", true),
-        toggle("set-music", "music", "Music from Studio 256", "Afrobeat drifting down the street, louder at night.", true),
+        toggle("set-sound", "sound", "All sound", "Turn off to mute everything (same as the speaker button).", true),
+        volumeSlider(),
+        toggle("set-ambience", "ambience", "Street sounds", "Boda engines and horns, matatus, birds, crickets, rain, the crowd.", true),
+        toggle("set-effects", "effects", "Game effects", "Taps, coins, horns and pops when you do things.", true),
+        toggle("set-music", "music", "Music", "Studio 256, Club 256 and the halls, louder at night.", true),
         toggle("set-voices", "voices", "Street voices", "Conductors, vendors and residents call out loud using your phone's voice.", true),
         toggle("set-voiceauto", "voiceAuto", "Play voice hellos by themselves", "Off: tap a voice bubble to hear it.", false),
         h("h3", { style: "margin:6px 0 0;font-size:16px" }, "Settings"),
@@ -822,12 +891,22 @@ export function visitorSheet(G: GameApi, v: Visitor): SheetSpec {
       });
       const talk = h("button", { class: "btn ghost", type: "button" }, "Talk");
       talk.addEventListener("click", () => G.openSheet(talkSheet(G, { id: v.id, name: v.name })));
+      const friend = h("button", { class: "btn ghost", type: "button" }, "➕ Add friend");
+      friend.addEventListener("click", async () => {
+        friend.disabled = true;
+        const r = await G.api.addFriend(v.id);
+        if (!r.ok) { G.toast(r.message, "bad"); friend.disabled = false; return; }
+        G.track("friend_added");
+        G.toast(r.status === "friends" ? `You and ${v.name} are friends now! Message them from More → Friends.` : `Friend request sent to ${v.name}.`, "ok");
+        friend.textContent = r.status === "friends" ? "Friends ✓" : "Request sent";
+      });
       const near = { x: Math.floor(v.pos.x), y: Math.floor(v.pos.y) };
       const go = h("button", { class: "btn ghost", type: "button" }, "Go to them");
       go.addEventListener("click", () => { G.walkTo(near); G.closeSheet(); });
       return h("div", { class: "sheet-body" },
         h("div", { class: "profile-head" }, avatarCanvas(v.look), h("div", { style: "display:grid;gap:6px" }, h("div", {}, h("span", { class: "badge", style: "background:#2f7a4b" }, `Level ${v.level}`)), h("b", {}, v.tag.status || "On the street"))),
         blocked ? null : h("div", { class: "row-btns" }, hi, talk, go),
+        blocked ? null : h("div", { class: "row-btns" }, friend),
         v.kiosk ? h("div", { class: "notice" }, `Runs the kiosk ${v.kiosk.name}`) : null,
         socials,
         h("p", { class: "muted small" }, "A real player who was on the street in the last few minutes. Never send money or codes to anyone you meet here."),

@@ -1,4 +1,4 @@
-import { BUILDINGS, MAP_H, MAP_W, OUTER, PLOTS, POTHOLE, PROPS, groundAt, outerGround, type Building } from "./map";
+import { AREA, BUILDINGS, MAP_H, MAP_W, OUTER, PLOTS, POTHOLE, PROPS, groundAt, outerGround, type Building } from "./map";
 import { HH, HW, boxBounds, boxSilhouette, pointInPoly, toScreen, toWorld, type Box, type SPt } from "./iso";
 import {
   BUILDING_EXTRA_TOP, buildingBox, drawBackdrop, drawBoda, drawBuilding, drawCar, drawMatatu, drawPerson, drawPlot,
@@ -26,6 +26,8 @@ export interface SceneState {
   billboard: string;
   billboardImage: CanvasImageSource | null;
   billboardKey: string;
+  /** The area's chairperson this week (a visitor id, or "player" for you): their tag wears a crown. */
+  chairId?: string | null;
   /** Billboard ads by slot (players' rentals and brands). */
   ads?: Record<string, { text: string; sub: string; color: string }>;
   /** Yard items per plot (yours from your save, others' from the server). */
@@ -115,6 +117,12 @@ export class Renderer {
     this.h = this.canvas.clientHeight || window.innerHeight;
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
+  }
+
+  /** After travelling to another area: ground and every sprite are drawn fresh. */
+  resetArea() {
+    this.groundCache = null;
+    this.sprites.clear();
   }
 
   /** Drops cached sprites, e.g. when night falls or a kiosk changes. */
@@ -360,7 +368,30 @@ export class Renderer {
         ctx.beginPath(); ctx.ellipse(p.sx, p.sy, rx, rx * 0.45, 0, 0, Math.PI * 2); ctx.fill();
       }
     }
-    // pothole
+    // pothole (Wandegeya only)
+    if (AREA.pothole) this.drawPothole(ctx, scene, now);
+    // player path dots
+    const pp = sim.player.path;
+    if (pp.length) {
+      ctx.fillStyle = "rgba(31,79,209,0.55)";
+      for (let i = 0; i < pp.length; i++) {
+        const p = toScreen(pp[i].x, pp[i].y);
+        ctx.beginPath(); ctx.ellipse(p.sx, p.sy, i === pp.length - 1 ? 7 : 2.5, i === pp.length - 1 ? 3.5 : 1.3, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    // job marker
+    if (scene.marker) {
+      const m = toScreen(scene.marker.x + 0.5, scene.marker.y + 0.5);
+      const pulse = scene.reducedMotion ? 0.5 : (now / 900) % 1;
+      ctx.strokeStyle = `rgba(31,79,209,${1 - pulse})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(m.sx, m.sy, 12 + pulse * 18, (12 + pulse * 18) / 2, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = "rgba(31,79,209,0.25)";
+      ctx.beginPath(); ctx.ellipse(m.sx, m.sy, 16, 8, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  private drawPothole(ctx: CanvasRenderingContext2D, scene: SceneState, now: number) {
     const ph = toScreen(POTHOLE.x + 0.5, POTHOLE.y + 0.5);
     const status = scene.civic.status;
     if (status === "resolved") {
@@ -394,29 +425,10 @@ export class Renderer {
         ctx.setLineDash([]);
       }
     }
-    // player path dots
-    const pp = sim.player.path;
-    if (pp.length) {
-      ctx.fillStyle = "rgba(31,79,209,0.55)";
-      for (let i = 0; i < pp.length; i++) {
-        const p = toScreen(pp[i].x, pp[i].y);
-        ctx.beginPath(); ctx.ellipse(p.sx, p.sy, i === pp.length - 1 ? 7 : 2.5, i === pp.length - 1 ? 3.5 : 1.3, 0, 0, Math.PI * 2); ctx.fill();
-      }
-    }
-    // job marker
-    if (scene.marker) {
-      const m = toScreen(scene.marker.x + 0.5, scene.marker.y + 0.5);
-      const pulse = scene.reducedMotion ? 0.5 : (now / 900) % 1;
-      ctx.strokeStyle = `rgba(31,79,209,${1 - pulse})`;
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.ellipse(m.sx, m.sy, 12 + pulse * 18, (12 + pulse * 18) / 2, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = "rgba(31,79,209,0.25)";
-      ctx.beginPath(); ctx.ellipse(m.sx, m.sy, 16, 8, 0, 0, Math.PI * 2); ctx.fill();
-    }
   }
 
   private drawCivicCrew(ctx: CanvasRenderingContext2D, civic: CivicIssue, now: number) {
-    if (civic.status !== "in_progress" && civic.status !== "assigned") return;
+    if (!AREA.pothole || (civic.status !== "in_progress" && civic.status !== "assigned")) return;
     const cones = civic.status === "in_progress" ? [[-0.5, -0.3], [0.6, -0.4], [0.7, 0.5], [-0.4, 0.6]] : [[0.7, 0.5]];
     for (const [dx, dy] of cones) {
       const c = toScreen(POTHOLE.x + 0.5 + dx, POTHOLE.y + 0.5 + dy);
@@ -478,9 +490,9 @@ export class Renderer {
       if (!v.visitor) continue;
       const d = Math.hypot(v.x - sim.player.x, v.y - sim.player.y);
       if (d < 0.9 && scene.playerTag) continue;
-      list.push({ w: v, tag: { name: v.visitor.name, level: v.visitor.level, socials: (v.visitor.tag.socials ?? []).map((x) => x.platform), player: true } });
+      list.push({ w: v, tag: { name: (scene.chairId === v.id ? "👑 " : "") + v.visitor.name, level: v.visitor.level, socials: (v.visitor.tag.socials ?? []).map((x) => x.platform), player: true } });
     }
-    if (scene.playerTag) list.push({ w: sim.player, tag: scene.playerTag });
+    if (scene.playerTag) list.push({ w: sim.player, tag: scene.chairId === "player" ? { ...scene.playerTag, name: "👑 " + scene.playerTag.name } : scene.playerTag });
     // your own tag first, then whoever is closest; a tag that would cover one already shown is skipped
     const dist = (w: Walker) => (w === sim.player ? -1 : Math.hypot(w.x - sim.player.x, w.y - sim.player.y));
     list.sort((a, b) => dist(a.w) - dist(b.w));
@@ -674,7 +686,7 @@ export class Renderer {
       if (p.kind === "bodaPark" && hitProp(p)) return { type: "bodaStage" };
       if (p.kind === "gate" && (hitProp(p) || (ty <= 0 && tx >= p.x && tx <= p.x + 1))) return { type: "landmark", id: "makerere-gate" };
     }
-    if (Math.abs(t.x - (POTHOLE.x + 0.5)) < 0.8 && Math.abs(t.y - (POTHOLE.y + 0.5)) < 0.8) return { type: "pothole" };
+    if (AREA.pothole && Math.abs(t.x - (POTHOLE.x + 0.5)) < 0.8 && Math.abs(t.y - (POTHOLE.y + 0.5)) < 0.8) return { type: "pothole" };
     // front-most building first
     const sorted = [...BUILDINGS].sort((a, b) => b.x + b.w + b.y + b.d - (a.x + a.w + a.y + a.d));
     for (const b of sorted) {

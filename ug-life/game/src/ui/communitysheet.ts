@@ -5,7 +5,8 @@ import { h } from "./dom";
 import { formatUGX } from "../game/economy";
 import { checkFreeText } from "../game/moderation";
 import { PROPOSAL_BODY, PROPOSAL_TITLE, type LiveEvent, type Proposal } from "../content/community";
-import { placeById } from "../world/map";
+import { AREA, findPlace } from "../world/map";
+import { travelSheet } from "./travelsheet";
 import type { GameApi, SheetSpec } from "./sheets";
 
 type Tab = "news" | "events" | "ideas";
@@ -74,17 +75,19 @@ export function communitySheet(G: GameApi, tab: Tab = "news"): SheetSpec {
 }
 
 function eventCard(G: GameApi, e: LiveEvent, now: number, redraw: () => void) {
-  const place = placeById(e.place);
+  const found = findPlace(e.place);
+  const place = found?.place;
+  const elsewhere = found && found.area.id !== AREA.id;
   const live = now >= e.startsAt && now <= e.endsAt;
   const card = h("div", { class: `event-card${live ? " live" : ""}` },
     h("span", { class: "muted small" }, live ? "🔴 Happening now" : `Starts ${when(e.startsAt)}`),
     h("b", {}, e.title),
     e.body ? h("p", {}, e.body) : null,
-    h("span", { class: "small" }, `📍 ${place?.name ?? "On the street"}${e.reward ? ` · Come and get ${formatUGX(e.reward)}` : ""}`));
+    h("span", { class: "small" }, `📍 ${place?.name ?? "On the street"}${found ? `, ${found.area.name}` : ""}${e.reward ? ` · Come and get ${formatUGX(e.reward)}` : ""}`));
   const row = h("div", { class: "row-btns" });
   if (place) {
-    const go = h("button", { class: "btn ghost small", type: "button" }, "Go there");
-    go.addEventListener("click", () => G.goTo({ id: place.id, name: place.name, group: "Things to do", detail: e.title, tile: place }, false));
+    const go = h("button", { class: "btn ghost small", type: "button" }, elsewhere ? `Travel to ${found!.area.name}` : "Go there");
+    go.addEventListener("click", () => elsewhere ? G.openSheet(travelSheet(G)) : G.goTo({ id: place.id, name: place.name, group: "Things to do", detail: e.title, tile: place }, false));
     row.append(go);
   }
   if (live && !e.attended) {

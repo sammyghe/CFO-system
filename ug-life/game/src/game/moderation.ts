@@ -8,6 +8,8 @@ const BLOCKED_WORDS = [
 
 const SCAM_PATTERNS = [
   /send\s+(me\s+)?money/i,
+  /(send|give|lend|loan|top\s*up)\s+(me\s+)?(some\s+|a\s+little\s+)?(mobile\s*money|money|cash|airtime|momo)/i,
+  /\b(momo|airtel\s*money|mtn\s*money)\b.*\b(number|send|pay)/i,
   /mobile\s*money\s*(number|no)/i,
   /\bpin\b/i,
   /double\s+your/i,

@@ -4,6 +4,7 @@
 import type { PlayerState } from "../game/state";
 import type { BillboardAd } from "../content/billboards";
 import type { LiveEvent, NewsPost, Proposal } from "../content/community";
+import type { DirectMessage, Election, Friend } from "../content/social";
 
 const TOKEN_KEY = "uglife.token";
 const VERSION_KEY = "uglife.serverVersion";
@@ -51,6 +52,16 @@ export interface TalkMsg {
 
 export interface LiveVisitor extends Visitor {
   seen: number;
+}
+
+export interface LiveData {
+  now: number;
+  players: LiveVisitor[];
+  talk: TalkMsg[];
+  areas?: Record<string, number>;
+  dmUnread?: number;
+  friendRequests?: number;
+  chair?: { id: string; name: string; votes: number } | null;
 }
 
 export interface Board {
@@ -212,8 +223,8 @@ export class Api {
     return { ok: true, day: r.data.day, renewed: r.data.renewed };
   }
 
-  async rewards(): Promise<{ referrals: { id: string; name: string }[]; referred: boolean; topups?: { ref: string; credit: number }[] } | null> {
-    const r = await this.call<{ referrals: { id: string; name: string }[]; referred: boolean; topups?: { ref: string; credit: number }[] }>("GET", "rewards", undefined, { auth: true });
+  async rewards(): Promise<{ referrals: { id: string; name: string }[]; referred: boolean; topups?: { ref: string; credit: number }[]; start?: string } | null> {
+    const r = await this.call<{ referrals: { id: string; name: string }[]; referred: boolean; topups?: { ref: string; credit: number }[]; start?: string }>("GET", "rewards", undefined, { auth: true });
     return r?.ok ? r.data : null;
   }
 
@@ -228,23 +239,24 @@ export class Api {
   }
 
   /** Marks you as on the street and fetches who's here and what they said since `since`. */
-  async live(pos: { x: number; y: number } | null, since: number): Promise<{ now: number; players: LiveVisitor[]; talk: TalkMsg[] } | null> {
-    const r = await this.call<{ now: number; players: LiveVisitor[]; talk: TalkMsg[] }>("POST", "live", { ...(pos ?? {}), since }, { auth: true, timeout: 7000 });
+  async live(pos: { x: number; y: number } | null, since: number, area: string): Promise<LiveData | null> {
+    const r = await this.call<LiveData>("POST", "live", { ...(pos ?? {}), since, area }, { auth: true, timeout: 7000 });
     return r?.ok ? r.data : null;
   }
 
-  async talk(kind: "phrase" | "text" | "emote" | "rally", body: string, pos: { x: number; y: number }, to?: string): Promise<{ id: string; at: number; body: string } | { error: string }> {
-    const r = await this.call<{ id: string; at: number; body: string }>("POST", "talk", { kind, body, to, x: pos.x, y: pos.y }, { auth: true });
+  async talk(kind: "phrase" | "text" | "emote" | "rally", body: string, pos: { x: number; y: number; area?: string }, to?: string): Promise<{ id: string; at: number; body: string } | { error: string }> {
+    const r = await this.call<{ id: string; at: number; body: string }>("POST", "talk", { kind, body, to, x: pos.x, y: pos.y, area: pos.area }, { auth: true });
     if (!r) return { error: "No connection. Street talk needs signal." };
     return r.ok ? r.data : { error: r.data.error ?? "Couldn't send that." };
   }
 
-  async voice(blob: Blob, ms: number, pos: { x: number; y: number }): Promise<{ id: string; at: number; body: string } | { error: string }> {
+  async voice(blob: Blob, ms: number, pos: { x: number; y: number; area?: string }): Promise<{ id: string; at: number; body: string } | { error: string }> {
     const form = new FormData();
     form.set("audio", blob, "hello");
     form.set("ms", String(Math.round(ms)));
     form.set("x", String(pos.x));
     form.set("y", String(pos.y));
+    form.set("area", pos.area ?? "wandegeya");
     const r = await this.call<{ id: string; at: number; body: string }>("POST", "talk/voice", undefined, { auth: true, form, timeout: 20000 });
     if (!r) return { error: "No connection. Try again when you have signal." };
     return r.ok ? r.data : { error: r.data.error ?? "Couldn't send your voice hello." };
@@ -321,6 +333,55 @@ export class Api {
     const r = await this.call<{ ok: boolean; credit?: number; pending?: boolean }>("POST", `topup/${ref}/verify`, {}, { auth: true, timeout: 15000 });
     if (!r?.ok) return null;
     return r.data.ok && r.data.credit ? { credit: r.data.credit } : { pending: true };
+  }
+
+  async friends(): Promise<Friend[] | null> {
+    const r = await this.call<{ friends: Friend[] }>("GET", `friends?t=${Date.now()}`, undefined, { auth: true });
+    return r?.ok ? r.data.friends : null;
+  }
+
+  async addFriend(id: string): Promise<{ ok: true; status: string; name: string } | { ok: false; message: string }> {
+    const r = await this.call<{ status: string; name: string }>("POST", `friends/${id}`, {}, { auth: true });
+    if (!r) return { ok: false, message: "This needs a connection." };
+    return r.ok ? { ok: true, status: r.data.status, name: r.data.name } : { ok: false, message: r.data.error ?? "Couldn't send the request." };
+  }
+
+  async removeFriend(id: string): Promise<boolean> {
+    const r = await this.call("DELETE", `friends/${id}`, undefined, { auth: true });
+    return !!r?.ok;
+  }
+
+  async dms(id: string, since = 0): Promise<DirectMessage[] | null> {
+    const r = await this.call<{ messages: DirectMessage[] }>("GET", `dms/${id}?since=${since}&t=${Date.now()}`, undefined, { auth: true });
+    return r?.ok ? r.data.messages : null;
+  }
+
+  async sendDm(id: string, body: string): Promise<{ id: string; at: number; body: string } | { error: string }> {
+    const r = await this.call<{ id: string; at: number; body: string }>("POST", `dms/${id}`, { body }, { auth: true });
+    if (!r) return { error: "No connection. Try again with signal." };
+    return r.ok ? r.data : { error: r.data.error ?? "Couldn't send." };
+  }
+
+  async reportDm(id: string): Promise<boolean> {
+    const r = await this.call("POST", `dms/${id}/report`, {}, { auth: true });
+    return !!r?.ok;
+  }
+
+  async election(area: string): Promise<Election | null> {
+    const r = await this.call<Election>("GET", `election?area=${area}&t=${Date.now()}`, undefined, { auth: true });
+    return r?.ok ? r.data : null;
+  }
+
+  async runForChair(area: string, slogan: string): Promise<Election | { error: string }> {
+    const r = await this.call<Election>("POST", "election/run", { area, slogan }, { auth: true });
+    if (!r) return { error: "This needs a connection." };
+    return r.ok ? r.data : { error: r.data.error ?? "Couldn't register you." };
+  }
+
+  async voteChair(area: string, candidate: string): Promise<Election | { error: string }> {
+    const r = await this.call<Election>("POST", "election/vote", { area, candidate }, { auth: true });
+    if (!r) return { error: "Voting needs a connection." };
+    return r.ok ? r.data : { error: r.data.error ?? "Couldn't vote." };
   }
 
   async leaderboard(): Promise<Board | null> {
