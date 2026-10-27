@@ -96,7 +96,7 @@ export function workSheet(G: GameApi): SheetSpec {
           spend("🪧", "Your billboard", "from UGX 3,000 a day", () => G.openSheet(billboardSheet(G))),
           spend("🏘️", "Land and buildings", "from UGX 1,500", () => G.openSheet(landSheet(G))),
           spend("🪑", "Kiosk yard", "UGX 500–3,000", () => G.openSheet(goSheet(G, "kiosk"))),
-          spend("💛", "Top up", G.topUpEnabled() ? "with mobile money" : "coming soon", () => G.openTopUp())),
+          spend("💛", "Add money", G.cryptoEnabled() || G.topUpEnabled() ? "crypto or mobile money" : "coming soon", () => G.openTopUp())),
         h("p", { class: "muted small" }, `You have ${formatUGX(balanceOf(s.ledger))}. Level ${lv}: higher levels unlock better shifts and more energy.`));
       function spend(icon: string, title: string, price: string, open: () => void) {
         const b = h("button", { class: "spend", type: "button" }, h("span", { class: "work-ico" }, icon), h("b", {}, title), h("span", { class: "muted small" }, price));

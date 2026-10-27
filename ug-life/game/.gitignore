@@ -4,3 +4,4 @@ dist-single
 .wrangler
 .dev.vars
 .netlify
+shots/

@@ -12,6 +12,9 @@ const PLAYER_KEY = "uglife.playerId";
 
 export interface ServerConfig {
   topups?: boolean;
+  /** USDT (TRC20) top-ups are open. */
+  crypto?: boolean;
+  usdUgx?: number;
   maintenance: boolean;
   uploads: boolean;
   signups: boolean;
@@ -62,6 +65,17 @@ export interface LiveData {
   dmUnread?: number;
   friendRequests?: number;
   chair?: { id: string; name: string; votes: number } | null;
+  /** The server asks phones to wait at least this long (ms) before the next call. */
+  next?: number;
+}
+
+export interface CryptoDeposit {
+  ref: string;
+  address: string;
+  /** Exact USDT to send, in millionths. */
+  micro: number;
+  until: number;
+  credit: number;
 }
 
 export interface Board {
@@ -333,6 +347,19 @@ export class Api {
     const r = await this.call<{ ok: boolean; credit?: number; pending?: boolean }>("POST", `topup/${ref}/verify`, {}, { auth: true, timeout: 15000 });
     if (!r?.ok) return null;
     return r.data.ok && r.data.credit ? { credit: r.data.credit } : { pending: true };
+  }
+
+  async cryptoStart(pack: string): Promise<CryptoDeposit | { error: string }> {
+    const r = await this.call<CryptoDeposit>("POST", "crypto", { pack }, { auth: true, timeout: 15000 });
+    if (!r) return { error: "Top-up needs a connection." };
+    return r.ok ? r.data : { error: r.data.error ?? "Couldn't start the top-up." };
+  }
+
+  async cryptoCheck(ref: string): Promise<{ credit: number } | { pending: true; slow?: boolean } | { expired: true } | null> {
+    const r = await this.call<{ ok: boolean; credit?: number; pending?: boolean; slow?: boolean; expired?: boolean }>("POST", `crypto/${ref}/check`, {}, { auth: true, timeout: 15000 });
+    if (!r?.ok) return null;
+    if (r.data.ok && r.data.credit) return { credit: r.data.credit };
+    return r.data.expired ? { expired: true } : { pending: true, slow: r.data.slow };
   }
 
   async friends(): Promise<Friend[] | null> {

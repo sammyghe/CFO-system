@@ -69,6 +69,24 @@ To switch it on:
    Claude can add it for you through the Netlify connection once you have the key.
 3. Control Room → Today → turn on **Mobile money top-ups**.
 
+### Real money in with crypto (built, ready the moment you paste an address)
+Players send **USDT on the TRON network (TRC20)**, the dollar coin most Ugandans buy on Binance
+P2P with MTN/Airtel mobile money. Packs: $2, $5 (+10%), $10 (+20%), same UGX 50,000 daily cap.
+How it works: the game gives each player their own exact amount (e.g. 5.0953 USDT) and your
+receiving address with a QR code. When that exact amount lands on the blockchain, the server
+sees it (it reads TronGrid, no account needed) and credits the player once. The money goes
+straight into **your** wallet: the game never holds keys or money.
+
+To switch it on (2 minutes, no company paperwork needed to start):
+1. In Binance (or Trust Wallet): Deposit → USDT → network **TRON (TRC20)** → copy the address.
+2. Control Room → Today → Crypto top-ups: paste it in **Receiving address**, check the
+   **UGX per 1 USDT** rate (default 3,600), then turn on **Crypto top-ups**.
+3. Optional, for busy days: a free TronGrid API key (trongrid.io) as `TRONGRID_API_KEY` in Netlify.
+
+Know before you turn it on: crypto isn't legal tender in Uganda (Bank of Uganda warns about it),
+but accepting it for game items isn't banned. Keep records: crypto income is taxable income
+(URA). Selling USDT to UGX is your own step on Binance P2P. Still never cash-out for players.
+
 Never add cash-out or betting: that needs a gambling licence (National Lotteries and Gaming
 Regulatory Board) and payment-service approval (Bank of Uganda).
 
@@ -99,6 +117,7 @@ business). The billboard can link to their page.
 | Deliveries, boda, shifts, kiosk, land, rent, billboards, events | Live, server-checked |
 | Ideas, votes, rallies, news | Live |
 | Mobile money top-up | Built and tested with a stand-in provider; off until steps in §4 |
+| Crypto top-up (USDT on TRON) | Built and tested; on as soon as you paste a receiving address (§4) |
 | Brand billboards | Live (you sell them offline, book them in the Control Room) |
 | Sign in with phone number | **Next** (SMS costs money; recovery code works for now) |
 | Four areas (Wandegeya, Makerere, Owino, Kabalagala) by matatu, boda or walking | Live |
@@ -107,9 +126,33 @@ business). The billboard can link to their page.
 | More areas (Kikoni, Ntinda, Kalerwe…) | **Next**: one file each (`game/CONTENT.md` → Areas); build the one the votes pick |
 | Real-time movement (others move live, not every few seconds) | **Next**, when there are enough players to need it |
 
-## 7. Hosting and cost
+## 7. Hosting, cost and "what if a million people join today?"
 
 Netlify (game, API, Postgres database, image storage) on the free plan, deployed by GitHub
-Actions. A health check every 30 minutes opens a P0 issue (emails you) if the site, land,
-leaderboard or talk stop answering. When daily players pass a few thousand, the Cloudflare
-standby (same code) or Netlify's paid plan is the next step; see `MASTER_PLAN.md` §8.
+Actions. A health check every 30 minutes opens a P0 issue (emails you) if the site, API,
+election tables or the blockchain reader stop answering.
+
+**Honest answer for a million people in one day: not on the free plan.** The code holds up;
+the free allowance doesn't. Netlify's free plan is 300 credits a month (about 1.5 million web
+requests if nothing else used them). One player visit is roughly 50 requests, so the free plan
+covers about 15,000–30,000 visits a month. When credits run out, **Netlify pauses the site**
+until next month. Nothing is lost when that happens: saves live on each phone, the game keeps
+working offline (the street just goes quiet) and everything syncs when it's back.
+
+What already protects it (built 2026-10-27):
+- The busier it gets, the slower every phone checks for other players (every 20 s above 2,000
+  online, 45 s above 10,000, 90 s above 50,000), plus hidden tabs and failing calls back off.
+- Public answers (land, leaderboard, billboards, settings) are cached on Netlify's CDN, and
+  online counts, the chairperson and settings are kept for a few seconds on each server.
+- Saves (up to 200 KB) are no longer read on every check, only when saving.
+- Control Room levers: **Busy day** (make everyone check less often), **New players** off,
+  **Street talk** off, **Maintenance**.
+
+What a million in a day would cost (rough, at July 2026 prices): about 50 million requests,
+300 GB of first downloads and the function time come to ~20,000–25,000 Netlify credits: the
+Pro tier with 20,000 credits ($126/month) plus top-ups ($10 per 1,500), so roughly **$150 for
+that month**, plus a paid database plan (saves for a million players are ~10–20 GB).
+Cheaper at that size: the Cloudflare standby (same code, already in `game/functions`):
+Workers paid is $5/month with 10 million requests included, then about $0.30 per million, so
+the same day is roughly **$20–30**. Say "move to Cloudflare" and it's an afternoon's switch.
+Rule of thumb: when "players today" in the Control Room passes ~1,000, upgrade or switch.

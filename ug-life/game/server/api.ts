@@ -20,7 +20,8 @@ import type { PlayerState } from "../src/game/state";
 import type { PhotoStore } from "./photostore";
 import type { Db } from "./db";
 import type { PaymentProvider } from "./payments";
-import { TOPUP_DAILY_LIMIT, TOPUP_PACKS } from "../src/content/topup";
+import { CRYPTO_PACKS, CRYPTO_WINDOW_MS, DEFAULT_USD_UGX, TOPUP_DAILY_LIMIT, TOPUP_PACKS, cryptoCredit } from "../src/content/topup";
+import { isTronAddress, type ChainWatcher } from "./crypto";
 import { CANDIDATE_MIN_LEVEL, DMS_PER_DAY, DM_MAX, FRIENDS_MAX, SLOGAN_MAX, lastWeekKey, weekKey } from "../src/content/social";
 
 export interface Env {
@@ -29,6 +30,8 @@ export interface Env {
   adminToken?: string;
   /** Mobile money top-ups; absent = top-ups are off. */
   payments?: PaymentProvider;
+  /** Reads the blockchain for crypto top-ups; absent = crypto is off. */
+  chain?: ChainWatcher;
 }
 
 type Handler = (req: Request, env: Env, params: string[], ctx: Ctx) => Promise<Response>;
@@ -76,18 +79,26 @@ function bearer(req: Request): string | null {
 
 interface PlayerRow {
   start?: string;
+  area?: string;
+  last_seen?: number;
   id: string;
   frozen: number;
-  save_json: string | null;
+  /** Only loaded by auth(…, true). */
+  save_json?: string | null;
   save_version: number;
   name: string;
   referred_by: string | null;
 }
 
-async function auth(req: Request, env: Env): Promise<PlayerRow | null> {
+/**
+ * Who is calling. Most calls don't need the save (up to 200 KB), so only `withSave`
+ * reads it: a crowd polling every few seconds then costs the database very little.
+ */
+async function auth(req: Request, env: Env, withSave = false): Promise<PlayerRow | null> {
   const t = bearer(req);
   if (!t || t.length < 20 || t.length > 64) return null;
-  return env.db.prepare("SELECT id, frozen, save_json, save_version, name, referred_by, start FROM players WHERE token_hash = ?").bind(await sha256(t)).first<PlayerRow>();
+  const cols = withSave ? "save_json, " : "";
+  return env.db.prepare(`SELECT id, frozen, ${cols}save_version, name, referred_by, start, area, last_seen FROM players WHERE token_hash = ?`).bind(await sha256(t)).first<PlayerRow>();
 }
 
 function isAdmin(req: Request, env: Env) {
@@ -95,9 +106,26 @@ function isAdmin(req: Request, env: Env) {
   return !!env.adminToken && env.adminToken.length >= 24 && !!t && timingSafeEqual(t, env.adminToken);
 }
 
+// Settings change rarely and are read on most calls, so each server keeps them for a few seconds.
+const configCache = new WeakMap<Db, { at: number; c: Record<string, string> }>();
+const CONFIG_TTL = 5_000;
+
 async function config(env: Env): Promise<Record<string, string>> {
+  const hit = configCache.get(env.db);
+  if (hit && Date.now() - hit.at < CONFIG_TTL) return hit.c;
   const { results } = await env.db.prepare("SELECT key, value FROM config").all<{ key: string; value: string }>();
-  return Object.fromEntries(results.map((r) => [r.key, r.value]));
+  const c = Object.fromEntries(results.map((r) => [r.key, r.value]));
+  configCache.set(env.db, { at: Date.now(), c });
+  return c;
+}
+
+function cryptoOn(env: Env, c: Record<string, string>) {
+  return !!env.chain && c.crypto_enabled === "true" && isTronAddress(c.crypto_address ?? "");
+}
+
+function usdRate(c: Record<string, string>) {
+  const r = Number(c.usd_ugx);
+  return Number.isFinite(r) && r >= 1_000 && r <= 10_000 ? Math.round(r) : DEFAULT_USD_UGX;
 }
 
 /** Per-player daily counters. Returns false when the limit is used up. */
@@ -122,7 +150,7 @@ async function flag(env: Env, playerId: string, kind: string, detail: string, no
 const getConfig: Handler = async (_req, env) => {
   const c = await config(env);
   return json(
-    { maintenance: c.maintenance_mode === "true", uploads: c.uploads_enabled !== "false", signups: c.signups_enabled !== "false", announcement: c.announcement ?? "", topups: !!env.payments && c.topups_enabled === "true" },
+    { maintenance: c.maintenance_mode === "true", uploads: c.uploads_enabled !== "false", signups: c.signups_enabled !== "false", announcement: c.announcement ?? "", topups: !!env.payments && c.topups_enabled === "true", crypto: cryptoOn(env, c), usdUgx: usdRate(c) },
     200,
     { "cache-control": "public, max-age=30" },
   );
@@ -145,13 +173,13 @@ const createSession: Handler = async (req, env, _p, { now }) => {
 };
 
 const restoreSession: Handler = async (req, env) => {
-  const me = await auth(req, env);
+  const me = await auth(req, env, true);
   if (!me) return fail(404, "That code doesn't match any player. Check it and try again.");
   return json({ playerId: me.id, version: me.save_version, save: me.save_json ? JSON.parse(me.save_json) : null });
 };
 
 const putSave: Handler = async (req, env, _p, { now }) => {
-  const me = await auth(req, env);
+  const me = await auth(req, env, true);
   if (!me) return fail(401, "Not signed in.");
   const c = await config(env);
   if (c.maintenance_mode === "true") return fail(503, "Saving is paused for maintenance. Your progress is safe on your phone.");
@@ -716,6 +744,72 @@ const verifyTopUp: Handler = async (req, env, [ref], { now }) => {
   return json({ ok: true, credit: t.credit });
 };
 
+// ---------- crypto top-ups (USDT on TRON) ----------
+
+/** Asks for a deposit: the player gets the address and their own exact amount to send. */
+const startCrypto: Handler = async (req, env, _p, { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Make your Ug Tag first.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  const c = await config(env);
+  if (!cryptoOn(env, c)) return fail(503, "Crypto top-ups aren't open yet.");
+  const b = (await req.json().catch(() => null)) as { pack?: string } | null;
+  const pack = CRYPTO_PACKS.find((p) => p.id === b?.pack);
+  if (!pack) return fail(400, "Pick a pack.");
+  const { price, credit } = cryptoCredit(pack, usdRate(c));
+  const today = await env.db.prepare("SELECT COALESCE(SUM(price), 0) AS n FROM topups WHERE player_id = ? AND status = 'paid' AND paid_at > ?").bind(me.id, now - 24 * 3600_000).first<{ n: number }>();
+  if ((today?.n ?? 0) + price > TOPUP_DAILY_LIMIT) return fail(429, `You can top up at most UGX ${TOPUP_DAILY_LIMIT.toLocaleString()} a day.`);
+  // One open deposit per player: asking again gives back the same one.
+  const open = await env.db.prepare("SELECT ref, pack, crypto_micro, created_at FROM topups WHERE player_id = ? AND method = 'crypto' AND status = 'pending' AND created_at > ? ORDER BY created_at DESC LIMIT 1")
+    .bind(me.id, now - CRYPTO_WINDOW_MS).first<{ ref: string; pack: string; crypto_micro: number; created_at: number }>();
+  if (open && open.pack === pack.id) return json({ ref: open.ref, address: c.crypto_address, micro: open.crypto_micro, until: open.created_at + CRYPTO_WINDOW_MS, credit });
+  if (open) await env.db.prepare("UPDATE topups SET status = 'cancelled' WHERE ref = ?").bind(open.ref).run();
+  // A unique amount (4 decimals) tells us whose deposit it is when it lands.
+  const base = pack.usd * 1_000_000;
+  for (let i = 0; i < 12; i++) {
+    const micro = base + (1 + Math.floor(Math.random() * 999)) * 100;
+    const taken = await env.db.prepare("SELECT 1 AS x FROM topups WHERE method = 'crypto' AND status = 'pending' AND crypto_micro = ? AND created_at > ?").bind(micro, now - CRYPTO_WINDOW_MS).first();
+    if (taken) continue;
+    const ref = id("cr");
+    await env.db.prepare("INSERT INTO topups (ref, player_id, pack, price, credit, created_at, method, crypto_micro) VALUES (?, ?, ?, ?, ?, ?, 'crypto', ?)")
+      .bind(ref, me.id, pack.id, price, credit, now, micro).run();
+    return json({ ref, address: c.crypto_address, micro, until: now + CRYPTO_WINDOW_MS, credit });
+  }
+  return fail(503, "Lots of people are topping up right now. Try again in a minute.");
+};
+
+/** Looks on the blockchain for this player's exact amount. Credited once, ever. */
+const checkCrypto: Handler = async (req, env, [ref], { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Not signed in.");
+  const t = await env.db.prepare("SELECT player_id, credit, status, created_at, crypto_micro FROM topups WHERE ref = ? AND method = 'crypto'")
+    .bind(ref).first<{ player_id: string; credit: number; status: string; created_at: number; crypto_micro: number }>();
+  if (!t || t.player_id !== me.id) return fail(404, "No such top-up.");
+  if (t.status === "paid") return json({ ok: true, credit: t.credit });
+  if (t.status !== "pending") return json({ ok: false, expired: true });
+  const c = await config(env);
+  if (!env.chain || !isTronAddress(c.crypto_address ?? "")) return fail(503, "Crypto top-ups are paused.");
+  const list = await env.chain.transfersTo(c.crypto_address, t.created_at - 120_000);
+  if (!list) return json({ ok: false, pending: true, slow: true });
+  for (const tx of list) {
+    if (tx.micro !== t.crypto_micro) continue;
+    const used = await env.db.prepare("SELECT ref FROM topups WHERE tx_id = ?").bind(tx.txId).first<{ ref: string }>();
+    if (used) continue;
+    try {
+      await env.db.prepare("UPDATE topups SET status = 'paid', paid_at = ?, tx_id = ? WHERE ref = ? AND status = 'pending'").bind(now, tx.txId, ref).run();
+    } catch {
+      continue; // someone else's top-up took this transaction a moment ago
+    }
+    const row = await env.db.prepare("SELECT status FROM topups WHERE ref = ?").bind(ref).first<{ status: string }>();
+    if (row?.status === "paid") return json({ ok: true, credit: t.credit, tx: tx.txId });
+  }
+  if (now - t.created_at > CRYPTO_WINDOW_MS) {
+    await env.db.prepare("UPDATE topups SET status = 'expired' WHERE ref = ? AND status = 'pending'").bind(ref).run();
+    return json({ ok: false, expired: true });
+  }
+  return json({ ok: false, pending: true });
+};
+
 const rewards: Handler = async (req, env) => {
   const me = await auth(req, env);
   if (!me) return fail(401, "Not signed in.");
@@ -741,6 +835,31 @@ function clampPos(v: unknown, max: number) {
   return Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : 0;
 }
 
+// Who's online per area and each area's chairperson are the same for everyone, so a
+// server works them out once every few seconds instead of on every phone's call.
+const streetCache = new WeakMap<Db, { at: number; counts: Record<string, number>; chairs: Map<string, { id: string; name: string; votes: number } | null> }>();
+const STREET_TTL = 10_000;
+
+async function streetStats(env: Env, now: number) {
+  let hit = streetCache.get(env.db);
+  if (!hit || Date.now() - hit.at > STREET_TTL) {
+    const counts = await env.db.prepare("SELECT area, COUNT(*) AS n FROM players WHERE last_seen > ? AND ghost = 0 AND frozen = 0 AND name != '' GROUP BY area").bind(now - 15 * 60_000).all<{ area: string; n: number }>();
+    hit = { at: Date.now(), counts: Object.fromEntries(counts.results.map((c) => [c.area, c.n])), chairs: new Map() };
+    streetCache.set(env.db, hit);
+  }
+  return hit;
+}
+
+/**
+ * How long phones should wait before asking again. The busier the game, the slower
+ * everyone polls, so the same server holds many more players. The Control Room's
+ * poll_ms sets a floor (e.g. 60000 on a very busy day).
+ */
+export function pollFor(online: number, floor: number): number {
+  const byLoad = online > 50_000 ? 90_000 : online > 10_000 ? 45_000 : online > 2_000 ? 20_000 : 0;
+  return Math.max(byLoad, floor || 0);
+}
+
 /** Who is on the street right now and what they said. Also marks you as here. */
 const live: Handler = async (req, env, _p, { now }) => {
   const me = await auth(req, env);
@@ -748,13 +867,14 @@ const live: Handler = async (req, env, _p, { now }) => {
   const area = mapArea(body?.area)?.id ?? "wandegeya";
   if (me && !me.frozen && body && typeof body.x === "number" && typeof body.y === "number") {
     await env.db.prepare("UPDATE players SET pos_x = ?, pos_y = ?, area = ?, last_seen = ? WHERE id = ?").bind(clampPos(body.x, 60), clampPos(body.y, 30), area, now, me.id).run();
+    if (me.area !== area || !me.last_seen || now - me.last_seen > 15 * 60_000) streetCache.delete(env.db); // someone arrived: recount
   }
   const since = Math.max(Number(body?.since) || 0, now - TALK_WINDOW);
   const players = await env.db.prepare(
     `SELECT id, name, tag_json, look_json, level, pos_x, pos_y, kiosk_json, last_seen FROM players
      WHERE last_seen > ? AND area = ? AND ghost = 0 AND frozen = 0 AND name != '' ORDER BY last_seen DESC LIMIT 20`,
   ).bind(now - 15 * 60_000, area).all<{ id: string; name: string; tag_json: string; look_json: string; level: number; pos_x: number; pos_y: number; kiosk_json: string | null; last_seen: number }>();
-  const counts = await env.db.prepare("SELECT area, COUNT(*) AS n FROM players WHERE last_seen > ? AND ghost = 0 AND frozen = 0 AND name != '' GROUP BY area").bind(now - 15 * 60_000).all<{ area: string; n: number }>();
+  const stats = await streetStats(env, now);
   const talk = await env.db.prepare(
     `SELECT t.id, t.player_id, t.name, t.kind, t.body, t.to_id, t.x, t.y, t.created_at, p.title AS title FROM talk t
      LEFT JOIN proposals p ON t.kind = 'rally' AND p.id = t.body
@@ -765,15 +885,18 @@ const live: Handler = async (req, env, _p, { now }) => {
     dmUnread = (await env.db.prepare("SELECT COUNT(*) AS n FROM dms WHERE to_id = ? AND read = 0 AND hidden = 0").bind(me.id).first<{ n: number }>())?.n ?? 0;
     friendRequests = (await env.db.prepare("SELECT COUNT(*) AS n FROM friends f WHERE f.friend_id = ? AND f.status = 'requested' AND NOT EXISTS (SELECT 1 FROM friends g WHERE g.player_id = ? AND g.friend_id = f.player_id)").bind(me.id, me.id).first<{ n: number }>())?.n ?? 0;
   }
-  const chair = (await electionOf(env, area, now)).chair;
+  if (!stats.chairs.has(area)) stats.chairs.set(area, (await electionOf(env, area, now)).chair);
+  const chair = stats.chairs.get(area) ?? null;
+  const online = Object.values(stats.counts).reduce((a, b) => a + b, 0);
   return json({
     now,
+    next: pollFor(online, Number((await config(env)).poll_ms) || 0),
     dmUnread,
     friendRequests,
     chair,
     players: players.results.map((r) => ({ id: r.id, name: r.name, level: r.level, tag: JSON.parse(r.tag_json), look: JSON.parse(r.look_json), pos: { x: r.pos_x, y: r.pos_y }, kiosk: r.kiosk_json ? JSON.parse(r.kiosk_json) : null, seen: r.last_seen })),
     talk: talk.results.reverse().map(talkOut),
-    areas: Object.fromEntries(counts.results.map((c) => [c.area, c.n])),
+    areas: stats.counts,
   });
 };
 
@@ -1018,6 +1141,12 @@ const adminOverview: Handler = async (_req, env, _p, { now }) => {
     reports: { open: await one("SELECT COUNT(*) n FROM reports WHERE status = 'open'") },
     flags: { open: await one("SELECT COUNT(*) n FROM flags WHERE resolved = 0") },
     economy: { circulating: await one("SELECT COALESCE(SUM(balance), 0) n FROM players WHERE last_seen > ?", now - 7 * day) },
+    money: {
+      crypto24h: await one("SELECT COALESCE(SUM(crypto_micro), 0) n FROM topups WHERE method = 'crypto' AND status = 'paid' AND paid_at > ?", now - day),
+      cryptoAll: await one("SELECT COALESCE(SUM(crypto_micro), 0) n FROM topups WHERE method = 'crypto' AND status = 'paid'"),
+      mobile24h: await one("SELECT COALESCE(SUM(price), 0) n FROM topups WHERE method = 'mobile' AND status = 'paid' AND paid_at > ?", now - day),
+    },
+    online: Object.values((await streetStats(env, now)).counts).reduce((a, b) => a + b, 0),
     config: await config(env),
   });
 };
@@ -1082,8 +1211,15 @@ const adminPlayer: Handler = async (req, env, [playerId]) => {
 
 const adminConfig: Handler = async (req, env) => {
   const body = (await req.json().catch(() => null)) as { key?: string; value?: string } | null;
-  const allowed = ["maintenance_mode", "uploads_enabled", "signups_enabled", "talk_enabled", "topups_enabled", "announcement"];
+  const allowed = ["maintenance_mode", "uploads_enabled", "signups_enabled", "talk_enabled", "topups_enabled", "announcement", "crypto_enabled", "crypto_address", "usd_ugx", "poll_ms"];
   if (!body?.key || !allowed.includes(body.key)) return fail(400, `key must be one of ${allowed.join(", ")}`);
+  const v = String(body.value ?? "").trim();
+  if (body.key === "crypto_address" && v && !isTronAddress(v)) return fail(400, "That isn't a TRON (TRC20) address. It starts with T and has 34 characters.");
+  if (body.key === "usd_ugx" && v && !(Number(v) >= 1_000 && Number(v) <= 10_000)) return fail(400, "The rate must be between 1,000 and 10,000 UGX per dollar.");
+  if (body.key === "poll_ms" && v && !(Number(v) >= 5_000 && Number(v) <= 300_000)) return fail(400, "Poll time must be 5,000 to 300,000 ms.");
+  if (body.key === "crypto_enabled" && v === "true" && !isTronAddress((await config(env)).crypto_address ?? "")) return fail(400, "Set the receiving address first.");
+  configCache.delete(env.db);
+  body.value = v;
   await env.db.prepare("INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").bind(body.key, String(body.value ?? "").slice(0, 280)).run();
   return json({ ok: true });
 };
@@ -1133,6 +1269,8 @@ const routes: [string, RegExp, Handler, boolean][] = [
   ["POST", /^election\/vote$/, voteChair, false],
   ["POST", /^topup$/, startTopUp, false],
   ["POST", /^topup\/([\w]+)\/verify$/, verifyTopUp, false],
+  ["POST", /^crypto$/, startCrypto, false],
+  ["POST", /^crypto\/([\w]+)\/check$/, checkCrypto, false],
   ["POST", /^proposals$/, createProposal, false],
   ["POST", /^proposals\/([\w]+)\/vote$/, voteProposal, false],
   ["POST", /^proposals\/([\w]+)\/report$/, reportProposal, false],
@@ -1163,6 +1301,17 @@ const routes: [string, RegExp, Handler, boolean][] = [
   ["POST", /^admin\/talk\/([\w]+)$/, adminTalkAction, true],
 ];
 
+/**
+ * Public answers (the same for every player) are also kept by Netlify's CDN for as
+ * long as the browser may keep them, so a crowd reading the leaderboard or the land
+ * map costs one server call every few seconds, not one per phone.
+ */
+function edgeCache(req: Request, res: Response): Response {
+  const m = /^public, max-age=(\d+)/.exec(res.headers.get("cache-control") ?? "");
+  if (req.method === "GET" && m && res.status === 200) res.headers.set("netlify-cdn-cache-control", `public, s-maxage=${m[1]}, stale-while-revalidate=${Number(m[1]) * 4}`);
+  return res;
+}
+
 export async function handle(req: Request, env: Env): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname.replace(/^\/api\/?/, "");
@@ -1172,7 +1321,7 @@ export async function handle(req: Request, env: Env): Promise<Response> {
     if (!m || method !== req.method) continue;
     if (admin && !isAdmin(req, env)) return fail(401, "Admin token required.");
     try {
-      return await handler(req, env, m.slice(1), { url, now: Date.now(), photos: env.photos });
+      return edgeCache(req, await handler(req, env, m.slice(1), { url, now: Date.now(), photos: env.photos }));
     } catch (e) {
       console.error("api error", path, e);
       return fail(500, "Something went wrong on our side. Your progress is safe on your phone.");

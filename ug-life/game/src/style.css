@@ -371,3 +371,14 @@ body.host-badge .sheet { padding-bottom: calc(var(--safe-b) + 48px); }
 .chat-log { max-height: 46vh; min-height: 140px; }
 .chat-log .talk-line { max-width: 85%; }
 .chat-log .talk-line.mine { justify-self: end; }
+
+/* wallet */
+.wallet-balance { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 12px; border-radius: 12px; background: var(--card, rgba(255,255,255,.06)); }
+.wallet-balance b { font-size: 1.3rem; }
+.crypto-step { display: grid; gap: 6px; justify-items: start; }
+.crypto-amount { font-size: 1.6rem; letter-spacing: .02em; }
+.crypto-address { font-size: .8rem; word-break: break-all; padding: 6px 8px; border-radius: 8px; background: rgba(0,0,0,.25); user-select: all; }
+.crypto-qr { display: block; margin: 4px auto; width: 180px; height: 180px; image-rendering: pixelated; border-radius: 8px; background: #fff; }
+.wallet .warn { color: #8a5300; font-weight: 600; }
+.wallet .how summary { cursor: pointer; font-weight: 600; }
+.wallet .how ol { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 4px; }

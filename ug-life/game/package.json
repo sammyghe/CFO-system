@@ -27,6 +27,7 @@
   "dependencies": {
     "@netlify/blobs": "^11.1.6",
     "@netlify/database": "^2.0.1",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "qrcode-generator": "^2.0.4"
   }
 }

@@ -49,7 +49,7 @@ import type { LiveEvent, Proposal } from "./content/community";
 import { workSheet } from "./ui/worksheet";
 import { billboardSheet } from "./ui/billboardsheet";
 import { communitySheet } from "./ui/communitysheet";
-import { topUpSheet } from "./ui/topupsheet";
+import { forgetDeposit, savedDeposit, topUpSheet } from "./ui/topupsheet";
 import { destinations } from "./ui/gosheet";
 import { bodaFare } from "./content/catalog";
 import type { TalkMsg } from "./net/api";
@@ -102,6 +102,9 @@ export class Game implements S.GameApi {
   private talkSince = 0;
   private lastTalkAt = 0;
   private othersActive = false;
+  /** Server's busy-day hint and our own back-off after failed calls (ms). */
+  private serverNext = 0;
+  private liveFails = 0;
   private polling = false;
   private unread = false;
   private lastBalance = 0;
@@ -372,6 +375,21 @@ export class Game implements S.GameApi {
 
   topUpEnabled() {
     return this.isOnline && !!this.api.config?.topups;
+  }
+
+  cryptoEnabled() {
+    return this.isOnline && !!this.api.config?.crypto;
+  }
+
+  /** A crypto deposit landed: credit it once (the server holds the proof). */
+  creditTopUp(ref: string, credit: number) {
+    const got = Money.claimTopUp(this.state, ref, credit, Date.now());
+    if (!got) return;
+    this.result(got);
+    sound.sfx("ok");
+    this.changed();
+    this.unsynced = true;
+    void this.syncNow();
   }
 
   openTopUp() {
@@ -1064,6 +1082,14 @@ export class Game implements S.GameApi {
     void this.refreshCommunity();
     const pendingTopUp = this.deepLink.topup || localStore("uglife.topup");
     if (pendingTopUp) void this.checkTopUp(pendingTopUp);
+    // A crypto deposit sent while the game was closed: look for it once on the way in.
+    const crypto = savedDeposit();
+    if (crypto) void this.api.cryptoCheck(crypto.ref).then((r) => {
+      if (r && "credit" in r) {
+        forgetDeposit();
+        this.creditTopUp(crypto.ref, r.credit);
+      } else if (r && "expired" in r) forgetDeposit();
+    });
     if (this.deepLink.event) this.openSheet(communitySheet(this, "events"));
     if (this.deepLink.vote && areaById(this.deepLink.vote)) this.openSheet(electionSheet(this, this.deepLink.vote));
   }
@@ -1108,7 +1134,12 @@ export class Game implements S.GameApi {
     try {
       const s = this.state;
       const r = await this.api.live(s.onboarded ? { x: s.pos.x, y: s.pos.y } : null, this.talkSince, s.area);
-      if (!r) return;
+      if (!r) {
+        this.liveFails = Math.min(this.liveFails + 1, 6);
+        return;
+      }
+      this.liveFails = 0;
+      this.serverNext = r.next ?? 0;
       const me = this.api.playerId;
       this.visitors = r.players.filter((v) => v.id !== me);
       this.sim.setVisitors(this.visitors, s.blocked);
@@ -1137,7 +1168,11 @@ export class Game implements S.GameApi {
   /** Poll often while people are around or talking, rarely when the street is empty. */
   private liveInterval(t: number) {
     const talking = this.sheet?.spec.kind === "talk" || t - this.lastTalkAt < 90_000;
-    return talking ? 6_000 : this.othersActive ? 10_000 : 30_000;
+    const mine = talking ? 6_000 : this.othersActive ? 10_000 : 30_000;
+    // A hidden tab barely polls; a struggling server gets more and more room (up to ~5 min).
+    const hidden = document.hidden ? 120_000 : 0;
+    const backoff = this.liveFails ? Math.min(300_000, 10_000 * 2 ** this.liveFails) : 0;
+    return Math.max(mine, this.serverNext, hidden, backoff) * (0.9 + Math.random() * 0.2);
   }
 
   private async uploadQueued() {
