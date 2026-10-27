@@ -5,13 +5,14 @@
 
 import { post } from "./ledger";
 import { ENERGY_COST, gainEnergy, spendEnergy, tiredMessage } from "./energy";
+import { addNeed, cantWork } from "./needs";
 import { eventForTime } from "./daily";
 import { kampalaDateKey, hashString, seededRandom } from "./time";
 import { complete, type Result } from "./actions";
 import type { GoalId, PlayerState, Ride } from "./state";
 import { BODA, SNACKS, VENDORS, YARD_ITEMS, YARD_SLOTS, bodaFare, ridePay } from "../content/catalog";
 import { RESIDENTS } from "../content/residents";
-import { PLACES, placeById } from "../world/map";
+import { AREA, PLACES, placeById } from "../world/map";
 import { LANDMARKS, LANDMARK_REWARD, LANDMARKS_FOR_GOAL } from "../content/landmarks";
 import { tileDistance } from "../world/path";
 
@@ -30,7 +31,7 @@ export function buyFood(state: PlayerState, vendorId: string, now: number): Resu
   const r = eat(state, v.id, v.product, v.price, v.boostPct, v.boostMinutes, now);
   if (!r.ok) return r;
   gainEnergy(state, v.energy, now);
-  if (v.id === "rolex") complete(state, "rolex");
+  if (v.product === "Rolex") complete(state, "rolex");
   return ok(`${v.product} from ${v.seller}. ⚡+${v.energy} energy, +${v.boostPct}% pay for ${v.boostMinutes} min.`);
 }
 
@@ -47,6 +48,8 @@ export function buySnack(state: PlayerState, snackId: string, now: number): Resu
 function eat(state: PlayerState, id: string, label: string, price: number, pct: number, minutes: number, now: number): Result {
   const r = post(state.ledger, `food:${id}:${now}`, -price, label, now);
   if (!r.ok) return fail(r.error === "insufficient" ? `You need UGX ${price.toLocaleString()}.` : "Already bought.");
+  // food fills you up (hunger) as well as giving energy
+  addNeed(state, "hunger", Math.round(price >= 2_000 ? 60 : price >= 1_000 ? 35 : 12 + price / 50), now);
   const current = state.boost && now < state.boost.until ? state.boost : null;
   // a better meal replaces a smaller one; the same or smaller meal adds time
   if (!current || pct >= current.pct) state.boost = { until: Math.max(current?.until ?? now, now) + minutes * 60_000, pct, label };
@@ -120,7 +123,8 @@ export function rideOffers(state: PlayerState, now: number): RideOffer[] {
   while (out.length < 3 && guard++ < 200) {
     const a = PLACES[Math.floor(rand() * PLACES.length)];
     const b = PLACES[Math.floor(rand() * PLACES.length)];
-    const who = RESIDENTS[Math.floor(rand() * RESIDENTS.length)];
+    const locals = RESIDENTS.filter((r) => (r.area ?? "wandegeya") === AREA.id);
+    const who = locals[Math.floor(rand() * locals.length)];
     const distance = tileDistance(a, b);
     if (a.id === b.id || distance < 8 || out.some((o) => o.passengerId === who.id || o.fromId === a.id)) continue;
     out.push({ id: `ride:${today}:${state.ridesOffers.seq}:${out.length}`, passengerId: who.id, passenger: who.name, fromId: a.id, toId: b.id, pay: ridePay(distance, mult), distance });
@@ -135,6 +139,8 @@ export function acceptRide(state: PlayerState, offerId: string, now: number): Re
   if (ridesToday(state, now) >= BODA.ridesPerDay) return fail(`That's ${BODA.ridesPerDay} rides today. Rest, and ride again tomorrow.`);
   const o = rideOffers(state, now).find((x) => x.id === offerId);
   if (!o) return fail("That passenger found another boda.");
+  const tooHungry = cantWork(state, now);
+  if (tooHungry) return fail(tooHungry);
   if (!spendEnergy(state, ENERGY_COST.ride, now)) return fail(tiredMessage(ENERGY_COST.ride));
   state.ride = { id: o.id, passengerId: o.passengerId, passenger: o.passenger, fromId: o.fromId, toId: o.toId, pay: o.pay, stage: "pickup", acceptedAt: now };
   return ok(`${o.passenger} is waiting at ${placeById(o.fromId)?.name}.`);

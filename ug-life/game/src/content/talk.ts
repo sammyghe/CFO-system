@@ -55,6 +55,22 @@ export const EMOTES: Emote[] = [
 
 /** Things residents say on their own while you're near. */
 export const RESIDENT_LINES: Record<string, string[]> = {
+  "r-nabukeera": ["Moot court at two!", "Have you seen my law notes?", "Oli otya!"],
+  "r-tendo": ["Printing, 100 shillings a page!", "Coursework due tomorrow? Come!"],
+  "r-ochieng": ["Vote for better Wi-Fi!", "Guild meeting at four!"],
+  "r-kisitu": ["Read chapter five before Thursday.", "Economics is everywhere, my friend."],
+  "r-amani": ["Oli otya? Did I say it right?", "Webale nnyo!"],
+  "r-kirabo": ["Choir practice tonight.", "Kabalagala on Friday?"],
+  "r-musoke": ["Sugar, salt, soap! Wholesale!", "Kato, bring that sack!"],
+  "r-sylvia": ["Shoes! Original, I promise!", "Reduce price for you!"],
+  "r-kato-porter": ["Mind your back! Coming through!", "Need something carried?"],
+  "r-nalwanga": ["Kitenge, every pattern!", "Your tailor by tomorrow!"],
+  "r-wasswa": ["Cracked screen? Easy.", "I'll teach you to fix it."],
+  "r-shiru": ["Club 256 tonight!", "This beat is fire!"],
+  "r-bena": ["Cold sodas! Fresh juice!", "No drama at my bar."],
+  "r-mzee": ["Pork and gonja, ready!", "Thirty years on this corner."],
+  "r-lillian": ["Drink water, my dear.", "Long night at the hospital."],
+  "r-joel": ["Twenty push-ups, now!", "Gym is open till ten."],
   "r-okello": ["Boda! Boda!", "Wandegeya, Kikoni, tugende!", "Mpola mpola on that pothole!"],
   "r-rose": ["Chapati ready!", "Hot chapati, come!", "Gyebale ko!"],
   "r-nakato": ["Braids today?", "Nnyabo, your hair!", "Come, I have one chair free."],
@@ -69,11 +85,21 @@ export const RESIDENT_LINES: Record<string, string[]> = {
 export const PASSER_LINES = ["Oli otya?", "Mpola mpola", "Eh! The traffic!", "Sawa sawa", "Gyebale ko!", "Tugende!", "Haha!", "Kale!"];
 
 /** Shouted from the street now and then (spoken aloud when street voices are on). */
-export const STREET_SHOUTS: { at: { x: number; y: number }; text: string; who: string }[] = [
-  { at: { x: 3, y: 11 }, text: "Wandegeya! Kikoni! Kalerwe! Tugende!", who: "Taxi conductor" },
-  { at: { x: 7, y: 12 }, text: "Rolex! Hot rolex! Two thousand!", who: "Musa" },
-  { at: { x: 15, y: 12 }, text: "Kasooli! Roasted maize!", who: "Auntie Sarah" },
-  { at: { x: 13, y: 14 }, text: "Fresh mangoes! Bananas!", who: "Kizza" },
+export const STREET_SHOUTS: { area: string; at: { x: number; y: number }; text: string; who: string }[] = [
+  { area: "wandegeya", at: { x: 3, y: 11 }, text: "Wandegeya! Kikoni! Kalerwe! Tugende!", who: "Taxi conductor" },
+  { area: "wandegeya", at: { x: 7, y: 12 }, text: "Rolex! Hot rolex! Two thousand!", who: "Musa" },
+  { area: "wandegeya", at: { x: 15, y: 12 }, text: "Kasooli! Roasted maize!", who: "Auntie Sarah" },
+  { area: "wandegeya", at: { x: 13, y: 14 }, text: "Fresh mangoes! Bananas!", who: "Kizza" },
+  { area: "makerere", at: { x: 3, y: 11 }, text: "Wandegeya! Town! Tugende, students!", who: "Taxi conductor" },
+  { area: "makerere", at: { x: 37, y: 12 }, text: "Chips and chicken! Three thousand!", who: "Auntie Grace" },
+  { area: "makerere", at: { x: 14, y: 13 }, text: "Guild meeting at four! Everybody come!", who: "Ochieng" },
+  { area: "owino", at: { x: 3, y: 11 }, text: "Nateete! Kalerwe! Ntinda! Old Taxi Park!", who: "Taxi conductor" },
+  { area: "owino", at: { x: 12, y: 12 }, text: "Kanzu, shirts, two thousand! Londa, londa!", who: "Market trader" },
+  { area: "owino", at: { x: 25, y: 12 }, text: "Muwogo! Hot muwogo, five hundred!", who: "Nakku" },
+  { area: "owino", at: { x: 18, y: 14 }, text: "Shoes! Original! Reduce price for you!", who: "Shoe seller" },
+  { area: "kabalagala", at: { x: 9, y: 12 }, text: "Muchomo! Hot muchomo!", who: "Ssebunya" },
+  { area: "kabalagala", at: { x: 7, y: 4 }, text: "Club 256 tonight! DJ Shiru on the decks!", who: "Club promoter" },
+  { area: "kabalagala", at: { x: 3, y: 11 }, text: "Ggaba! Kansanga! Town! Tugende!", who: "Taxi conductor" },
 ];
 
 export const TALK_MAX = 80;

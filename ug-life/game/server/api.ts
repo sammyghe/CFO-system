@@ -4,7 +4,7 @@
 // limit, phones keep playing and sync later.
 
 import { validateSave, type ServerFacts } from "../src/game/validate";
-import { PLOTS } from "../src/world/map";
+import { ALL_PLOTS as PLOTS, areaById as mapArea, findPlace } from "../src/world/map";
 import { KIOSK_LEASE_DAYS } from "../src/game/economy";
 import { YARD_ITEMS } from "../src/content/catalog";
 import { checkDisplayName, checkFreeText } from "../src/game/moderation";
@@ -15,13 +15,13 @@ import { kampalaDateKey } from "../src/game/time";
 import { TALK_MAX, VOICE_MAX_MS, emoteById, phraseById } from "../src/content/talk";
 import { BILLBOARD_COLORS, BILLBOARD_MAX_DAYS, BILLBOARD_SUB, BILLBOARD_TEXT, slotById } from "../src/content/billboards";
 import { EVENT_MAX_REWARD, PROPOSALS_PER_DAY, PROPOSAL_BODY, PROPOSAL_HIDE_REPORTS, PROPOSAL_TITLE } from "../src/content/community";
-import { placeById } from "../src/world/map";
 import { LAND_AREAS, LAND_LEVELS, MAX_LAND, areaById, hotArea, landPrice } from "../src/content/land";
 import type { PlayerState } from "../src/game/state";
 import type { PhotoStore } from "./photostore";
 import type { Db } from "./db";
 import type { PaymentProvider } from "./payments";
 import { TOPUP_DAILY_LIMIT, TOPUP_PACKS } from "../src/content/topup";
+import { CANDIDATE_MIN_LEVEL, DMS_PER_DAY, DM_MAX, FRIENDS_MAX, SLOGAN_MAX, lastWeekKey, weekKey } from "../src/content/social";
 
 export interface Env {
   db: Db;
@@ -75,6 +75,7 @@ function bearer(req: Request): string | null {
 }
 
 interface PlayerRow {
+  start?: string;
   id: string;
   frozen: number;
   save_json: string | null;
@@ -86,7 +87,7 @@ interface PlayerRow {
 async function auth(req: Request, env: Env): Promise<PlayerRow | null> {
   const t = bearer(req);
   if (!t || t.length < 20 || t.length > 64) return null;
-  return env.db.prepare("SELECT id, frozen, save_json, save_version, name, referred_by FROM players WHERE token_hash = ?").bind(await sha256(t)).first<PlayerRow>();
+  return env.db.prepare("SELECT id, frozen, save_json, save_version, name, referred_by, start FROM players WHERE token_hash = ?").bind(await sha256(t)).first<PlayerRow>();
 }
 
 function isAdmin(req: Request, env: Env) {
@@ -134,11 +135,13 @@ const createSession: Handler = async (req, env, _p, { now }) => {
   const body = (await req.json().catch(() => null)) as { ref?: string } | null;
   const token = randomToken();
   const playerId = id("p");
+  // like Lagos Life: some lives start rich, most start from scratch
+  const start = crypto.getRandomValues(new Uint8Array(1))[0] < 51 ? "nepo" : "hustler";
   const ref = typeof body?.ref === "string" && /^p_[a-z0-9]{6,40}$/.test(body.ref) ? body.ref : null;
   const referrer = ref ? await env.db.prepare("SELECT id FROM players WHERE id = ?").bind(ref).first<{ id: string }>() : null;
-  await env.db.prepare("INSERT INTO players (id, token_hash, created_at, last_seen, referred_by) VALUES (?, ?, ?, ?, ?)").bind(playerId, await sha256(token), now, now, referrer?.id ?? null).run();
+  await env.db.prepare("INSERT INTO players (id, token_hash, created_at, last_seen, referred_by, start) VALUES (?, ?, ?, ?, ?, ?)").bind(playerId, await sha256(token), now, now, referrer?.id ?? null, start).run();
   if (referrer) await env.db.prepare("INSERT INTO referrals (referred_id, referrer_id, created_at) VALUES (?, ?, ?)").bind(playerId, referrer.id, now).run();
-  return json({ playerId, token, referred: !!referrer });
+  return json({ playerId, token, referred: !!referrer, start });
 };
 
 const restoreSession: Handler = async (req, env) => {
@@ -201,6 +204,7 @@ async function serverFacts(env: Env, me: PlayerRow): Promise<ServerFacts> {
   const attended = await env.db.prepare("SELECT a.event_id AS id, e.reward FROM event_attendance a JOIN live_events e ON e.id = a.event_id WHERE a.player_id = ?").bind(me.id).all<{ id: string; reward: number }>();
   const topups = await env.db.prepare("SELECT ref, credit FROM topups WHERE player_id = ? AND status = 'paid'").bind(me.id).all<{ ref: string; credit: number }>();
   return {
+    start: me.start ?? "",
     topups: new Map(topups.results.map((t) => [t.ref, t.credit])),
     eventRewards: new Map(attended.results.map((a) => [a.id, a.reward])),
     billboardClaims: new Map(boards.results.map((b) => [`${b.slot}:${b.day}`, b.price])),
@@ -367,9 +371,9 @@ const attendEvent: Handler = async (req, env, [eid], { now }) => {
   if (now < e.starts_at) return fail(409, "It hasn't started yet. Come back when it starts.");
   if (now > e.ends_at) return fail(409, "You missed this one. Watch What's new for the next.");
   // you must actually be there: your last position on the street, sent by the game
-  const pos = await env.db.prepare("SELECT pos_x, pos_y FROM players WHERE id = ?").bind(me.id).first<{ pos_x: number; pos_y: number }>();
-  const place = placeById(e.place);
-  if (place && pos && Math.hypot(pos.pos_x - place.x, pos.pos_y - place.y) > 4) return fail(409, `Go to ${place.name} to join.`);
+  const pos = await env.db.prepare("SELECT pos_x, pos_y, area FROM players WHERE id = ?").bind(me.id).first<{ pos_x: number; pos_y: number; area: string }>();
+  const found = findPlace(e.place);
+  if (found && pos && (pos.area !== found.area.id || Math.hypot(pos.pos_x - found.place.x, pos.pos_y - found.place.y) > 4)) return fail(409, `Go to ${found.place.name} in ${found.area.name} to join.`);
   const row = await env.db.prepare("INSERT INTO event_attendance (event_id, player_id, created_at) VALUES (?, ?, ?) ON CONFLICT (event_id, player_id) DO NOTHING RETURNING event_id").bind(eid, me.id, now).first();
   return json({ ok: true, reward: e.reward, already: !row });
 };
@@ -393,7 +397,7 @@ const adminEvent: Handler = async (req, env, [eid], { now }) => {
   }
   const b = (await req.json().catch(() => null)) as { title?: string; body?: string; place?: string; startsAt?: number; endsAt?: number; reward?: number } | null;
   const title = String(b?.title ?? "").trim().slice(0, 80);
-  if (!title || !placeById(String(b?.place))) return fail(400, "title and a place id are required");
+  if (!title || !findPlace(String(b?.place))) return fail(400, "title and a place id are required");
   const startsAt = Number(b?.startsAt) || now;
   const endsAt = Number(b?.endsAt) || startsAt + 3600_000;
   if (endsAt <= startsAt || endsAt - startsAt > 7 * 24 * 3600_000) return fail(400, "an event lasts up to 7 days");
@@ -408,6 +412,159 @@ const adminProposal: Handler = async (req, env, [pid]) => {
   if (!["open", "done", "hidden"].includes(String(b?.status))) return fail(400, "status must be open, done or hidden");
   await env.db.prepare("UPDATE proposals SET status = ?, note = ? WHERE id = ?").bind(b!.status, String(b?.note ?? "").slice(0, 200), pid).run();
   return json({ ok: true });
+};
+
+// ---------- friends and private messages ----------
+
+const PID = /^p_[a-z0-9]{6,40}$/;
+
+async function areFriends(env: Env, a: string, b: string) {
+  const one = await env.db.prepare("SELECT status FROM friends WHERE player_id = ? AND friend_id = ?").bind(a, b).first<{ status: string }>();
+  return one?.status === "friends";
+}
+
+/** Ask someone to be friends, or accept their request (same call). */
+const addFriend: Handler = async (req, env, [fid], { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Make your Ug Tag first.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  if (!PID.test(fid) || fid === me.id) return fail(400, "That isn't a player.");
+  const other = await env.db.prepare("SELECT name, frozen FROM players WHERE id = ?").bind(fid).first<{ name: string; frozen: number }>();
+  if (!other || other.frozen) return fail(404, "That player isn't around.");
+  const count = (await env.db.prepare("SELECT COUNT(*) AS n FROM friends WHERE player_id = ?").bind(me.id).first<{ n: number }>())?.n ?? 0;
+  if (count >= FRIENDS_MAX) return fail(409, `You have ${FRIENDS_MAX} friends already.`);
+  if (!(await take(env, me.id, "friend", 50, now))) return fail(429, "That's a lot of friend requests today.");
+  const theirs = await env.db.prepare("SELECT status FROM friends WHERE player_id = ? AND friend_id = ?").bind(fid, me.id).first<{ status: string }>();
+  if (theirs) {
+    // they asked first: accepting makes it mutual
+    await env.db.prepare("UPDATE friends SET status = 'friends' WHERE player_id = ? AND friend_id = ?").bind(fid, me.id).run();
+    await env.db.prepare("INSERT INTO friends (player_id, friend_id, status, created_at) VALUES (?, ?, 'friends', ?) ON CONFLICT (player_id, friend_id) DO UPDATE SET status = 'friends'").bind(me.id, fid, now).run();
+    return json({ ok: true, status: "friends", name: other.name });
+  }
+  await env.db.prepare("INSERT INTO friends (player_id, friend_id, status, created_at) VALUES (?, ?, 'requested', ?) ON CONFLICT (player_id, friend_id) DO NOTHING").bind(me.id, fid, now).run();
+  return json({ ok: true, status: "outgoing", name: other.name });
+};
+
+const removeFriend: Handler = async (req, env, [fid]) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Not signed in.");
+  await env.db.prepare("DELETE FROM friends WHERE (player_id = ? AND friend_id = ?) OR (player_id = ? AND friend_id = ?)").bind(me.id, fid, fid, me.id).run();
+  return json({ ok: true });
+};
+
+const listFriends: Handler = async (req, env, _p, { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Not signed in.");
+  const mine = await env.db.prepare(
+    `SELECT f.friend_id AS id, f.status, p.name, p.last_seen, p.area FROM friends f JOIN players p ON p.id = f.friend_id WHERE f.player_id = ?`,
+  ).bind(me.id).all<{ id: string; status: string; name: string; last_seen: number; area: string }>();
+  const incoming = await env.db.prepare(
+    `SELECT f.player_id AS id, p.name, p.last_seen, p.area FROM friends f JOIN players p ON p.id = f.player_id
+     WHERE f.friend_id = ? AND f.status = 'requested' AND NOT EXISTS (SELECT 1 FROM friends g WHERE g.player_id = ? AND g.friend_id = f.player_id)`,
+  ).bind(me.id, me.id).all<{ id: string; name: string; last_seen: number; area: string }>();
+  const unread = await env.db.prepare("SELECT from_id, COUNT(*) AS n FROM dms WHERE to_id = ? AND read = 0 AND hidden = 0 GROUP BY from_id").bind(me.id).all<{ from_id: string; n: number }>();
+  const un = new Map(unread.results.map((u) => [u.from_id, u.n]));
+  const online = (t: number) => now - t < 5 * 60_000;
+  return json({
+    friends: [
+      ...mine.results.map((f) => ({ id: f.id, name: f.name, status: f.status === "friends" ? "friends" : "outgoing", unread: un.get(f.id) ?? 0, online: online(f.last_seen), area: f.area })),
+      ...incoming.results.map((f) => ({ id: f.id, name: f.name, status: "incoming", unread: 0, online: online(f.last_seen), area: f.area })),
+    ],
+  });
+};
+
+const getDms: Handler = async (req, env, [fid], { url }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Not signed in.");
+  if (!(await areFriends(env, me.id, fid))) return fail(403, "You can message friends only.");
+  const since = Number(url.searchParams.get("since")) || 0;
+  const { results } = await env.db.prepare(
+    `SELECT id, from_id, to_id, body, created_at FROM dms WHERE hidden = 0 AND created_at > ? AND ((from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?)) ORDER BY created_at DESC LIMIT 60`,
+  ).bind(since, me.id, fid, fid, me.id).all<{ id: string; from_id: string; to_id: string; body: string; created_at: number }>();
+  await env.db.prepare("UPDATE dms SET read = 1 WHERE to_id = ? AND from_id = ? AND read = 0").bind(me.id, fid).run();
+  return json({ messages: results.reverse().map((m) => ({ id: m.id, from: m.from_id, to: m.to_id, body: m.body, at: m.created_at })) });
+};
+
+const sendDm: Handler = async (req, env, [fid], { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Not signed in.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  const c = await config(env);
+  if (c.talk_enabled === "false") return fail(503, "Messages are paused for a moment.");
+  if (!(await areFriends(env, me.id, fid))) return fail(403, "You can message friends only.");
+  const b = (await req.json().catch(() => null)) as { body?: string } | null;
+  const text = checkFreeText(String(b?.body ?? ""), DM_MAX);
+  if (!text.ok) return fail(400, text.reason);
+  if (!text.value) return fail(400, "Write something first.");
+  if (!(await take(env, me.id, "dm", DMS_PER_DAY, now))) return fail(429, "That's a lot of messages today. More tomorrow.");
+  const mid = id("dm");
+  await env.db.prepare("INSERT INTO dms (id, from_id, to_id, body, created_at) VALUES (?, ?, ?, ?, ?)").bind(mid, me.id, fid, text.value, now).run();
+  return json({ id: mid, at: now, body: text.value });
+};
+
+const reportDm: Handler = async (req, env, [mid], { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Not signed in.");
+  const m = await env.db.prepare("SELECT from_id, to_id, body FROM dms WHERE id = ?").bind(mid).first<{ from_id: string; to_id: string; body: string }>();
+  if (!m || m.to_id !== me.id) return fail(404, "Not found.");
+  await env.db.prepare("UPDATE dms SET hidden = 1 WHERE id = ?").bind(mid).run();
+  await env.db.prepare("INSERT INTO reports (id, reporter_id, target, reason, created_at) VALUES (?, ?, ?, ?, ?)").bind(id("r"), me.id, `dm:${mid}:${m.from_id}`, `Private message: ${m.body}`.slice(0, 500), now).run();
+  return json({ ok: true });
+};
+
+// ---------- street chairperson elections ----------
+
+async function electionOf(env: Env, area: string, now: number, meId?: string) {
+  const week = weekKey(now);
+  const tally = async (w: string) => (await env.db.prepare(
+    `SELECT c.player_id AS id, c.name, c.slogan, (SELECT COUNT(*) FROM election_votes v WHERE v.week = c.week AND v.area = c.area AND v.candidate_id = c.player_id) AS votes
+     FROM candidates c WHERE c.week = ? AND c.area = ? ORDER BY votes DESC, c.created_at ASC LIMIT 20`,
+  ).bind(w, area).all<{ id: string; name: string; slogan: string; votes: number }>()).results;
+  const candidates = await tally(week);
+  const last = (await tally(lastWeekKey(now)))[0];
+  const mine = meId ? await env.db.prepare("SELECT candidate_id FROM election_votes WHERE week = ? AND area = ? AND voter_id = ?").bind(week, area, meId).first<{ candidate_id: string }>() : null;
+  return { week, area, candidates, myVote: mine?.candidate_id ?? null, chair: last && last.votes > 0 ? { id: last.id, name: last.name, votes: last.votes } : null };
+}
+
+const getElection: Handler = async (req, env, _p, { now, url }) => {
+  const me = await auth(req, env);
+  const area = mapArea(url.searchParams.get("area"))?.id ?? "wandegeya";
+  return json(await electionOf(env, area, now, me?.id));
+};
+
+const runForChair: Handler = async (req, env, _p, { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Make your Ug Tag first.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  const b = (await req.json().catch(() => null)) as { area?: string; slogan?: string } | null;
+  const area = mapArea(b?.area)?.id;
+  if (!area) return fail(400, "Pick an area.");
+  const lv = (await env.db.prepare("SELECT level FROM players WHERE id = ?").bind(me.id).first<{ level: number }>())?.level ?? 1;
+  if (lv < CANDIDATE_MIN_LEVEL) return fail(403, `You need level ${CANDIDATE_MIN_LEVEL} to stand. Work and level up first.`);
+  const slogan = checkFreeText(String(b?.slogan ?? ""), SLOGAN_MAX);
+  if (!slogan.ok) return fail(400, slogan.reason);
+  const week = weekKey(now);
+  const other = await env.db.prepare("SELECT area FROM candidates WHERE week = ? AND player_id = ?").bind(week, me.id).first<{ area: string }>();
+  if (other && other.area !== area) return fail(409, "You're already standing in another area this week.");
+  await env.db.prepare("INSERT INTO candidates (week, area, player_id, name, slogan, created_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (week, area, player_id) DO UPDATE SET slogan = excluded.slogan")
+    .bind(week, area, me.id, me.name, slogan.value, now).run();
+  return json(await electionOf(env, area, now, me.id));
+};
+
+const voteChair: Handler = async (req, env, _p, { now }) => {
+  const me = await auth(req, env);
+  if (!me) return fail(401, "Make your Ug Tag first.");
+  if (me.frozen) return fail(423, "This account is under review.");
+  const b = (await req.json().catch(() => null)) as { area?: string; candidate?: string } | null;
+  const area = mapArea(b?.area)?.id;
+  if (!area || !PID.test(String(b?.candidate))) return fail(400, "Pick a candidate.");
+  const week = weekKey(now);
+  const cand = await env.db.prepare("SELECT player_id FROM candidates WHERE week = ? AND area = ? AND player_id = ?").bind(week, area, b!.candidate).first();
+  if (!cand) return fail(404, "That person isn't standing.");
+  const row = await env.db.prepare("INSERT INTO election_votes (week, area, voter_id, candidate_id, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (week, area, voter_id) DO NOTHING RETURNING voter_id")
+    .bind(week, area, me.id, b!.candidate, now).first();
+  if (!row) return fail(409, "You've already voted here this week.");
+  return json(await electionOf(env, area, now, me.id));
 };
 
 // ---------- billboards ----------
@@ -566,7 +723,7 @@ const rewards: Handler = async (req, env) => {
     "SELECT r.referred_id AS id, p.name AS name FROM referrals r JOIN players p ON p.id = r.referred_id WHERE r.referrer_id = ? AND r.qualified = 1",
   ).bind(me.id).all<{ id: string; name: string }>();
   const topups = await env.db.prepare("SELECT ref, credit FROM topups WHERE player_id = ? AND status = 'paid'").bind(me.id).all<{ ref: string; credit: number }>();
-  return json({ referrals: results, referred: !!me.referred_by, topups: topups.results });
+  return json({ referrals: results, referred: !!me.referred_by, topups: topups.results, start: me.start ?? "" });
 };
 
 // ---------- street talk ----------
@@ -587,24 +744,36 @@ function clampPos(v: unknown, max: number) {
 /** Who is on the street right now and what they said. Also marks you as here. */
 const live: Handler = async (req, env, _p, { now }) => {
   const me = await auth(req, env);
-  const body = (await req.json().catch(() => null)) as { x?: number; y?: number; since?: number } | null;
+  const body = (await req.json().catch(() => null)) as { x?: number; y?: number; since?: number; area?: string } | null;
+  const area = mapArea(body?.area)?.id ?? "wandegeya";
   if (me && !me.frozen && body && typeof body.x === "number" && typeof body.y === "number") {
-    await env.db.prepare("UPDATE players SET pos_x = ?, pos_y = ?, last_seen = ? WHERE id = ?").bind(clampPos(body.x, 60), clampPos(body.y, 30), now, me.id).run();
+    await env.db.prepare("UPDATE players SET pos_x = ?, pos_y = ?, area = ?, last_seen = ? WHERE id = ?").bind(clampPos(body.x, 60), clampPos(body.y, 30), area, now, me.id).run();
   }
   const since = Math.max(Number(body?.since) || 0, now - TALK_WINDOW);
   const players = await env.db.prepare(
     `SELECT id, name, tag_json, look_json, level, pos_x, pos_y, kiosk_json, last_seen FROM players
-     WHERE last_seen > ? AND ghost = 0 AND frozen = 0 AND name != '' ORDER BY last_seen DESC LIMIT 20`,
-  ).bind(now - 15 * 60_000).all<{ id: string; name: string; tag_json: string; look_json: string; level: number; pos_x: number; pos_y: number; kiosk_json: string | null; last_seen: number }>();
+     WHERE last_seen > ? AND area = ? AND ghost = 0 AND frozen = 0 AND name != '' ORDER BY last_seen DESC LIMIT 20`,
+  ).bind(now - 15 * 60_000, area).all<{ id: string; name: string; tag_json: string; look_json: string; level: number; pos_x: number; pos_y: number; kiosk_json: string | null; last_seen: number }>();
+  const counts = await env.db.prepare("SELECT area, COUNT(*) AS n FROM players WHERE last_seen > ? AND ghost = 0 AND frozen = 0 AND name != '' GROUP BY area").bind(now - 15 * 60_000).all<{ area: string; n: number }>();
   const talk = await env.db.prepare(
     `SELECT t.id, t.player_id, t.name, t.kind, t.body, t.to_id, t.x, t.y, t.created_at, p.title AS title FROM talk t
      LEFT JOIN proposals p ON t.kind = 'rally' AND p.id = t.body
-     WHERE t.created_at > ? AND t.hidden = 0 ORDER BY t.created_at DESC LIMIT 40`,
-  ).bind(since).all<TalkRow>();
+     WHERE t.created_at > ? AND t.hidden = 0 AND (t.area = ? OR t.to_id IS NOT NULL) ORDER BY t.created_at DESC LIMIT 40`,
+  ).bind(since, area).all<TalkRow>();
+  let dmUnread = 0, friendRequests = 0;
+  if (me) {
+    dmUnread = (await env.db.prepare("SELECT COUNT(*) AS n FROM dms WHERE to_id = ? AND read = 0 AND hidden = 0").bind(me.id).first<{ n: number }>())?.n ?? 0;
+    friendRequests = (await env.db.prepare("SELECT COUNT(*) AS n FROM friends f WHERE f.friend_id = ? AND f.status = 'requested' AND NOT EXISTS (SELECT 1 FROM friends g WHERE g.player_id = ? AND g.friend_id = f.player_id)").bind(me.id, me.id).first<{ n: number }>())?.n ?? 0;
+  }
+  const chair = (await electionOf(env, area, now)).chair;
   return json({
     now,
+    dmUnread,
+    friendRequests,
+    chair,
     players: players.results.map((r) => ({ id: r.id, name: r.name, level: r.level, tag: JSON.parse(r.tag_json), look: JSON.parse(r.look_json), pos: { x: r.pos_x, y: r.pos_y }, kiosk: r.kiosk_json ? JSON.parse(r.kiosk_json) : null, seen: r.last_seen })),
     talk: talk.results.reverse().map(talkOut),
+    areas: Object.fromEntries(counts.results.map((c) => [c.area, c.n])),
   });
 };
 
@@ -623,7 +792,7 @@ const postTalk: Handler = async (req, env, _p, { now }) => {
   const me = await auth(req, env);
   const blocked = await canTalk(env, me, now);
   if (blocked) return blocked;
-  const b = (await req.json().catch(() => null)) as { kind?: string; body?: string; to?: string; x?: number; y?: number } | null;
+  const b = (await req.json().catch(() => null)) as { kind?: string; body?: string; to?: string; x?: number; y?: number; area?: string } | null;
   const kind = b?.kind;
   let text = String(b?.body ?? "");
   if (kind === "phrase") {
@@ -642,8 +811,8 @@ const postTalk: Handler = async (req, env, _p, { now }) => {
   if (!(await take(env, me!.id, "talk", 500, now))) return fail(429, "That's a lot of talking today. Rest your voice until tomorrow.");
   const to = typeof b?.to === "string" && /^p_[a-z0-9]{6,40}$/.test(b.to) ? b.to : null;
   const talkId = id("k");
-  await env.db.prepare("INSERT INTO talk (id, player_id, name, kind, body, to_id, x, y, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-    .bind(talkId, me!.id, me!.name, kind, text, to, clampPos(b?.x, 60), clampPos(b?.y, 30), now).run();
+  await env.db.prepare("INSERT INTO talk (id, player_id, name, kind, body, to_id, x, y, area, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(talkId, me!.id, me!.name, kind, text, to, clampPos(b?.x, 60), clampPos(b?.y, 30), mapArea(b?.area)?.id ?? "wandegeya", now).run();
   return json({ id: talkId, at: now, body: text });
 };
 
@@ -663,8 +832,8 @@ const postVoice: Handler = async (req, env, _p, { now, photos }) => {
   const voiceId = id("vc");
   await photos.put(voiceId, mime, await file.arrayBuffer());
   const talkId = id("k");
-  await env.db.prepare("INSERT INTO talk (id, player_id, name, kind, body, to_id, x, y, created_at) VALUES (?, ?, ?, 'voice', ?, NULL, ?, ?, ?)")
-    .bind(talkId, me!.id, me!.name, voiceId, clampPos(form.get("x"), 60), clampPos(form.get("y"), 30), now).run();
+  await env.db.prepare("INSERT INTO talk (id, player_id, name, kind, body, to_id, x, y, area, created_at) VALUES (?, ?, ?, 'voice', ?, NULL, ?, ?, ?, ?)")
+    .bind(talkId, me!.id, me!.name, voiceId, clampPos(form.get("x"), 60), clampPos(form.get("y"), 30), mapArea(String(form.get("area")))?.id ?? "wandegeya", now).run();
   return json({ id: talkId, at: now, body: voiceId });
 };
 
@@ -823,7 +992,7 @@ const createReport: Handler = async (req, env, _p, { now }) => {
   return json({ ok: true });
 };
 
-const KNOWN_EVENTS = new Set(["age_confirmed", "onboarded", "session_start", "job_accepted", "job_completed", "kiosk_leased", "kiosk_painted", "upgrade_bought", "pothole_reported", "card_shared", "ticket_saved", "snap_made", "snap_uploaded", "visitor_viewed", "boda_taken", "ride_done", "rolex_bought", "food_bought", "yard_built", "goal_claimed", "landmark_found", "talk_sent", "voice_sent", "emote_sent", "resident_greeted", "place_go", "sound_off", "leaderboard_viewed", "boda_offer_taken", "land_bought", "land_built", "rent_collected", "billboard_rented", "shift_done", "proposal_made", "voted", "rally_joined", "event_attended", "news_read", "topup_started"]);
+const KNOWN_EVENTS = new Set(["age_confirmed", "onboarded", "session_start", "job_accepted", "job_completed", "kiosk_leased", "kiosk_painted", "upgrade_bought", "pothole_reported", "card_shared", "ticket_saved", "snap_made", "snap_uploaded", "visitor_viewed", "boda_taken", "ride_done", "rolex_bought", "food_bought", "yard_built", "goal_claimed", "landmark_found", "talk_sent", "voice_sent", "emote_sent", "resident_greeted", "place_go", "sound_off", "leaderboard_viewed", "boda_offer_taken", "land_bought", "land_built", "rent_collected", "billboard_rented", "shift_done", "proposal_made", "voted", "rally_joined", "event_attended", "news_read", "topup_started", "travel", "friend_added", "dm_sent", "chair_run", "chair_voted", "date", "gift", "slept", "showered", "venue"]);
 
 /** Free, private analytics: daily counters only, no personal data. */
 const track: Handler = async (req, env, _p, { now }) => {
@@ -953,6 +1122,15 @@ const routes: [string, RegExp, Handler, boolean][] = [
   ["GET", /^land$/, listLand, false],
   ["GET", /^billboards$/, listBillboards, false],
   ["GET", /^community$/, community, false],
+  ["GET", /^friends$/, listFriends, false],
+  ["POST", /^friends\/([\w]+)$/, addFriend, false],
+  ["DELETE", /^friends\/([\w]+)$/, removeFriend, false],
+  ["GET", /^dms\/([\w]+)$/, getDms, false],
+  ["POST", /^dms\/([\w]+)$/, sendDm, false],
+  ["POST", /^dms\/([\w]+)\/report$/, reportDm, false],
+  ["GET", /^election$/, getElection, false],
+  ["POST", /^election\/run$/, runForChair, false],
+  ["POST", /^election\/vote$/, voteChair, false],
   ["POST", /^topup$/, startTopUp, false],
   ["POST", /^topup\/([\w]+)\/verify$/, verifyTopUp, false],
   ["POST", /^proposals$/, createProposal, false],

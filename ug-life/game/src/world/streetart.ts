@@ -47,7 +47,7 @@ export function drawCart(ctx: Ctx, x: number, y: number, vendor: Vendor) {
     ctx.lineWidth = 1.4;
     for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(pan.sx - 4 + i * 4, pan.sy - 3); ctx.quadraticCurveTo(pan.sx - 7 + i * 4, pan.sy - 9, pan.sx - 4 + i * 4, pan.sy - 14); ctx.stroke(); }
     umbrella(ctx, toScreen(x + 0.9, y + 0.85), "#b4442a");
-    sign(ctx, cart, "ROLEX", "#b4442a");
+    sign(ctx, cart, vendor.product === "Rolex" ? "ROLEX" : vendor.product.split(" ")[0].toUpperCase(), "#b4442a");
   } else if (vendor.cart === "maize") {
     drawPerson(ctx, sp.sx, sp.sy, SELLERS.maize, 0, false, true, 1);
     const grill: Box = { x: x + 0.2, y: y + 0.35, w: 0.6, d: 0.4, h: 12 };

@@ -24,3 +24,17 @@ export function payBillboard(state: PlayerState, slot: string, day: string, pric
   if (!r.ok) return fail(r.error === "insufficient" ? `That costs UGX ${price.toLocaleString()}.` : "Already paid.");
   return ok("Your billboard is up. Everyone on the street can see it!");
 }
+
+/** "Nepo" lives start with family money; "hustlers" start from scratch (and get a badge). */
+export const NEPO_GIFT = 20_000;
+
+export function claimStart(state: PlayerState, start: string, now: number): Result | null {
+  if (start !== "nepo" && start !== "hustler") return null;
+  if (state.start) return null;
+  state.start = start;
+  if (start === "nepo") {
+    post(state.ledger, "start:nepo", NEPO_GIFT, "Family money (born Nepo)", now);
+    return ok(`You were born Nepo 👑: your family sent UGX ${NEPO_GIFT.toLocaleString()}. Don't waste it!`);
+  }
+  return ok("You're a Hustler 💪: starting from scratch like most of Kampala. Every shilling is yours.");
+}

@@ -1,4 +1,4 @@
-import { MAP_H, MAP_W, isWalkable } from "./map";
+import { AREA, MAP_H, MAP_W, isWalkable } from "./map";
 import { findPath, nearestWalkable, type Pt } from "./path";
 import type { Look } from "../game/state";
 import { RESIDENTS, type Resident } from "../content/residents";
@@ -72,11 +72,24 @@ export const LANE_DIR = [-1, 1] as const;
 
 const VEHICLE_LEN: Record<Vehicle["kind"], number> = { matatu: 2.2, car: 1.6, boda: 0.9 };
 
-/** Tiles where residents like to hang out. */
-const HANGOUTS: Pt[] = [];
-for (let y = 0; y < MAP_H; y++)
-  for (let x = 0; x < MAP_W; x++)
-    if (isWalkable(x, y) && (y === 4 || y === 11 || y >= 12)) HANGOUTS.push({ x, y });
+/** Tiles where residents like to hang out, in the current area. */
+function hangouts(): Pt[] {
+  const out: Pt[] = [];
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++)
+      if (isWalkable(x, y) && (y === 4 || y === 11 || y >= 12)) out.push({ x, y });
+  return out;
+}
+
+function residentsHere(): Walker[] {
+  return RESIDENTS.filter((r) => (r.area ?? "wandegeya") === AREA.id).map((r) => {
+    const start = isWalkable(r.start.x, r.start.y) ? r.start : nearestWalkable(r.start) ?? { x: 3, y: 11 };
+    const w = makeWalker(r.id, start.x + 0.5, start.y + 0.5, r.look, 1.3 + Math.random() * 0.5);
+    w.resident = r;
+    w.idleUntil = performance.now() + Math.random() * 4000;
+    return w;
+  });
+}
 
 export class Sim {
   player: Walker;
@@ -87,6 +100,7 @@ export class Sim {
   private timers: { at: number; fn: () => void }[] = [];
   private rand = Math.random;
   private nextChatter = performance.now() + 6000;
+  private hangouts = hangouts();
   /** Called when a resident says something on their own (for the talk log and voices). */
   onChatter?: (w: Walker, text: string) => void;
   /** How many residents and passers-by walk around (fewer on slow phones). */
@@ -94,13 +108,7 @@ export class Sim {
 
   constructor(playerLook: Look, start: { x: number; y: number }) {
     this.player = makeWalker("player", start.x, start.y, playerLook, 3.2);
-    this.residents = RESIDENTS.map((r) => {
-      const start = isWalkable(r.start.x, r.start.y) ? r.start : nearestWalkable(r.start) ?? { x: 3, y: 11 };
-      const w = makeWalker(r.id, start.x + 0.5, start.y + 0.5, r.look, 1.3 + Math.random() * 0.5);
-      w.resident = r;
-      w.idleUntil = performance.now() + Math.random() * 4000;
-      return w;
-    });
+    this.residents = residentsHere();
     this.vehicles = [
       vehicle("matatu", 2, 1, "#f4f4ef"),
       vehicle("boda", 7, 1, ""),
@@ -119,6 +127,22 @@ export class Sim {
       vehicle("boda", 8, 0, ""),
       vehicle("boda", 1, 0, ""),
     ];
+  }
+
+  /** After travelling: the people of the new area, and you at the arrival spot. */
+  enterArea(at: Pt) {
+    this.residents = residentsHere();
+    this.hangouts = hangouts();
+    this.visitors = [];
+    this.timers = [];
+    const p = this.player;
+    p.x = at.x + 0.5;
+    p.y = at.y + 0.5;
+    p.path = [];
+    p.onArrive = undefined;
+    p.pillion = undefined;
+    p.emote = undefined;
+    p.say = undefined;
   }
 
   schedule(delayMs: number, fn: () => void) {
@@ -319,7 +343,7 @@ export class Sim {
       // on slow phones only part of the crowd walks about; the rest stand still
       if (r.hidden || r.waving || i >= this.crowd) continue;
       if (!r.path.length && now > r.idleUntil && !r.onArrive) {
-        const target = HANGOUTS[Math.floor(this.rand() * HANGOUTS.length)];
+        const target = this.hangouts[Math.floor(this.rand() * this.hangouts.length)];
         const path = findPath({ x: Math.floor(r.x), y: Math.floor(r.y) }, target);
         if (path && path.length < 18) r.path = path.map((q) => ({ x: q.x + 0.5, y: q.y + 0.5 }));
         r.idleUntil = now + 3000 + this.rand() * 7000;

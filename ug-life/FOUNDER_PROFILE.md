@@ -35,3 +35,12 @@ Living notes on how Sammy works, so any future session starts aligned. Update as
   mock-ups; mobile first; easy to share; grows through events and real brands.
 - Explain money boundaries plainly: real money in (top-ups) is fine once the business is set up;
   real money out or betting is not.
+- Benchmarks against Lagos Life feature by feature (needs, homes, travel, dating, elections,
+  billboards, Nepo/Lapo start). When he says "see what people say you can do", research the
+  inspiration and bring parity in Kampala texture, then add ideas of our own.
+- Wants places that feel big: universities (Makerere), markets (Owino), nightlife (Kabalagala),
+  moving between them like real Kampala. Wants to "talk to girls and people": keep it friendly
+  and 18+, never explicit, with report and block everywhere.
+- Wants control over the experience (e.g. mute sounds): give settings, not one-size defaults.
+- Wants his projects organised on GitHub (Ug Life in its own repo, beside his other projects).
+  Repo creation needs him once: the GitHub app can't create repos for him.

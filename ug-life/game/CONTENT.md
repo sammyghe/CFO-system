@@ -116,6 +116,27 @@ The street is 40 tiles wide (`MAP_W`). Buildings sit on rows 0–3 with the door
 Leave no overlap with another building. A new building becomes a delivery and boda
 destination automatically (it joins `PLACES`).
 
+## Areas (`src/world/areas.ts`)
+
+Each part of Kampala is one `AreaDef`: Wandegeya, Makerere, Owino, Kabalagala. The map engine
+(`map.ts`) switches to it when a player travels. To add an area (e.g. Kikoni or Ntinda):
+
+1. Copy an area in `areas.ts` and give it a new `id` and `name`. Keep the shared road layout
+   (rows 4–11), put buildings on rows 0–3 with the door on row 4, and kiosk plots, carts and
+   stalls on rows 12–15. Building, plot and cart ids must be unique across **all** areas.
+2. Add it to `AREAS` at the bottom of the file. Travel, Go, events and the chairperson vote pick
+   it up automatically.
+3. Give it people: residents in `residents.ts` with `area: "<id>"`, street shouts in `talk.ts`
+   with `area`, carts in `catalog.ts` `VENDORS` with `area`, billboards in `billboards.ts`
+   with `area`, shifts in `SHIFTS` keyed by the building id.
+4. `npm test` checks every area: doors walkable, no overlaps, every cart and billboard placed.
+
+## Homes, washrooms and venues (`src/game/needs.ts`)
+
+`HOMES` (rooms to rent by the week), `WASHROOMS` (pay-per-shower) and `VENUES` (fun for a fee)
+are keyed by building id. Add a row to make any building one of these; its sheet shows the
+buttons by itself. Keep prices low: a week's room should cost less than a day of shifts.
+
 ## Checking your change
 
 ```

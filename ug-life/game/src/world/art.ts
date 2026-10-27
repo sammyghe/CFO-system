@@ -205,7 +205,7 @@ export function drawTile(ctx: Ctx, x: number, y: number, g: Ground) {
 
 // ---------- buildings ----------
 
-export const BUILDING_EXTRA_TOP: Record<string, number> = { pharmacy: 70, hostel: 24 };
+export const BUILDING_EXTRA_TOP: Record<string, number> = { pharmacy: 70, hostel: 24, "mk-main": 90, "kb-lounge": 20 };
 
 export function buildingBox(b: Building): Box {
   return { x: b.x, y: b.y, w: b.w, d: b.d, h: b.floors * FLOOR_H + 6 };
@@ -322,6 +322,35 @@ export function drawBuilding(ctx: Ctx, b: Building, night: boolean, billboard: s
   }
 
   if (b.id === "pharmacy") drawRoofBillboard(ctx, box, billboard, night, billboardImage, billboardColor);
+  if (b.id === "mk-main") drawClockTower(ctx, b, h, night);
+}
+
+/** Makerere's white Main Building tower: square tower, clock faces, pointed roof. */
+function drawClockTower(ctx: Ctx, b: Building, roofH: number, night: boolean) {
+  const t: Box = { x: b.x + b.w / 2 - 0.6, y: b.y + 1.0, w: 1.2, d: 1.2, h: 52 };
+  ctx.save();
+  ctx.translate(0, -roofH);
+  isoBox(ctx, t, "#ece7dc", "#f7f4ee", "#d9d2c4");
+  // clock face on the street side
+  const c = up(toScreen(t.x + t.w / 2, t.y + t.d), 38);
+  ctx.fillStyle = night ? "#fff3c4" : "#ffffff";
+  ctx.beginPath(); ctx.ellipse(c.sx - 7, c.sy - 4, 6, 7, 0.45, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#13202b"; ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(c.sx - 7, c.sy - 4); ctx.lineTo(c.sx - 7, c.sy - 9); ctx.moveTo(c.sx - 7, c.sy - 4); ctx.lineTo(c.sx - 3, c.sy - 2); ctx.stroke();
+  // pointed roof
+  const { A, B, C, D } = boxCorners(t);
+  const apex = up(toScreen(t.x + t.w / 2, t.y + t.d / 2), t.h + 30);
+  poly(ctx, [up(D, t.h), up(C, t.h), apex], "#7a2b2b", "rgba(0,0,0,0.2)");
+  poly(ctx, [up(C, t.h), up(B, t.h), apex], "#5e1f1f", "rgba(0,0,0,0.2)");
+  void A;
+  // flag
+  ctx.fillStyle = "#2b2b2b";
+  ctx.fillRect(apex.sx - 0.5, apex.sy - 12, 1, 12);
+  ctx.fillStyle = "#f2d23c"; ctx.fillRect(apex.sx, apex.sy - 12, 7, 2);
+  ctx.fillStyle = "#13202b"; ctx.fillRect(apex.sx, apex.sy - 10, 7, 2);
+  ctx.fillStyle = "#c8332b"; ctx.fillRect(apex.sx, apex.sy - 8, 7, 2);
+  ctx.restore();
 }
 
 function imageSize(img: CanvasImageSource): { w: number; h: number } {

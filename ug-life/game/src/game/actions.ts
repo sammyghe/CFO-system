@@ -4,6 +4,7 @@
 
 import { balanceOf, post } from "./ledger";
 import { ENERGY_COST, sleep, spendEnergy, tiredMessage } from "./energy";
+import { cantWork } from "./needs";
 import { eventForDate, eventForTime } from "./daily";
 import { kampalaDateKey, hashString, seededRandom, DAY_MS } from "./time";
 import {
@@ -39,6 +40,8 @@ function checkSavings(state: PlayerState) {
 export function visit(state: PlayerState, now: number): string[] {
   const today = kampalaDateKey(now);
   const notes: string[] = [];
+  // saves from before needs existed start them now
+  state.needs ??= { hunger: 80, hygiene: 80, fun: 70, social: 60, at: now };
   if (post(state.ledger, "welcome", WELCOME_GRANT, "Welcome to the street", now).ok) notes.push(`Welcome grant: UGX ${WELCOME_GRANT.toLocaleString()}`);
   if (state.lastVisitDate !== today) {
     const prev = state.lastVisitDate;
@@ -128,6 +131,8 @@ export function acceptJob(state: PlayerState, offerId: string, now: number): Res
   if (state.shift) return fail("Finish your shift first.");
   const offer = jobOffers(state, now).find((o) => o.id === offerId);
   if (!offer) return fail("That delivery isn't available any more.");
+  const tooHungry = cantWork(state, now);
+  if (tooHungry) return fail(tooHungry);
   if (!spendEnergy(state, ENERGY_COST.delivery, now)) return fail(tiredMessage(ENERGY_COST.delivery));
   state.job = { id: offer.id, fromId: offer.fromId, toId: offer.toId, item: offer.item, pay: offer.pay, stage: "pickup", acceptedAt: now };
   return ok(`Pick up ${offer.item} at ${placeById(offer.fromId)?.name}.`);

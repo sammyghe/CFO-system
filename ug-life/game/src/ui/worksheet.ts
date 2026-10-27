@@ -9,7 +9,8 @@ import { shiftsToday } from "../game/shifts";
 import * as A from "../game/actions";
 import * as St from "../game/street";
 import { BODA, SHIFTS, SHIFTS_PER_DAY } from "../content/catalog";
-import { BUILDINGS } from "../world/map";
+import { AREA, AREAS } from "../world/map";
+import { travelSheet } from "./travelsheet";
 import * as S from "./sheets";
 import { bodaSheet } from "./streetsheets";
 import { landSheet } from "./landsheet";
@@ -126,13 +127,18 @@ export function shiftsSheet(G: GameApi): SheetSpec {
       const left = SHIFTS_PER_DAY - shiftsToday(s, now);
       body.append(h("p", { class: "muted small" }, `${left} shifts left today. Walk to the shop, then start the shift at its door.`));
       const list = h("div", { class: "list" });
-      for (const sh of SHIFTS) {
-        const b = BUILDINGS.find((x) => x.id === sh.building)!;
+      // shifts here first, then the other areas
+      const where = (id: string) => AREAS.find((a) => a.buildings.some((b) => b.id === id))!;
+      const sorted = [...SHIFTS].sort((a, b) => Number(where(b.building).id === AREA.id) - Number(where(a.building).id === AREA.id));
+      for (const sh of sorted) {
+        const area = where(sh.building);
+        const b = area.buildings.find((x) => x.id === sh.building)!;
+        const here = area.id === AREA.id;
         const locked = lv < sh.minLevel;
-        const go = h("button", { class: "btn small", type: "button", disabled: locked || left <= 0 }, locked ? `Level ${sh.minLevel}` : "Go there");
-        go.addEventListener("click", () => G.goTo({ id: b.id, name: b.name, group: "Shops & places", detail: b.kind, tile: b.door, open: "building" }, false));
+        const go = h("button", { class: "btn small", type: "button", disabled: locked || left <= 0 }, locked ? `Level ${sh.minLevel}` : here ? "Go there" : "Travel");
+        go.addEventListener("click", () => here ? G.goTo({ id: b.id, name: b.name, group: "Shops & places", detail: b.kind, tile: b.door, open: "building" }, false) : G.openSheet(travelSheet(G)));
         list.append(h("div", { class: "go-row" },
-          h("div", { class: "go-name" }, h("b", {}, sh.title), h("span", { class: "muted small" }, `${formatUGX(sh.pay)} · ⚡${sh.energy} · ${sh.seconds}s · ${b.name}`)),
+          h("div", { class: "go-name" }, h("b", {}, sh.title), h("span", { class: "muted small" }, `${formatUGX(sh.pay)} · ⚡${sh.energy} · ${sh.seconds}s · ${b.name}${here ? "" : ` (${area.name})`}`)),
           h("div", { class: "go-btns" }, go)));
       }
       body.append(list);

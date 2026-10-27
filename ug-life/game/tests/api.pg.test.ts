@@ -304,3 +304,74 @@ describe("billboards, community, events and top-ups on Postgres", () => {
     env.payments = undefined;
   });
 });
+
+describe("areas, friends, messages, elections and the start on Postgres", () => {
+  async function player(name: string, level = 1) {
+    const s = await call("POST", "session", { body: {} });
+    const save = newPlayer(Date.now(), name);
+    save.tag.name = name;
+    save.xp = level > 1 ? 400 * level * level : 0;
+    visit(save, Date.now());
+    const p = { token: s.data.token as string, id: s.data.playerId as string, start: s.data.start as string, save, version: 0 };
+    p.version = (await call("PUT", "save", { token: p.token, body: { save: p.save, baseVersion: 0 } })).data.version;
+    return p;
+  }
+
+  it("shows only the people and talk in your area", async () => {
+    const a = await player("Kampala1");
+    const b = await player("Kampala2");
+    await call("POST", "live", { token: a.token, body: { x: 5, y: 11, area: "makerere" } });
+    await call("POST", "live", { token: b.token, body: { x: 6, y: 11, area: "owino" } });
+    await call("POST", "talk", { token: a.token, body: { kind: "phrase", body: "otya", area: "makerere" } });
+    const inOwino = await call("POST", "live", { token: b.token, body: { x: 6, y: 11, area: "owino", since: 0 } });
+    expect(inOwino.data.players.some((p: { name: string }) => p.name === "Kampala1")).toBe(false);
+    expect(inOwino.data.talk.some((m: { name: string }) => m.name === "Kampala1")).toBe(false);
+    expect(inOwino.data.areas.makerere).toBeGreaterThanOrEqual(1);
+    const inMak = await call("POST", "live", { token: b.token, body: { x: 6, y: 11, area: "makerere", since: 0 } });
+    expect(inMak.data.players.some((p: { name: string }) => p.name === "Kampala1")).toBe(true);
+    expect(inMak.data.talk.some((m: { name: string }) => m.name === "Kampala1")).toBe(true);
+  });
+
+  it("friends must both accept before private messages, which are filtered and reportable", async () => {
+    const a = await player("Asha");
+    const b = await player("Bwire");
+    expect((await call("POST", `dms/${b.id}`, { token: a.token, body: { body: "hi" } })).status).toBe(403);
+    expect((await call("POST", `friends/${b.id}`, { token: a.token })).data.status).toBe("outgoing");
+    expect((await call("GET", "friends", { token: b.token })).data.friends).toEqual([expect.objectContaining({ id: a.id, status: "incoming" })]);
+    expect((await call("POST", `friends/${a.id}`, { token: b.token })).data.status).toBe("friends");
+    expect((await call("POST", `dms/${b.id}`, { token: a.token, body: { body: "send me mobile money" } })).status).toBe(400);
+    const m = await call("POST", `dms/${b.id}`, { token: a.token, body: { body: "Rolex at the stage?" } });
+    expect(m.status).toBe(200);
+    expect((await call("POST", "live", { token: b.token, body: {} })).data.dmUnread).toBe(1);
+    const thread = await call("GET", `dms/${a.id}`, { token: b.token });
+    expect(thread.data.messages.map((x: { body: string }) => x.body)).toEqual(["Rolex at the stage?"]);
+    expect((await call("POST", "live", { token: b.token, body: {} })).data.dmUnread).toBe(0);
+    expect((await call("POST", `dms/${m.data.id}/report`, { token: b.token })).status).toBe(200);
+    expect((await call("GET", `dms/${a.id}`, { token: b.token })).data.messages).toEqual([]);
+  });
+
+  it("runs a weekly chairperson vote: level to stand, one vote each", async () => {
+    const low = await player("Newbie");
+    const cand = await player("Candidate", 4);
+    const voter = await player("Voter2");
+    expect((await call("POST", "election/run", { token: low.token, body: { area: "owino", slogan: "Me!" } })).status).toBe(403);
+    const run = await call("POST", "election/run", { token: cand.token, body: { area: "owino", slogan: "Clean drains for Owino" } });
+    expect(run.data.candidates[0]).toMatchObject({ name: "Candidate", slogan: "Clean drains for Owino", votes: 0 });
+    expect((await call("POST", "election/vote", { token: voter.token, body: { area: "owino", candidate: cand.id } })).data.candidates[0].votes).toBe(1);
+    expect((await call("POST", "election/vote", { token: voter.token, body: { area: "owino", candidate: cand.id } })).status).toBe(409);
+    expect((await call("GET", "election?area=owino", { token: voter.token })).data.myVote).toBe(cand.id);
+  });
+
+  it("the server picks Nepo or Hustler, and only Nepo can claim family money", async () => {
+    const { claimStart } = await import("../src/game/money");
+    const starts = new Set<string>();
+    for (let i = 0; i < 3; i++) starts.add((await call("POST", "session", { body: {} })).data.start);
+    expect([...starts].every((x) => x === "nepo" || x === "hustler")).toBe(true);
+    const p = await player("Starter");
+    expect((await call("GET", "rewards", { token: p.token })).data.start).toBe(p.start);
+    const cheat = structuredClone(p.save);
+    claimStart(cheat, "nepo", Date.now());
+    const r = await call("PUT", "save", { token: p.token, body: { save: cheat, baseVersion: p.version } });
+    expect(r.status).toBe(p.start === "nepo" ? 200 : 422);
+  });
+});
