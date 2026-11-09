@@ -155,3 +155,10 @@ Sammy's rule on logos: **stop asking for logos.** Find them or use clean name ma
 - The small bottle for Belize is **500 ml (or 1 L)**, never the 5 L. No real 500 ml photo exists in Drive, so it is a 3D studio render (`belize-bottle-500ml.png`, source `bottle-500ml-3d.html`), labelled as a concept render.
 - Sammy wants PDFs easy to **view and download in chat**: publish a viewer artifact (pages as images + Download PDF button) as well as sending the file. Belize doc viewer: https://claude.ai/artifact/9MVzVxEViYrY7rS2bFwwxf
 - Lesson: read the whole ask. "Real jars" + "Belize label" + "small bottle" were all in the brief; I delivered only the first. Check every part before sending.
+
+## Belize water lab results (received 8 Nov 2026)
+Source: Mike forwarded "Interpretation of results" (A. Sosa → Claudio Leal → Mike, 7 Nov 2026). Site: Consejo Shores (coastal, Corozal). An interpretation note only: no lab name, sample date, microbiology counts, sodium, calcium, magnesium, boron or arsenic. Ask for the original lab report.
+- **Spring:** TDS 2,237 mg/L · sulphate 2,000 (limit 500) · chloride 730 (limit 250) · hardness 2,075 · conductivity 4,565 µS/cm · salinity 2.45 PSU · pH 7.86 · turbidity 0.51 NTU · iron 0.01 · nitrate 0.3. Brackish; likely seawater intrusion. Microbiology "poor".
+- **Well:** TDS 1,899 · sulphate 1,800 · hardness 1,790 · iron 4.0 (limit 0.3) · manganese 0.6 (WHO 0.08) · turbidity 9.13 · sulphide 38 µg/L · chloride 188. Microbiology "poor".
+- Compared with Maji Safi finished water in Kampala (TDS 119, hardness 42), the spring is ~19× saltier and ~50× harder.
+- **What it means:** UF + UV (M1→M4→M5) cannot fix this; salts need brackish RO (M8), so the product becomes "purified water", not "natural spring water". The spring is the better source of the two (clear, no iron/Mn). Brine disposal, roughly double the raw-water flow, and higher cost per litre follow.
